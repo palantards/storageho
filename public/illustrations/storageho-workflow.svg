@@ -1,0 +1,118 @@
+<svg width="1360" height="900" viewBox="0 0 1360 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="80" y1="60" x2="1280" y2="840" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F2FBF8"/>
+      <stop offset="1" stop-color="#E7F6F2"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="220" y1="210" x2="1110" y2="690" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1F7A6B"/>
+      <stop offset="1" stop-color="#2A9D8F"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="1360" height="900" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0F2F2A" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <rect x="24" y="24" width="1312" height="852" rx="32" fill="url(#bg)"/>
+  <rect x="24" y="24" width="1312" height="852" rx="32" stroke="#BFE3DA" stroke-width="2"/>
+
+  <text x="92" y="108" fill="#113D36" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="44" font-weight="700">
+    StorageHo Workflow
+  </text>
+  <text x="92" y="146" fill="#2E5D56" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="24">
+    Organize, find, move, and share everything in one private inventory.
+  </text>
+
+  <g filter="url(#shadow)">
+    <rect x="88" y="198" width="1184" height="462" rx="28" fill="#FFFFFF"/>
+    <rect x="88" y="198" width="1184" height="462" rx="28" stroke="#D7ECE7" stroke-width="2"/>
+  </g>
+
+  <g>
+    <rect x="132" y="264" width="194" height="126" rx="20" fill="#F0FAF7" stroke="#BFE3DA" stroke-width="2"/>
+    <circle cx="166" cy="299" r="14" fill="#1F7A6B"/>
+    <text x="193" y="305" fill="#12463E" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" font-weight="600">Household</text>
+    <text x="166" y="344" fill="#3A6760" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16">Shared workspace</text>
+  </g>
+
+  <g>
+    <rect x="376" y="264" width="194" height="126" rx="20" fill="#F0FAF7" stroke="#BFE3DA" stroke-width="2"/>
+    <circle cx="410" cy="299" r="14" fill="#1F7A6B"/>
+    <text x="437" y="305" fill="#12463E" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" font-weight="600">Locations</text>
+    <text x="410" y="344" fill="#3A6760" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16">Home / storage</text>
+  </g>
+
+  <g>
+    <rect x="620" y="264" width="194" height="126" rx="20" fill="#F0FAF7" stroke="#BFE3DA" stroke-width="2"/>
+    <circle cx="654" cy="299" r="14" fill="#1F7A6B"/>
+    <text x="681" y="305" fill="#12463E" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" font-weight="600">Rooms / Zones</text>
+    <text x="654" y="344" fill="#3A6760" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16">Shelf-level detail</text>
+  </g>
+
+  <g>
+    <rect x="864" y="264" width="194" height="126" rx="20" fill="#F0FAF7" stroke="#BFE3DA" stroke-width="2"/>
+    <circle cx="898" cy="299" r="14" fill="#1F7A6B"/>
+    <text x="925" y="305" fill="#12463E" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" font-weight="600">Boxes</text>
+    <text x="898" y="344" fill="#3A6760" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16">Nested containers</text>
+  </g>
+
+  <g>
+    <rect x="1108" y="264" width="120" height="126" rx="20" fill="#F0FAF7" stroke="#BFE3DA" stroke-width="2"/>
+    <circle cx="1138" cy="299" r="14" fill="#1F7A6B"/>
+    <text x="1164" y="305" fill="#12463E" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" font-weight="600">Items</text>
+    <text x="1138" y="344" fill="#3A6760" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16">Qty + notes</text>
+  </g>
+
+  <g stroke="url(#accent)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M326 327H360"/>
+    <path d="M570 327H604"/>
+    <path d="M814 327H848"/>
+    <path d="M1058 327H1092"/>
+  </g>
+  <g fill="#1F7A6B">
+    <path d="M357 320L369 327L357 334V320Z"/>
+    <path d="M601 320L613 327L601 334V320Z"/>
+    <path d="M845 320L857 327L845 334V320Z"/>
+    <path d="M1089 320L1101 327L1089 334V320Z"/>
+  </g>
+
+  <g>
+    <rect x="132" y="444" width="346" height="86" rx="16" fill="#FFFFFF" stroke="#D2EAE4" stroke-width="2"/>
+    <text x="162" y="478" fill="#12463E" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" font-weight="600">Global Search + Tags</text>
+    <text x="162" y="507" fill="#3A6760" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16">Find item, box, room, or location instantly.</text>
+  </g>
+
+  <g>
+    <rect x="508" y="444" width="346" height="86" rx="16" fill="#FFFFFF" stroke="#D2EAE4" stroke-width="2"/>
+    <text x="538" y="478" fill="#12463E" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" font-weight="600">QR Labels + Photos</text>
+    <text x="538" y="507" fill="#3A6760" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16">Open any box by scan and view thumbnails fast.</text>
+  </g>
+
+  <g>
+    <rect x="884" y="444" width="344" height="86" rx="16" fill="#FFFFFF" stroke="#D2EAE4" stroke-width="2"/>
+    <text x="914" y="478" fill="#12463E" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" font-weight="600">Move + Activity Log</text>
+    <text x="914" y="507" fill="#3A6760" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16">Split quantities and track every change.</text>
+  </g>
+
+  <g>
+    <rect x="132" y="556" width="520" height="74" rx="16" fill="#EDF8F5" stroke="#C9E6DE" stroke-width="2"/>
+    <text x="162" y="602" fill="#24534B" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" font-weight="600">
+      Share with partner/family roles: owner, admin, member, viewer
+    </text>
+  </g>
+
+  <g>
+    <rect x="674" y="556" width="554" height="74" rx="16" fill="#EDF8F5" stroke="#C9E6DE" stroke-width="2"/>
+    <text x="704" y="602" fill="#24534B" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" font-weight="600">
+      CSV import/export + PWA for fast mobile use in storage spaces
+    </text>
+  </g>
+
+  <rect x="88" y="704" width="1184" height="108" rx="22" fill="#123D36"/>
+  <text x="132" y="751" fill="#D9F2EC" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="26" font-weight="700">
+    One private source of truth for everything you own.
+  </text>
+  <text x="132" y="786" fill="#9ED4C7" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19">
+    Supabase Auth + Postgres + Storage with RLS isolation by household.
+  </text>
+</svg>

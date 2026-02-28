@@ -1,0 +1,173 @@
+﻿import { revalidatePath } from "next/cache";
+
+import type { Locale } from "@/i18n/config";
+import { getInventoryContext } from "@/lib/inventory/page-context";
+import {
+  getHouseholdById,
+  getUsageHints,
+  inviteMember,
+  listHouseholdMembers,
+  updateMemberRole,
+} from "@/lib/inventory/service";
+import { inviteMemberSchema, updateMemberRoleSchema } from "@/lib/inventory/validation";
+import { createSupabaseAdminClient } from "@/lib/supabaseServer";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+
+const APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL ||
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  "http://localhost:3000";
+
+export default async function HouseholdSettingsPage({
+  params,
+}: {
+  params: Promise<{ locale: Locale; id: string }>;
+}) {
+  const { locale, id: householdId } = await params;
+  const context = await getInventoryContext(locale);
+
+  const household = await getHouseholdById({
+    userId: context.user.id,
+    householdId,
+  });
+
+  if (!household) {
+    return <div className="text-sm text-muted-foreground">Household not found.</div>;
+  }
+
+  async function inviteAction(formData: FormData) {
+    "use server";
+
+    const parsed = inviteMemberSchema.parse({
+      householdId,
+      email: String(formData.get("email") || ""),
+      role: String(formData.get("role") || "viewer"),
+    });
+
+    await inviteMember({
+      userId: context.user.id,
+      householdId: parsed.householdId,
+      email: parsed.email,
+      role: parsed.role,
+    });
+
+    try {
+      const supabase = createSupabaseAdminClient();
+      await supabase.auth.admin.inviteUserByEmail(parsed.email, {
+        redirectTo: `${APP_URL}/${locale}/login`,
+      });
+    } catch (error) {
+      console.error("Invite email failed", error);
+    }
+
+    revalidatePath(`/${locale}/households/${householdId}/settings`);
+  }
+
+  async function updateMemberAction(formData: FormData) {
+    "use server";
+
+    const parsed = updateMemberRoleSchema.parse({
+      householdId,
+      memberId: String(formData.get("memberId") || ""),
+      role: String(formData.get("role") || "member"),
+      status: String(formData.get("status") || "active"),
+    });
+
+    await updateMemberRole({
+      userId: context.user.id,
+      householdId: parsed.householdId,
+      memberId: parsed.memberId,
+      role: parsed.role,
+      status: parsed.status,
+    });
+
+    revalidatePath(`/${locale}/households/${householdId}/settings`);
+  }
+
+  const [members, usage] = await Promise.all([
+    listHouseholdMembers({ userId: context.user.id, householdId }),
+    getUsageHints({ userId: context.user.id, householdId }),
+  ]);
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>{household.name} · Settings</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-md border p-3 text-sm">
+            <div className="text-muted-foreground">Containers</div>
+            <div className="text-lg font-semibold">{usage.containers}</div>
+          </div>
+          <div className="rounded-md border p-3 text-sm">
+            <div className="text-muted-foreground">Items</div>
+            <div className="text-lg font-semibold">{usage.items}</div>
+          </div>
+          <div className="rounded-md border p-3 text-sm">
+            <div className="text-muted-foreground">Estimated storage</div>
+            <div className="text-lg font-semibold">{usage.estimatedStorageMb} MB</div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Invite member</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form action={inviteAction} className="grid gap-2 md:grid-cols-[1fr_160px_auto]">
+            <Input type="email" name="email" placeholder="partner@example.com" required />
+            <select name="role" className="h-9 rounded-md border bg-background px-3 text-sm">
+              <option value="viewer">viewer</option>
+              <option value="member">member</option>
+              <option value="admin">admin</option>
+            </select>
+            <Button type="submit">Send invite</Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Members</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {members.map((row) => (
+            <form
+              key={row.membership.id}
+              action={updateMemberAction}
+              className="grid items-center gap-2 rounded-md border p-3 md:grid-cols-[1fr_130px_130px_auto]"
+            >
+              <input type="hidden" name="memberId" value={row.membership.id} />
+              <div>
+                <div className="font-medium">
+                  {row.profile?.displayName || row.profile?.name || row.membership.invitedEmail || row.membership.userId}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {row.membership.userId || row.membership.invitedEmail || "invited"}
+                </div>
+              </div>
+              <select name="role" defaultValue={row.membership.role} className="h-9 rounded-md border bg-background px-3 text-sm">
+                <option value="viewer">viewer</option>
+                <option value="member">member</option>
+                <option value="admin">admin</option>
+                <option value="owner">owner</option>
+              </select>
+              <select name="status" defaultValue={row.membership.status} className="h-9 rounded-md border bg-background px-3 text-sm">
+                <option value="invited">invited</option>
+                <option value="active">active</option>
+                <option value="removed">removed</option>
+              </select>
+              <Button type="submit" size="sm" variant="outline">
+                Update
+              </Button>
+            </form>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

@@ -1,0 +1,360 @@
+{
+  "brand": {
+    "logoAlt": "StorageHo"
+  },
+  "nav": {
+    "features": "Features",
+    "pricing": "Pricing",
+    "docs": "How it works",
+    "group": {
+      "main": "Main",
+      "profile": "Profile"
+    },
+    "dashboard": "Dashboard",
+    "locations": "Locations",
+    "items": "Items",
+    "import": "Import",
+    "export": "Export",
+    "account": "Account",
+    "subscription": "Subscription",
+    "admin": "Admin",
+    "support": "Support"
+  },
+  "userMenu": {
+    "profile": "Profile",
+    "signOut": "Sign out",
+    "signedInAs": "Signed in as"
+  },
+  "common": {
+    "getStarted": "Get started",
+    "signIn": "Sign in",
+    "goToApp": "Open app",
+    "save": "Save changes",
+    "cancel": "Cancel",
+    "continue": "Continue",
+    "back": "Back",
+    "email": "Email",
+    "password": "Password",
+    "name": "Name",
+    "company": "Company",
+    "optional": "Optional"
+  },
+  "theme": {
+    "toggle": "Toggle theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "landing": {
+    "header": {
+      "ctaPrimary": "Create account",
+      "ctaSecondary": "Sign in"
+    },
+    "hero": {
+      "title": "Know exactly where everything is.",
+      "subtitle": "StorageHo gives your household one shared inventory for home and storage: locations, rooms, boxes, items, photos, QR labels, and move history.",
+      "primary": "Start organizing",
+      "secondary": "Explore features"
+    },
+    "trust": {
+      "a": "Private by default",
+      "b": "Built for mobile use",
+      "c": "Shared with family roles"
+    },
+    "cta": {
+      "title": "Ready to stop guessing where things are?",
+      "subtitle": "Create your household, add your first location, and label boxes in minutes.",
+      "button": "Create your household"
+    },
+    "footer": {
+      "rights": "All rights reserved.",
+      "terms": "Terms",
+      "privacy": "Privacy",
+      "support": "Support"
+    },
+    "preview": {
+      "title": "Live inventory snapshot",
+      "subtitle": "Track what you own and exactly where it sits.",
+      "stats": {
+        "locations": "Locations",
+        "boxes": "Boxes"
+      },
+      "activityTitle": "Recent activity",
+      "activity": {
+        "a": "Moved 2x camping mugs to Basement Shelf 3",
+        "b": "Added photo to Winter Gear Box",
+        "c": "Invited partner as viewer"
+      },
+      "imageAlt": "Diagram showing how StorageHo works from household to locations, rooms, boxes, and items."
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Welcome back",
+      "subtitle": "Log in to continue to your workspace.",
+      "submit": "Log in",
+      "forgot": "Forgot password?",
+      "switch": "Don't have an account? Create one",
+      "errorTitle": "Unable to sign in",
+      "errors": {
+        "invalidCredentials": "Invalid email or password.",
+        "emailNotConfirmed": "Please confirm your email before signing in.",
+        "required": "Email and password are required.",
+        "generic": "We couldn’t sign you in. Please try again."
+      }
+    },
+    "register": {
+      "title": "Create an account",
+      "subtitle": "Start building in minutes.",
+      "submit": "Create account",
+      "switch": "Already have an account? Log in",
+      "errorTitle": "Unable to create account",
+      "errors": {
+        "userExists": "An account with this email already exists.",
+        "weakPassword": "Password is too weak.",
+        "emailNotConfirmed": "Please confirm your email before signing in.",
+        "required": "Email and password are required.",
+        "generic": "We couldn’t create your account. Please try again."
+      }
+    },
+    "forgot": {
+      "title": "Reset your password",
+      "subtitle": "We’ll email you a secure reset link.",
+      "submit": "Send reset link",
+      "back": "Back to login",
+      "successTitle": "Email sent",
+      "successDescription": "Check your inbox for a password reset link.",
+      "errorTitle": "Something went wrong",
+      "errorDescription": "We couldn’t send the reset email. Try again."
+    },
+    "reset": {
+      "title": "Choose a new password",
+      "subtitle": "Enter your new password to finish resetting your account.",
+      "password": "New password",
+      "confirm": "Confirm password",
+      "submit": "Update password",
+      "successTitle": "Password updated",
+      "successDescription": "You can now sign in with your new password.",
+      "errorTitle": "Unable to reset password",
+      "errorDescription": "Please verify the link and try again.",
+      "tokenErrorTitle": "Invalid or expired link",
+      "tokenErrorDescription": "Your reset link is missing or expired. Request a new one."
+    }
+  },
+  "app": {
+    "topbar": {
+      "dashboardTitle": "Dashboard",
+      "accountTitle": "Account",
+      "subscriptionTitle": "Subscription"
+    },
+    "dashboard": {
+      "emptyTitle": "Your inventory command center",
+      "emptySubtitle": "Create a household or choose one to continue organizing locations, boxes, and items."
+    }
+  },
+  "profile": {
+    "header": {
+      "title": "Your profile",
+      "subtitle": "Manage your account settings and subscription."
+    },
+    "tabs": {
+      "account": "Account",
+      "subscription": "Subscription"
+    },
+    "account": {
+      "cardTitle": "Account information",
+      "cardSubtitle": "Update your basic profile details.",
+      "emailHint": "Email is read-only in this demo.",
+      "saveSuccessTitle": "Profile updated",
+      "saveSuccessDescription": "Your profile details were saved.",
+      "saveErrorTitle": "Could not save profile",
+      "saveErrorDescription": "Please try again."
+    },
+    "subscription": {
+      "cardTitle": "Subscription",
+      "cardSubtitle": "View and manage your current plan.",
+      "freePlan": "Free",
+      "planLabel": "Current plan",
+      "planHint": "This is placeholder data.",
+      "renewalLabel": "Renews",
+      "statusLabel": "Status",
+      "manage": "Manage billing",
+      "status": {
+        "free": "Free",
+        "trialing": "Trialing",
+        "active": "Active",
+        "paymentIssue": "Payment issue",
+        "canceledExpired": "Canceled / expired"
+      },
+      "checkoutSuccessTitle": "Subscription confirmed",
+      "checkoutSuccessDescription": "Your subscription is now {status}.",
+      "checkoutSuccessPendingTitle": "Subscription updating…",
+      "checkoutSuccessPendingDescription": "We received your payment and are finalizing your subscription. Refresh in a moment to see the latest status.",
+      "checkoutCancelTitle": "Checkout canceled",
+      "checkoutCancelDescription": "No changes were made to your subscription.",
+      "refreshStatusCta": "Refresh status"
+    }
+  },
+  "page": {
+    "dashboard": {
+      "title": "Dashboard"
+    },
+    "locations": {
+      "title": "Locations"
+    },
+    "items": {
+      "title": "Items"
+    },
+    "import": {
+      "title": "Import"
+    },
+    "export": {
+      "title": "Export"
+    },
+    "profile": {
+      "account": {
+        "title": "Account",
+        "subtitle": "Your personal details."
+      },
+      "subscription": {
+        "title": "Subscription",
+        "subtitle": "Plan and billing overview."
+      }
+    },
+    "auth": {
+      "login": {
+        "title": "Login"
+      },
+      "register": {
+        "title": "Register"
+      },
+      "forgot": {
+        "title": "Forgot password"
+      },
+      "reset": {
+        "title": "Reset password"
+      }
+    }
+  },
+  "pricing": {
+    "title": "Simple plans for every home",
+    "subtitle": "Start free, then upgrade when you need higher limits and collaboration.",
+    "cta": "Get started",
+    "tiers": {
+      "starter": {
+        "title": "Starter",
+        "description": "For one household getting organized",
+        "price": "$0",
+        "features": [
+          "features.items.0.title",
+          "features.items.1.title",
+          "features.items.5.title"
+        ]
+      },
+      "pro": {
+        "title": "Plus",
+        "description": "For active households with more gear",
+        "price": "$29",
+        "features": [
+          "features.items.2.title",
+          "features.items.4.title",
+          "features.items.6.title"
+        ]
+      },
+      "business": {
+        "title": "Family",
+        "description": "For heavy storage and advanced usage",
+        "price": "$79",
+        "features": [
+          "features.items.3.title",
+          "features.items.7.title",
+          "features.items.9.title"
+        ]
+      }
+    },
+    "missingPrice": "This plan is unavailable right now. Contact support to enable billing.",
+    "plans": [
+      {
+        "name": "Starter",
+        "price": "$0",
+        "desc": "For one household",
+        "cta": "Choose Starter"
+      },
+      {
+        "name": "Plus",
+        "price": "$29",
+        "desc": "For active households",
+        "cta": "Choose Plus"
+      },
+      {
+        "name": "Family",
+        "price": "$79",
+        "desc": "For advanced usage",
+        "cta": "Choose Family"
+      }
+    ]
+  },
+  "features": {
+    "title": "Everything StorageHo includes",
+    "items": [
+      {
+        "title": "Shared household workspaces",
+        "desc": "Invite partner or family with owner, admin, member, and viewer roles."
+      },
+      {
+        "title": "Location hierarchy",
+        "desc": "Organize Location -> Room/Zone -> Box, with support for nested boxes."
+      },
+      {
+        "title": "Item library with quantities",
+        "desc": "Track items, aliases, serials/barcodes, notes, and quantities per container."
+      },
+      {
+        "title": "Move and split stock",
+        "desc": "Move full or partial quantity between boxes with a complete audit trail."
+      },
+      {
+        "title": "Global fuzzy search",
+        "desc": "Search items, tags, containers, rooms, and locations in one fast command bar."
+      },
+      {
+        "title": "Tags and filters",
+        "desc": "Tag both items and boxes, then filter large inventories quickly."
+      },
+      {
+        "title": "Private photo storage",
+        "desc": "Upload original + thumbnail images and serve them through signed URLs."
+      },
+      {
+        "title": "QR labels and print sheets",
+        "desc": "Generate deep-link QR labels and print A4 sheets for boxes in each location."
+      },
+      {
+        "title": "CSV import and export",
+        "desc": "Export household data or import with dry-run preview before commit."
+      },
+      {
+        "title": "Activity history + PWA",
+        "desc": "Review who changed what, and use StorageHo quickly on mobile in storage areas."
+      }
+    ]
+  },
+  "support": {
+    "contactSupport": "Contact Support",
+    "contactSupportDescription": "Have a question or problem? Send us a message.",
+    "tickets": "Roadmap",
+    "submitTicket": "Submit a Ticket",
+    "viewSuggestions": "View Suggestions",
+    "noSuggestionsYet": "No suggestions or bug reports yet.",
+    "sent": "Your message has been sent. We’ll get back to you soon.",
+    "sendMessage": "Send us a message",
+    "responseTime": "We usually respond within one business day.",
+    "subject": "Subject",
+    "yourQuestion": "Your question",
+    "message": "Message",
+    "describeIssue": "Describe your issue or question",
+    "suggestions": "Suggestions",
+    "bugs": "Bugs",
+    "roadmapDescription": "Vote on what you want next. Track progress as we ship."
+  }
+}

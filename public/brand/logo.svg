@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none"
+  xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Angel icon (solid)">
+  <!-- Single-color: fill inherits from currentColor -->
+  <defs>
+    <!-- Cut-out details mask (keeps it crisp, no gradients) -->
+    <mask id="cut">
+      <rect width="512" height="512" fill="white"/>
+      <!-- Inner feather cuts -->
+      <path d="M120 336c26-28 62-46 92-54" stroke="black" stroke-width="22" stroke-linecap="round"/>
+      <path d="M132 372c24-22 52-38 76-48" stroke="black" stroke-width="20" stroke-linecap="round"/>
+      <path d="M392 336c-26-28-62-46-92-54" stroke="black" stroke-width="22" stroke-linecap="round"/>
+      <path d="M380 372c-24-22-52-38-76-48" stroke="black" stroke-width="20" stroke-linecap="round"/>
+      <!-- Robe crease -->
+      <path d="M256 310 L256 420" stroke="black" stroke-width="18" stroke-linecap="round"/>
+    </mask>
+  </defs>
+
+  <!-- Halo (stroke) -->
+  <ellipse cx="256" cy="112" rx="104" ry="34" stroke="currentColor" stroke-width="26" fill="none"/>
+
+  <!-- Wings + body as one crisp silhouette -->
+  <path mask="url(#cut)" fill="currentColor" fill-rule="evenodd" d="
+    M256 140
+    c22 0 40 18 40 40
+    c0 16-9 29-22 36
+    c26 18 44 54 52 116
+    c38-40 110-52 146-10
+    c-20 66-86 120-168 132
+    c-18 30-38 54-48 66
+    c-10-12-30-36-48-66
+    c-82-12-148-66-168-132
+    c36-42 108-30 146 10
+    c8-62 26-98 52-116
+    c-13-7-22-20-22-36
+    c0-22 18-40 40-40
+    Z
+  "/>
+</svg>

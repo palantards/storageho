@@ -1,0 +1,360 @@
+{
+  "brand": {
+    "logoAlt": "StorageHo"
+  },
+  "nav": {
+    "features": "Funktioner",
+    "pricing": "Priser",
+    "docs": "Hur det fungerar",
+    "group": {
+      "main": "Huvud",
+      "profile": "Profil"
+    },
+    "dashboard": "Dashboard",
+    "locations": "Platser",
+    "items": "Saker",
+    "import": "Import",
+    "export": "Export",
+    "account": "Konto",
+    "subscription": "Prenumeration",
+    "admin": "Admin",
+    "support": "Support"
+  },
+  "userMenu": {
+    "profile": "Profil",
+    "signOut": "Logga ut",
+    "signedInAs": "Inloggad som"
+  },
+  "common": {
+    "getStarted": "Kom igång",
+    "signIn": "Logga in",
+    "goToApp": "Öppna appen",
+    "save": "Spara ändringar",
+    "cancel": "Avbryt",
+    "continue": "Fortsätt",
+    "back": "Tillbaka",
+    "email": "E-post",
+    "password": "Lösenord",
+    "name": "Namn",
+    "company": "Företag",
+    "optional": "Valfritt"
+  },
+  "theme": {
+    "toggle": "Byt tema",
+    "light": "Ljust",
+    "dark": "Mörkt",
+    "system": "System"
+  },
+  "landing": {
+    "header": {
+      "ctaPrimary": "Skapa konto",
+      "ctaSecondary": "Logga in"
+    },
+    "hero": {
+      "title": "Ha koll på exakt var allt finns.",
+      "subtitle": "StorageHo ger hushållet en delad inventarie för hem och förråd: platser, rum, lådor, saker, bilder, QR-etiketter och flytthistorik.",
+      "primary": "Börja organisera",
+      "secondary": "Utforska funktioner"
+    },
+    "trust": {
+      "a": "Privat som standard",
+      "b": "Byggd för mobil användning",
+      "c": "Delning med familjeroller"
+    },
+    "cta": {
+      "title": "Redo att slippa gissa var saker ligger?",
+      "subtitle": "Skapa ditt hushåll, lägg till din första plats och märk upp lådor på några minuter.",
+      "button": "Skapa ditt hushall"
+    },
+    "footer": {
+      "rights": "Alla rättigheter förbehållna.",
+      "terms": "Villkor",
+      "privacy": "Integritet",
+      "support": "Support"
+    },
+    "preview": {
+      "title": "Live-oversikt av inventariet",
+      "subtitle": "Spåra vad du äger och exakt var det ligger.",
+      "stats": {
+        "locations": "Platser",
+        "boxes": "Lador"
+      },
+      "activityTitle": "Senaste aktivitet",
+      "activity": {
+        "a": "Flyttade 2x campingmuggar till Källare Hylla 3",
+        "b": "Lade till bild på Låda Vinterutrustning",
+        "c": "Bjöd in partner som viewer"
+      },
+      "imageAlt": "Diagram som visar hur StorageHo fungerar fr?n hush?ll till platser, rum, l?dor och saker."
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Välkommen tillbaka",
+      "subtitle": "Logga in för att fortsätta till din workspace.",
+      "submit": "Logga in",
+      "forgot": "Gl?mt l?senord?",
+      "switch": "Har du inget konto? Skapa ett",
+      "errorTitle": "Kunde inte logga in",
+      "errors": {
+        "invalidCredentials": "Ogiltig e-post eller lösenord.",
+        "emailNotConfirmed": "Bekräfta din e-post innan du loggar in.",
+        "required": "E-post och lösenord krävs.",
+        "generic": "Vi kunde inte logga in dig. Försök igen."
+      }
+    },
+    "register": {
+      "title": "Skapa konto",
+      "subtitle": "Kom igång på några minuter.",
+      "submit": "Skapa konto",
+      "switch": "Har du redan ett konto? Logga in",
+      "errorTitle": "Kunde inte skapa konto",
+      "errors": {
+        "userExists": "Ett konto med denna e-post finns redan.",
+        "weakPassword": "Lösenordet är för svagt.",
+        "emailNotConfirmed": "Bekräfta din e-post innan du loggar in.",
+        "required": "E-post och lösenord krävs.",
+        "generic": "Vi kunde inte skapa kontot. Försök igen."
+      }
+    },
+    "forgot": {
+      "title": "Återställ ditt lösenord",
+      "subtitle": "Vi mejlar en säker återställningslänk.",
+      "submit": "Skicka återställningslänk",
+      "back": "Tillbaka till login",
+      "successTitle": "E-post skickad",
+      "successDescription": "Kolla din inkorg efter återställningslänken.",
+      "errorTitle": "Något gick fel",
+      "errorDescription": "Vi kunde inte skicka återställningsmejlet. Försök igen."
+    },
+    "reset": {
+      "title": "Välj ett nytt lösenord",
+      "subtitle": "Ange ditt nya lösenord för att slutföra återställningen.",
+      "password": "Nytt lösenord",
+      "confirm": "Bekräfta lösenord",
+      "submit": "Uppdatera lösenord",
+      "successTitle": "Lösenord uppdaterat",
+      "successDescription": "Du kan nu logga in med ditt nya lösenord.",
+      "errorTitle": "Kunde inte återställa lösenordet",
+      "errorDescription": "Kontrollera länken och försök igen.",
+      "tokenErrorTitle": "Ogiltig eller utgången länk",
+      "tokenErrorDescription": "Din återställningslänk saknas eller har gått ut. Begär en ny."
+    }
+  },
+  "app": {
+    "topbar": {
+      "dashboardTitle": "Dashboard",
+      "accountTitle": "Konto",
+      "subscriptionTitle": "Prenumeration"
+    },
+    "dashboard": {
+      "emptyTitle": "Ditt kommandocenter för inventariet",
+      "emptySubtitle": "Skapa ett hushåll eller välj ett befintligt för att fortsätta med platser, lådor och saker."
+    }
+  },
+  "profile": {
+    "header": {
+      "title": "Din profil",
+      "subtitle": "Hantera kontoinställningar och prenumeration."
+    },
+    "tabs": {
+      "account": "Konto",
+      "subscription": "Prenumeration"
+    },
+    "account": {
+      "cardTitle": "Kontoinformation",
+      "cardSubtitle": "Uppdatera dina grundläggande uppgifter.",
+      "emailHint": "E-post är skrivskyddad i denna demo.",
+      "saveSuccessTitle": "Profil uppdaterad",
+      "saveSuccessDescription": "Dina profildetaljer sparades.",
+      "saveErrorTitle": "Kunde inte spara profilen",
+      "saveErrorDescription": "Försök igen."
+    },
+    "subscription": {
+      "cardTitle": "Prenumeration",
+      "cardSubtitle": "Se och hantera din nuvarande plan.",
+      "planLabel": "Nuvarande plan",
+      "planHint": "Detta är platshållardata.",
+      "renewalLabel": "Förnyas",
+      "statusLabel": "Status",
+      "manage": "Hantera betalning",
+      "checkoutSuccessTitle": "Prenumeration bekräftad",
+      "checkoutSuccessDescription": "Din prenumeration är nu {status}.",
+      "checkoutSuccessPendingTitle": "Prenumeration uppdateras?",
+      "checkoutSuccessPendingDescription": "Vi tog emot din betalning och slutför synken. Uppdatera om en stund för senaste status.",
+      "checkoutCancelTitle": "Kassan avbruten",
+      "checkoutCancelDescription": "Inga ändringar gjordes på din prenumeration.",
+      "refreshStatusCta": "Uppdatera status",
+      "freePlan": "Gratis",
+      "status": {
+        "free": "Gratis",
+        "trialing": "Provperiod",
+        "active": "Aktiv",
+        "paymentIssue": "Betalningsproblem",
+        "canceledExpired": "Avslutad / utg?ngen"
+      }
+    }
+  },
+  "page": {
+    "dashboard": {
+      "title": "Dashboard"
+    },
+    "locations": {
+      "title": "Platser"
+    },
+    "items": {
+      "title": "Saker"
+    },
+    "import": {
+      "title": "Import"
+    },
+    "export": {
+      "title": "Export"
+    },
+    "profile": {
+      "account": {
+        "title": "Konto",
+        "subtitle": "Dina personuppgifter."
+      },
+      "subscription": {
+        "title": "Prenumeration",
+        "subtitle": "Plan och fakturering."
+      }
+    },
+    "auth": {
+      "login": {
+        "title": "Login"
+      },
+      "register": {
+        "title": "Register"
+      },
+      "forgot": {
+        "title": "Glömt lösenord"
+      },
+      "reset": {
+        "title": "Återställ lösenord"
+      }
+    }
+  },
+  "pricing": {
+    "title": "Enkla planer för varje hem",
+    "cta": "Kom igång",
+    "subtitle": "Börja gratis och uppgradera när du behöver högre gränser och mer samarbete.",
+    "tiers": {
+      "starter": {
+        "title": "Starter",
+        "description": "För ett hushåll som vill komma i ordning",
+        "price": "$0",
+        "features": [
+          "features.items.0.title",
+          "features.items.1.title",
+          "features.items.5.title"
+        ]
+      },
+      "pro": {
+        "title": "Plus",
+        "description": "För aktiva hushåll med mer utrustning",
+        "price": "$29",
+        "features": [
+          "features.items.2.title",
+          "features.items.4.title",
+          "features.items.6.title"
+        ]
+      },
+      "business": {
+        "title": "Family",
+        "description": "För stora förråd och avancerad användning",
+        "price": "$79",
+        "features": [
+          "features.items.3.title",
+          "features.items.7.title",
+          "features.items.9.title"
+        ]
+      }
+    },
+    "plans": [
+      {
+        "name": "Starter",
+        "price": "$0",
+        "desc": "För ett hushåll",
+        "cta": "Välj Starter"
+      },
+      {
+        "name": "Plus",
+        "price": "$29",
+        "desc": "För aktiva hushåll",
+        "cta": "Välj Plus"
+      },
+      {
+        "name": "Family",
+        "price": "$79",
+        "desc": "För avancerad användning",
+        "cta": "Välj Family"
+      }
+    ],
+    "missingPrice": "Planen är inte tillgänglig just nu. Kontakta support för att aktivera betalning."
+  },
+  "features": {
+    "title": "Allt som ingår i StorageHo",
+    "items": [
+      {
+        "title": "Delade hushåll-workspaces",
+        "desc": "Bjud in partner eller familj med rollerna owner, admin, member och viewer."
+      },
+      {
+        "title": "Plats-hierarki",
+        "desc": "Organisera Plats -> Rum/Zon -> Låda, med stöd för nästade lådor."
+      },
+      {
+        "title": "Sakbibliotek med antal",
+        "desc": "Spara saker, alias, serienummer/streckkod, noteringar och antal per låda."
+      },
+      {
+        "title": "Flytta och splitta antal",
+        "desc": "Flytta hela eller delade antal mellan lådor med full audit-logg."
+      },
+      {
+        "title": "Global fuzzy-sök",
+        "desc": "Sök i saker, taggar, behållare, rum och platser i en snabb kommandobar."
+      },
+      {
+        "title": "Taggar och filter",
+        "desc": "Tagga både saker och lådor, och filtrera stora inventarier snabbt."
+      },
+      {
+        "title": "Privat bildlagring",
+        "desc": "Ladda upp original + thumbnail och visa via signed URLs."
+      },
+      {
+        "title": "QR-etiketter och utskrift",
+        "desc": "Skapa deep-link QR-etiketter och skriv ut A4-ark för lådor per plats."
+      },
+      {
+        "title": "CSV import och export",
+        "desc": "Exportera hushållsdata eller importera med dry-run innan commit."
+      },
+      {
+        "title": "Aktivitetshistorik + PWA",
+        "desc": "Se vem som ändrade vad, och använd StorageHo snabbt på mobilen i förrådet."
+      }
+    ]
+  },
+  "support": {
+    "contactSupport": "Kontakta support",
+    "contactSupportDescription": "Har du en fr?ga eller ett problem? Skicka oss ett meddelande.",
+    "tickets": "Roadmap",
+    "submitTicket": "Skicka in en ticket",
+    "viewSuggestions": "Visa förslag",
+    "noSuggestionsYet": "Inga förslag eller buggrapporter än.",
+    "sent": "Ditt meddelande har skickats. Vi återkommer så snart som möjligt.",
+    "sendMessage": "Skicka oss ett meddelande",
+    "responseTime": "Vi svarar vanligtvis inom en arbetsdag.",
+    "subject": "Ämne",
+    "yourQuestion": "Din fråga",
+    "message": "Meddelande",
+    "describeIssue": "Beskriv ditt problem eller fråga",
+    "suggestions": "Förslag",
+    "bugs": "Buggar",
+    "roadmapDescription": "Rösta på vad du vill ha härnäst. Följ framstegen när vi levererar."
+  }
+}
