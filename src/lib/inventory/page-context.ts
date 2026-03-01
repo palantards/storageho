@@ -21,5 +21,6 @@ export async function getInventoryContext(locale: Locale) {
     user,
     memberships: context.memberships,
     activeMembership: context.active,
+    preferences: context.preferences,
   };
 }

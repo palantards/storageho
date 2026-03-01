@@ -8,6 +8,7 @@ import {
   STORAGE_BUCKET,
 } from "@/lib/inventory/constants";
 import {
+  enqueueAiJob,
   insertPhotoRecord,
   listContainerPhotos,
   listMembershipsForUser,
@@ -55,7 +56,8 @@ export async function POST(request: NextRequest) {
     const householdId = String(formData.get("householdId") || "");
     const entityType = String(formData.get("entityType") || "") as
       | "container"
-      | "item";
+      | "item"
+      | "room_layout";
     const entityId = String(formData.get("entityId") || "");
     const original = formData.get("original");
     const thumb = formData.get("thumb");
@@ -153,6 +155,20 @@ export async function POST(request: NextRequest) {
       entityId,
       originalPath,
       thumbPath,
+    });
+
+    await enqueueAiJob({
+      userId: session.user.id,
+      householdId,
+      jobType: "photo_analyze",
+      payload: {
+        photoId: photo.id,
+        householdId,
+        entityType,
+        entityId,
+        originalPath,
+        thumbPath,
+      },
     });
 
     return NextResponse.json({ photo });

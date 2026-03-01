@@ -1,0 +1,240 @@
+import "server-only";
+
+import { z } from "zod";
+
+const suggestionSchema = z.object({
+  name: z.string().trim().min(1).max(160),
+  qty: z.number().int().min(1).max(1000).optional(),
+  tags: z.array(z.string().trim().min(1).max(40)).max(8).optional(),
+  confidence: z.number().min(0).max(1).optional(),
+});
+
+const responseSchema = z.object({
+  suggestions: z.array(suggestionSchema).max(24),
+});
+
+const PROHIBITED_TERMS = ["weapon", "bomb", "explosive", "nazi"];
+
+export type AiSuggestion = {
+  name: string;
+  qty?: number;
+  tags?: string[];
+  confidence: number;
+};
+
+function isAiEnabled() {
+  return process.env.STORAGEHO_AI_ENABLED !== "0";
+}
+
+function isMockMode() {
+  return (
+    process.env.AI_MOCK_MODE === "1" ||
+    process.env.NODE_ENV === "test" ||
+    process.env.NODE_ENV === "development"
+  );
+}
+
+function toDeterministicVector(input: string, dimensions = 1536) {
+  const seed = Array.from(input).reduce((acc, char) => acc + char.charCodeAt(0), 17);
+  const vector: number[] = [];
+  for (let i = 0; i < dimensions; i += 1) {
+    const value = Math.sin((seed + i) * 0.017) * 0.4 + Math.cos((seed - i) * 0.011) * 0.2;
+    vector.push(Number(value.toFixed(8)));
+  }
+  return vector;
+}
+
+function sanitizeSuggestion(input: AiSuggestion): AiSuggestion | null {
+  const name = input.name.trim().replace(/\s+/g, " ");
+  if (!name) return null;
+
+  const lower = name.toLowerCase();
+  if (PROHIBITED_TERMS.some((term) => lower.includes(term))) {
+    return null;
+  }
+
+  const tags = (input.tags || [])
+    .map((tag) => tag.trim().toLowerCase())
+    .filter(Boolean)
+    .slice(0, 8);
+
+  const qty = input.qty && input.qty > 0 ? Math.min(1000, Math.floor(input.qty)) : undefined;
+  const confidence = Number.isFinite(input.confidence)
+    ? Math.max(0, Math.min(1, Number(input.confidence)))
+    : 0.55;
+
+  return {
+    name,
+    qty,
+    tags: tags.length ? tags : undefined,
+    confidence,
+  };
+}
+
+function normalizeSuggestions(suggestions: AiSuggestion[], maxSuggestions: number) {
+  const normalized: AiSuggestion[] = [];
+  const seen = new Set<string>();
+
+  for (const suggestion of suggestions) {
+    const safe = sanitizeSuggestion(suggestion);
+    if (!safe) continue;
+    const key = safe.name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    normalized.push(safe);
+    if (normalized.length >= maxSuggestions) break;
+  }
+
+  return normalized;
+}
+
+function extractJsonFromModelOutput(content: string) {
+  const trimmed = content.trim();
+  if (!trimmed) return "{}";
+
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    return trimmed;
+  }
+
+  const start = trimmed.indexOf("{");
+  const end = trimmed.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    return trimmed.slice(start, end + 1);
+  }
+  return "{}";
+}
+
+export async function analyzePhotoWithAi(input: {
+  signedUrl: string;
+  maxSuggestions?: number;
+}) {
+  const maxSuggestions = Math.min(20, Math.max(1, input.maxSuggestions ?? 10));
+  if (!isAiEnabled()) {
+    return { suggestions: [] as AiSuggestion[] };
+  }
+
+  if (isMockMode()) {
+    return {
+      suggestions: normalizeSuggestions(
+        [
+          { name: "USB Cable", qty: 2, tags: ["electronics"], confidence: 0.84 },
+          { name: "Power Adapter", qty: 1, tags: ["electronics"], confidence: 0.74 },
+          { name: "Small Screws", qty: 1, tags: ["hardware"], confidence: 0.58 },
+        ],
+        maxSuggestions,
+      ),
+    };
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY is missing while AI is enabled");
+  }
+
+  const model = process.env.OPENAI_MODEL_VISION || "gpt-4o-mini";
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      temperature: 0.1,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            "You extract inventory candidates from a storage photo. Return JSON only with shape { suggestions: [{ name, qty, tags, confidence }] }. Never output prose.",
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "List visible objects likely worth tracking in household inventory. Keep it concise.",
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: input.signedUrl,
+              },
+            },
+          ],
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorPayload = await response.text();
+    throw new Error(`Vision model failed: ${errorPayload}`);
+  }
+
+  const payload = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  const rawContent = payload.choices?.[0]?.message?.content || "{}";
+  const parsed = responseSchema.safeParse(
+    JSON.parse(extractJsonFromModelOutput(rawContent)),
+  );
+
+  if (!parsed.success) {
+    return { suggestions: [] as AiSuggestion[] };
+  }
+
+  return {
+    suggestions: normalizeSuggestions(
+      parsed.data.suggestions.map((suggestion) => ({
+        name: suggestion.name,
+        qty: suggestion.qty,
+        tags: suggestion.tags,
+        confidence: suggestion.confidence ?? 0.55,
+      })),
+      maxSuggestions,
+    ),
+  };
+}
+
+export async function embedTextForSearch(text: string) {
+  if (!isAiEnabled()) {
+    return toDeterministicVector(text);
+  }
+
+  if (isMockMode()) {
+    return toDeterministicVector(text);
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENAI cannot create embedding without OPENAI_API_KEY");
+  }
+
+  const model = process.env.OPENAI_MODEL_EMBEDDING || "text-embedding-3-small";
+  const response = await fetch("https://api.openai.com/v1/embeddings", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      input: text.slice(0, 8000),
+    }),
+  });
+
+  if (!response.ok) {
+    const errorPayload = await response.text();
+    throw new Error(`Embedding model failed: ${errorPayload}`);
+  }
+
+  const payload = (await response.json()) as {
+    data?: Array<{ embedding?: number[] }>;
+  };
+  const vector = payload.data?.[0]?.embedding;
+  if (!vector?.length) {
+    throw new Error("Embedding response missing vector");
+  }
+  return vector;
+}

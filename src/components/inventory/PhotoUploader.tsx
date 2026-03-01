@@ -46,11 +46,13 @@ export function PhotoUploader({
   householdId,
   entityType,
   entityId,
+  maxFiles,
   onUploaded,
 }: {
   householdId: string;
-  entityType: "container" | "item";
+  entityType: "container" | "item" | "room_layout";
   entityId: string;
+  maxFiles?: number;
   onUploaded?: () => void;
 }) {
   const [uploading, setUploading] = useState(false);
@@ -63,7 +65,11 @@ export function PhotoUploader({
         multiple
         disabled={uploading}
         onChange={async (event) => {
-          const files = Array.from(event.target.files || []);
+          const rawFiles = Array.from(event.target.files || []);
+          const files =
+            typeof maxFiles === "number" && maxFiles > 0
+              ? rawFiles.slice(0, maxFiles)
+              : rawFiles;
           if (files.length === 0) return;
 
           try {

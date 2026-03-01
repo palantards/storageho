@@ -1,11 +1,14 @@
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   boolean,
   index,
   integer,
   jsonb,
+  real,
   pgEnum,
   pgTable,
+  vector,
   text,
   timestamp,
   uuid,
@@ -42,6 +45,7 @@ export const containerStatusEnum = pgEnum("container_status", [
 export const photoEntityTypeEnum = pgEnum("photo_entity_type", [
   "container",
   "item",
+  "room_layout",
 ]);
 
 export const activityEntityTypeEnum = pgEnum("activity_entity_type", [
@@ -54,6 +58,9 @@ export const activityEntityTypeEnum = pgEnum("activity_entity_type", [
   "membership",
   "tag",
   "container_item",
+  "suggestion",
+  "placement",
+  "room_layout",
 ]);
 
 export const activityActionTypeEnum = pgEnum("activity_action_type", [
@@ -71,6 +78,47 @@ export const activityActionTypeEnum = pgEnum("activity_action_type", [
   "imported",
   "exported",
 ]);
+
+export const aiJobTypeEnum = pgEnum("ai_job_type", [
+  "photo_analyze",
+  "embedding_upsert",
+]);
+
+export const aiJobStatusEnum = pgEnum("ai_job_status", [
+  "queued",
+  "running",
+  "succeeded",
+  "failed",
+]);
+
+export const photoSuggestionStatusEnum = pgEnum("photo_suggestion_status", [
+  "pending",
+  "accepted",
+  "rejected",
+]);
+
+export const searchEntityTypeEnum = pgEnum("search_entity_type", [
+  "item",
+  "container",
+  "room",
+  "location",
+  "tag",
+]);
+
+export const placementEntityTypeEnum = pgEnum("placement_entity_type", [
+  "container",
+  "item",
+]);
+
+export const householdCanvasEntityTypeEnum = pgEnum(
+  "household_canvas_entity_type",
+  ["room", "container"],
+);
+
+export const householdCanvasShapeTypeEnum = pgEnum(
+  "household_canvas_shape_type",
+  ["rectangle", "square", "triangle"],
+);
 
 export const timestampColumns = () => ({
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -135,6 +183,32 @@ export const households = pgTable(
   },
   (table) => ({
     createdByIdx: index("households_created_by_idx").on(table.createdBy),
+  }),
+);
+
+export const userPreferences = pgTable(
+  "user_preferences",
+  {
+    userId: uuid("user_id").primaryKey(),
+    activeHouseholdId: uuid("active_household_id").references(() => households.id, {
+      onDelete: "set null",
+    }),
+    activeLocationId: uuid("active_location_id").references(() => locations.id, {
+      onDelete: "set null",
+    }),
+    activeRoomId: uuid("active_room_id").references(() => rooms.id, {
+      onDelete: "set null",
+    }),
+    ...timestampColumns(),
+  },
+  (table) => ({
+    householdIdx: index("user_preferences_active_household_idx").on(
+      table.activeHouseholdId,
+    ),
+    locationIdx: index("user_preferences_active_location_idx").on(
+      table.activeLocationId,
+    ),
+    roomIdx: index("user_preferences_active_room_idx").on(table.activeRoomId),
   }),
 );
 
@@ -223,9 +297,12 @@ export const containers = pgTable(
     roomId: uuid("room_id")
       .notNull()
       .references(() => rooms.id, { onDelete: "cascade" }),
-    parentContainerId: uuid("parent_container_id").references(() => containers.id, {
-      onDelete: "set null",
-    }),
+    parentContainerId: uuid("parent_container_id").references(
+      (): AnyPgColumn => containers.id,
+      {
+        onDelete: "set null",
+      },
+    ),
     name: text("name").notNull(),
     code: text("code"),
     description: text("description"),
@@ -409,6 +486,241 @@ export const photos = pgTable(
   (table) => ({
     householdIdx: index("photos_household_idx").on(table.householdId),
     entityIdx: index("photos_entity_idx").on(table.entityType, table.entityId),
+  }),
+);
+
+export const roomLayouts = pgTable(
+  "room_layouts",
+  {
+    roomId: uuid("room_id")
+      .primaryKey()
+      .references(() => rooms.id, { onDelete: "cascade" }),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    width: real("width").notNull().default(12),
+    height: real("height").notNull().default(8),
+    backgroundPhotoId: uuid("background_photo_id").references(() => photos.id, {
+      onDelete: "set null",
+    }),
+    ...timestampColumns(),
+  },
+  (table) => ({
+    householdIdx: index("room_layouts_household_idx").on(table.householdId),
+  }),
+);
+
+export const householdCanvasLayouts = pgTable(
+  "household_canvas_layouts",
+  {
+    householdId: uuid("household_id")
+      .primaryKey()
+      .references(() => households.id, { onDelete: "cascade" }),
+    width: real("width").notNull().default(30),
+    height: real("height").notNull().default(20),
+    ...timestampColumns(),
+  },
+  (table) => ({
+    widthIdx: index("household_canvas_layouts_width_idx").on(table.width),
+  }),
+);
+
+export const householdCanvasLayers = pgTable(
+  "household_canvas_layers",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    locationId: uuid("location_id").references(() => locations.id, {
+      onDelete: "set null",
+    }),
+    name: text("name").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdBy: uuid("created_by").notNull(),
+    ...timestampColumns(),
+  },
+  (table) => ({
+    householdSortIdx: index("household_canvas_layers_household_sort_idx").on(
+      table.householdId,
+      table.sortOrder,
+      table.createdAt,
+    ),
+    locationIdx: index("household_canvas_layers_location_idx").on(table.locationId),
+    householdNameIdx: uniqueIndex("household_canvas_layers_household_name_idx").on(
+      table.householdId,
+      table.name,
+    ),
+    householdLocationIdx: uniqueIndex(
+      "household_canvas_layers_household_location_unique_idx",
+    ).on(table.householdId, table.locationId),
+  }),
+);
+
+export const householdCanvasPlacements = pgTable(
+  "household_canvas_placements",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    layerId: uuid("layer_id")
+      .notNull()
+      .references(() => householdCanvasLayers.id, { onDelete: "cascade" }),
+    entityType: householdCanvasEntityTypeEnum("entity_type").notNull(),
+    entityId: uuid("entity_id").notNull(),
+    x: real("x").notNull().default(0),
+    y: real("y").notNull().default(0),
+    width: real("width").notNull().default(3),
+    height: real("height").notNull().default(2),
+    rotation: real("rotation").notNull().default(0),
+    shapeType: householdCanvasShapeTypeEnum("shape_type")
+      .notNull()
+      .default("rectangle"),
+    label: text("label"),
+    createdBy: uuid("created_by").notNull(),
+    ...timestampColumns(),
+  },
+  (table) => ({
+    householdIdx: index("household_canvas_placements_household_idx").on(
+      table.householdId,
+    ),
+    layerIdx: index("household_canvas_placements_layer_idx").on(
+      table.layerId,
+      table.entityType,
+    ),
+    layerShapeIdx: index("household_canvas_placements_layer_shape_idx").on(
+      table.layerId,
+      table.entityType,
+      table.shapeType,
+    ),
+    uniqueLayerEntityIdx: uniqueIndex(
+      "household_canvas_placements_layer_entity_unique_idx",
+    ).on(table.layerId, table.entityType, table.entityId),
+  }),
+);
+
+export const placements = pgTable(
+  "placements",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    roomId: uuid("room_id")
+      .notNull()
+      .references(() => rooms.id, { onDelete: "cascade" }),
+    entityType: placementEntityTypeEnum("entity_type").notNull(),
+    entityId: uuid("entity_id").notNull(),
+    x: real("x").notNull().default(0),
+    y: real("y").notNull().default(0),
+    rotation: real("rotation").notNull().default(0),
+    label: text("label"),
+    createdBy: uuid("created_by").notNull(),
+    ...timestampColumns(),
+  },
+  (table) => ({
+    householdIdx: index("placements_household_idx").on(table.householdId),
+    roomIdx: index("placements_room_idx").on(table.roomId),
+    uniqueRoomEntityIdx: uniqueIndex("placements_room_entity_unique_idx").on(
+      table.roomId,
+      table.entityType,
+      table.entityId,
+    ),
+  }),
+);
+
+export const aiJobs = pgTable(
+  "ai_jobs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    jobType: aiJobTypeEnum("job_type").notNull(),
+    status: aiJobStatusEnum("status").notNull().default("queued"),
+    payload: jsonb("payload").notNull().default(sql`'{}'::jsonb`),
+    error: text("error"),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    runAfter: timestamp("run_after", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lockedAt: timestamp("locked_at", { withTimezone: true }),
+    lockedBy: text("locked_by"),
+    ...timestampColumns(),
+  },
+  (table) => ({
+    householdIdx: index("ai_jobs_household_idx").on(table.householdId),
+    queueIdx: index("ai_jobs_queue_idx").on(
+      table.status,
+      table.runAfter,
+      table.createdAt,
+    ),
+  }),
+);
+
+export const photoSuggestions = pgTable(
+  "photo_suggestions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    photoId: uuid("photo_id")
+      .notNull()
+      .references(() => photos.id, { onDelete: "cascade" }),
+    containerId: uuid("container_id")
+      .notNull()
+      .references(() => containers.id, { onDelete: "cascade" }),
+    suggestedName: text("suggested_name").notNull(),
+    suggestedQty: integer("suggested_qty"),
+    suggestedTags: text("suggested_tags").array(),
+    confidence: real("confidence").notNull().default(0),
+    status: photoSuggestionStatusEnum("status").notNull().default("pending"),
+    resolvedItemId: uuid("resolved_item_id").references(() => items.id, {
+      onDelete: "set null",
+    }),
+    createdBy: uuid("created_by"),
+    ...timestampColumns(),
+  },
+  (table) => ({
+    householdIdx: index("photo_suggestions_household_idx").on(table.householdId),
+    photoIdx: index("photo_suggestions_photo_idx").on(table.photoId),
+    containerIdx: index("photo_suggestions_container_idx").on(table.containerId),
+    statusIdx: index("photo_suggestions_status_idx").on(
+      table.householdId,
+      table.status,
+      table.createdAt,
+    ),
+  }),
+);
+
+export const searchDocuments = pgTable(
+  "search_documents",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    entityType: searchEntityTypeEnum("entity_type").notNull(),
+    entityId: uuid("entity_id").notNull(),
+    content: text("content").notNull(),
+    embedding: vector("embedding", { dimensions: 1536 }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => sql`now()`),
+  },
+  (table) => ({
+    householdIdx: index("search_documents_household_idx").on(table.householdId),
+    householdEntityIdx: index("search_documents_household_entity_idx").on(
+      table.householdId,
+      table.entityType,
+    ),
+    uniqueEntityIdx: uniqueIndex("search_documents_entity_unique_idx").on(
+      table.entityType,
+      table.entityId,
+    ),
   }),
 );
 

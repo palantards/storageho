@@ -1,5 +1,6 @@
 ﻿import { and, eq } from "drizzle-orm";
 
+import { enqueueEmbeddingJob } from "@/lib/inventory/ai-jobs";
 import { db, schema } from "@/server/db";
 import { logActivity } from "@/lib/inventory/service";
 import {
@@ -23,6 +24,11 @@ export async function commitInventoryCsv(input: {
   const containerCache = new Map<string, string>();
   const itemCache = new Map<string, string>();
   const tagCache = new Map<string, string>();
+  const touchedLocations = new Set<string>();
+  const touchedRooms = new Set<string>();
+  const touchedContainers = new Set<string>();
+  const touchedItems = new Set<string>();
+  const touchedTags = new Set<string>();
 
   for (const row of input.rows) {
     let locationId = locationCache.get(row.location);
@@ -48,6 +54,7 @@ export async function commitInventoryCsv(input: {
       }
       locationCache.set(row.location, locationId);
     }
+    touchedLocations.add(locationId);
 
     const roomKey = `${locationId}::${row.room}`;
     let roomId = roomCache.get(roomKey);
@@ -71,6 +78,7 @@ export async function commitInventoryCsv(input: {
       }
       roomCache.set(roomKey, roomId);
     }
+    touchedRooms.add(roomId);
 
     const pathParts = row.containerPath
       .split("/")
@@ -125,6 +133,7 @@ export async function commitInventoryCsv(input: {
       }
 
       parentContainerId = currentContainerId;
+      touchedContainers.add(currentContainerId);
     }
 
     const itemKey = row.itemName.toLowerCase();
@@ -167,6 +176,7 @@ export async function commitInventoryCsv(input: {
         }
       }
     }
+    touchedItems.add(itemId);
 
     const tags = parsePipeList(row.tags);
     for (const tagName of tags) {
@@ -196,6 +206,7 @@ export async function commitInventoryCsv(input: {
 
         tagCache.set(tagKey, tagId);
       }
+      touchedTags.add(tagId);
 
       await db
         .insert(schema.itemTags)
@@ -243,6 +254,42 @@ export async function commitInventoryCsv(input: {
     entityId: input.householdId,
     metadata: { rows: input.rows.length },
   });
+
+  for (const locationId of touchedLocations) {
+    await enqueueEmbeddingJob({
+      householdId: input.householdId,
+      entityType: "location",
+      entityId: locationId,
+    });
+  }
+  for (const roomId of touchedRooms) {
+    await enqueueEmbeddingJob({
+      householdId: input.householdId,
+      entityType: "room",
+      entityId: roomId,
+    });
+  }
+  for (const containerId of touchedContainers) {
+    await enqueueEmbeddingJob({
+      householdId: input.householdId,
+      entityType: "container",
+      entityId: containerId,
+    });
+  }
+  for (const itemId of touchedItems) {
+    await enqueueEmbeddingJob({
+      householdId: input.householdId,
+      entityType: "item",
+      entityId: itemId,
+    });
+  }
+  for (const tagId of touchedTags) {
+    await enqueueEmbeddingJob({
+      householdId: input.householdId,
+      entityType: "tag",
+      entityId: tagId,
+    });
+  }
 
   return {
     importedRows: input.rows.length,

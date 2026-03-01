@@ -52,6 +52,7 @@ export function AppShell({
   const pathname = usePathname();
   const titleKey = getTitleKey(pathname);
   const MenuIcon = icons.Menu;
+  const ScanIcon = icons.ScanLine;
 
   return (
     <div className="min-h-dvh bg-background">
@@ -123,6 +124,12 @@ export function AppShell({
                   activeHouseholdId={activeHouseholdId}
                   memberships={householdMemberships}
                 />
+                <Button asChild variant="outline" size="sm" className="md:hidden">
+                  <Link href={localizedHref(locale, "/scan")} className="inline-flex items-center gap-1">
+                    <ScanIcon className="h-4 w-4" />
+                    Scan
+                  </Link>
+                </Button>
                 <GlobalSearchBar householdId={activeHouseholdId} />
                 <ThemeToggle />
                 <UserMenu locale={locale} user={user} />

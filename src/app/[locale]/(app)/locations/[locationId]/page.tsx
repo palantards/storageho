@@ -1,14 +1,21 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import type { Locale } from "@/i18n/config";
 import { getInventoryContext } from "@/lib/inventory/page-context";
 import {
   createRoom,
+  deleteLocation,
   getLocationById,
   listRoomsForLocation,
+  quickCreatePathInLocation,
+  setActiveRoomPreference,
 } from "@/lib/inventory/service";
-import { createRoomSchema } from "@/lib/inventory/validation";
+import {
+  createRoomSchema,
+  quickCreateLocationPathSchema,
+} from "@/lib/inventory/validation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,10 +32,11 @@ export default async function LocationDetailsPage({
   if (!householdId) {
     return <div className="text-sm text-muted-foreground">No active household.</div>;
   }
+  const activeHouseholdId = householdId;
 
   const location = await getLocationById({
     userId: context.user.id,
-    householdId,
+    householdId: activeHouseholdId,
     locationId,
   });
 
@@ -57,9 +65,54 @@ export default async function LocationDetailsPage({
     revalidatePath(`/${locale}/locations/${locationId}`);
   }
 
+  async function quickPathAction(formData: FormData) {
+    "use server";
+
+    const parsed = quickCreateLocationPathSchema.parse({
+      householdId,
+      locationId,
+      path: String(formData.get("path") || ""),
+      code: String(formData.get("code") || ""),
+      description: String(formData.get("description") || ""),
+    });
+
+    const result = await quickCreatePathInLocation({
+      userId: context.user.id,
+      householdId: parsed.householdId,
+      locationId: parsed.locationId,
+      path: parsed.path,
+      code: parsed.code,
+      description: parsed.description,
+    });
+
+    if (!result.container) {
+      throw new Error("Container was not created");
+    }
+
+    await setActiveRoomPreference({
+      userId: context.user.id,
+      householdId: activeHouseholdId,
+      roomId: result.room.id,
+    });
+
+    redirect(`/${locale}/rooms/${result.room.id}/map?focus=container:${result.container.id}`);
+  }
+
+  async function deleteLocationAction() {
+    "use server";
+
+    await deleteLocation({
+      userId: context.user.id,
+      householdId: activeHouseholdId,
+      locationId,
+    });
+
+    redirect(`/${locale}/locations`);
+  }
+
   const rooms = await listRoomsForLocation({
     userId: context.user.id,
-    householdId,
+    householdId: activeHouseholdId,
     locationId,
   });
 
@@ -75,6 +128,25 @@ export default async function LocationDetailsPage({
               Print Labels
             </Link>
           </Button>
+          <form action={deleteLocationAction} className="ml-auto">
+            <Button type="submit" variant="destructive" size="sm">
+              Delete location
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Fast create path</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form action={quickPathAction} className="grid gap-2 md:grid-cols-[1fr_120px_1fr_auto]">
+            <Input name="path" placeholder="Basement > Shelf A > Box 12" required />
+            <Input name="code" placeholder="B12" />
+            <Input name="description" placeholder="Optional description" />
+            <Button type="submit">Create + open map</Button>
+          </form>
         </CardContent>
       </Card>
 
@@ -101,9 +173,14 @@ export default async function LocationDetailsPage({
               <div className="text-xs text-muted-foreground">
                 {entry.containerCount} containers
               </div>
-              <Button asChild size="sm" variant="outline">
-                <Link href={`/${locale}/rooms/${entry.room.id}`}>Open Room</Link>
-              </Button>
+              <div className="flex gap-2">
+                <Button asChild size="sm" variant="outline">
+                  <Link href={`/${locale}/rooms/${entry.room.id}`}>Open Room</Link>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <Link href={`/${locale}/rooms/${entry.room.id}/map`}>Map</Link>
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))}

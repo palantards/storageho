@@ -152,10 +152,19 @@ export default async function DashboardPage({
           <CardHeader>
             <CardTitle>Open Inventory</CardTitle>
             <CardDescription>
-              Jump straight to your inventory flows.
+              Fastest flow on mobile: Scan Mode. For setup, use Onboarding + map.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
+            <Button asChild>
+              <Link href={`/${locale}/scan`}>Scan Mode</Link>
+            </Button>
+            <Button asChild>
+              <Link href={`/${locale}/canvas`}>Household Canvas</Link>
+            </Button>
+            <Button asChild>
+              <Link href={`/${locale}/onboarding`}>Onboarding Wizard</Link>
+            </Button>
             <Button asChild variant="outline">
               <Link href={`/${locale}/locations`}>Locations</Link>
             </Button>

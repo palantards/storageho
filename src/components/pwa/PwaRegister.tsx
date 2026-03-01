@@ -6,12 +6,28 @@ export function PwaRegister() {
   useEffect(() => {
     if (process.env.NODE_ENV !== "production") {
       if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-        navigator.serviceWorker
-          .getRegistrations()
-          .then((registrations) =>
-            Promise.all(registrations.map((registration) => registration.unregister())),
-          )
-          .catch(() => null);
+        Promise.all([
+          navigator.serviceWorker
+            .getRegistrations()
+            .then((registrations) =>
+              Promise.all(
+                registrations.map((registration) => registration.unregister()),
+              ),
+            )
+            .catch(() => null),
+          "caches" in window
+            ? caches
+                .keys()
+                .then((keys) =>
+                  Promise.all(
+                    keys
+                      .filter((key) => key.startsWith("storageho-shell-"))
+                      .map((key) => caches.delete(key)),
+                  ),
+                )
+                .catch(() => null)
+            : Promise.resolve(),
+        ]).catch(() => null);
       }
       return;
     }

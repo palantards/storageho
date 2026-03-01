@@ -15,6 +15,8 @@ import {
   Package,
   FileUp,
   FileDown,
+  ScanLine,
+  Map,
 } from "lucide-react";
 
 export const icons = {
@@ -34,6 +36,8 @@ export const icons = {
   Package,
   FileUp,
   FileDown,
+  ScanLine,
+  Map,
 } as const;
 
 export type IconKey = keyof typeof icons;

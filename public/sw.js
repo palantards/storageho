@@ -1,4 +1,4 @@
-const CACHE_NAME = "storageho-shell-v2";
+const CACHE_NAME = "storageho-shell-v3";
 const SHELL_ASSETS = [
   "/",
   "/en",
@@ -20,6 +20,7 @@ function isCacheableRequest(request) {
   if (!["http:", "https:"].includes(url.protocol)) return false;
   if (url.origin !== self.location.origin) return false;
   if (url.pathname.startsWith("/api/")) return false;
+  if (url.pathname.startsWith("/_next/")) return false;
   if (url.pathname.startsWith("/_next/webpack-hmr")) return false;
   if (url.searchParams.has("__rsc")) return false;
 
@@ -57,16 +58,7 @@ self.addEventListener("fetch", (event) => {
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
-        .then((response) => {
-          if (response.ok) {
-            const copy = response.clone();
-            caches
-              .open(CACHE_NAME)
-              .then((cache) => cache.put(request, copy))
-              .catch(() => null);
-          }
-          return response;
-        })
+        .then((response) => response)
         .catch(() =>
           caches
             .match(request)

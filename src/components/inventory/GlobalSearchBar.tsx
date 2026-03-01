@@ -15,13 +15,28 @@ import {
 import { Button } from "@/components/ui/button";
 
 type SearchResult = {
-  entityType: "item" | "container" | "room" | "location";
+  entityType: "item" | "container" | "room" | "location" | "tag";
   entityId: string;
   title: string;
   subtitle: string;
   href: string;
   score: number;
+  matchSource?: "fuzzy" | "semantic" | "hybrid";
+  matchFields?: string[];
 };
+
+type FindAnswer = {
+  bestMatch: {
+    entityType: string;
+    entityId: string;
+    title: string;
+    subtitle: string;
+    href: string;
+    showOnMapHref?: string;
+  };
+  confidence: number;
+  explanation: string;
+} | null;
 
 export function GlobalSearchBar({ householdId }: { householdId?: string }) {
   const router = useRouter();
@@ -29,7 +44,9 @@ export function GlobalSearchBar({ householdId }: { householdId?: string }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [answer, setAnswer] = useState<FindAnswer>(null);
   const [loading, setLoading] = useState(false);
+  const [aiMode, setAiMode] = useState(false);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -45,6 +62,7 @@ export function GlobalSearchBar({ householdId }: { householdId?: string }) {
   useEffect(() => {
     if (!query.trim()) {
       setResults([]);
+      setAnswer(null);
       return;
     }
 
@@ -55,12 +73,19 @@ export function GlobalSearchBar({ householdId }: { householdId?: string }) {
         if (householdId) {
           params.set("householdId", householdId);
         }
+        if (aiMode) {
+          params.set("mode", "ai");
+        }
         const response = await fetch(`/api/search?${params.toString()}`);
         if (!response.ok) {
           throw new Error("Search failed");
         }
-        const data = (await response.json()) as { results: SearchResult[] };
+        const data = (await response.json()) as {
+          results: SearchResult[];
+          answer?: FindAnswer;
+        };
         setResults(data.results || []);
+        setAnswer(data.answer || null);
       } catch (error) {
         console.error(error);
       } finally {
@@ -69,7 +94,7 @@ export function GlobalSearchBar({ householdId }: { householdId?: string }) {
     }, SEARCH_DEBOUNCE_MS);
 
     return () => window.clearTimeout(handle);
-  }, [query, householdId]);
+  }, [query, householdId, aiMode]);
 
   const placeholder = useMemo(
     () => (householdId ? "Search items, boxes, rooms..." : "Select a household first"),
@@ -94,7 +119,53 @@ export function GlobalSearchBar({ householdId }: { householdId?: string }) {
           placeholder={placeholder}
           disabled={!householdId}
         />
+        <div className="flex items-center justify-between border-b px-3 py-2 text-xs">
+          <button
+            type="button"
+            className="rounded border px-2 py-1"
+            onClick={() => setAiMode((prev) => !prev)}
+          >
+            {aiMode ? "AI Find: On" : "AI Find: Off"}
+          </button>
+          <span className="text-muted-foreground">
+            {aiMode ? "Grounded answer mode" : "Fuzzy + semantic ranking"}
+          </span>
+        </div>
         <CommandList>
+          {aiMode && answer ? (
+            <div className="border-b p-3 text-xs">
+              <div className="font-medium">
+                {Math.round(answer.confidence * 100)}% confidence: {answer.bestMatch.title}
+              </div>
+              <div className="mt-1 text-muted-foreground">{answer.explanation}</div>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  className="rounded border px-2 py-1"
+                  onClick={() => {
+                    setOpen(false);
+                    const locale = pathname.split("/").filter(Boolean)[0];
+                    router.push(`/${locale}${answer.bestMatch.href}`);
+                  }}
+                >
+                  Open
+                </button>
+                {answer.bestMatch.showOnMapHref ? (
+                  <button
+                    type="button"
+                    className="rounded border px-2 py-1"
+                    onClick={() => {
+                      setOpen(false);
+                      const locale = pathname.split("/").filter(Boolean)[0];
+                      router.push(`/${locale}${answer.bestMatch.showOnMapHref}`);
+                    }}
+                  >
+                    Show on map
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
           <CommandEmpty>
             {loading ? "Searching..." : "No results"}
           </CommandEmpty>
@@ -112,9 +183,15 @@ export function GlobalSearchBar({ householdId }: { householdId?: string }) {
                 }}
                 className="flex flex-col items-start"
               >
-                <div className="text-sm font-medium">{result.title}</div>
+                <div className="flex w-full items-center justify-between gap-2 text-sm font-medium">
+                  <span>{result.title}</span>
+                  <span className="rounded border px-1.5 py-0.5 text-[10px] uppercase">
+                    {result.entityType}
+                  </span>
+                </div>
                 <div className="text-xs text-muted-foreground">
-                  {result.entityType} · {result.subtitle}
+                  {result.subtitle}
+                  {result.matchSource ? ` · ${result.matchSource}` : ""}
                 </div>
               </CommandItem>
             ))}

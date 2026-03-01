@@ -11,6 +11,9 @@
       "profile": "Profil"
     },
     "dashboard": "Dashboard",
+    "onboarding": "Onboarding",
+    "scan": "Scanläge",
+    "canvas": "Hushållskarta",
     "locations": "Platser",
     "items": "Saker",
     "import": "Import",
@@ -198,6 +201,15 @@
   "page": {
     "dashboard": {
       "title": "Dashboard"
+    },
+    "onboarding": {
+      "title": "Onboarding"
+    },
+    "scan": {
+      "title": "Scanläge"
+    },
+    "canvas": {
+      "title": "Hushållskarta"
     },
     "locations": {
       "title": "Platser"

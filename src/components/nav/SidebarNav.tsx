@@ -27,8 +27,15 @@ export function SidebarNav({
   return (
     <div className="flex h-full flex-col">
       <div className={cn("px-2", collapsed && "px-1")}>
-        {brand.nav.app.map((group, gi) => (
-          <div key={gi} className="py-2">
+        {brand.nav.app.map((group, gi) => {
+          const visibleItems = group.items.filter(
+            (item) => !(item.adminOnly && !isAdmin),
+          );
+          return (
+          <div
+            key={group.labelKey ?? `group-${gi}`}
+            className="py-2"
+          >
             {group.labelKey ? (
               <div
                 className={cn(
@@ -40,16 +47,13 @@ export function SidebarNav({
               </div>
             ) : null}
             <div className="grid gap-1">
-              {group.items.map((item, ii) => {
+              {visibleItems.map((item) => {
                 const href = localizedHref(locale, item.href);
                 const active = isActiveRoute(pathname, href, locale);
                 const Icon = item.icon ? icons[item.icon as IconKey] : null;
-                if (item.adminOnly && !isAdmin) {
-                  return null;
-                }
                 return (
                   <Link
-                    key={ii}
+                    key={item.href}
                     href={href}
                     className={cn(
                       "flex items-center gap-2 rounded-[var(--radius-md)] px-3 py-2 text-sm transition-colors",
@@ -72,7 +76,7 @@ export function SidebarNav({
               <Separator className="mt-3" />
             ) : null}
           </div>
-        ))}
+        )})}
       </div>
     </div>
   );

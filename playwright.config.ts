@@ -14,6 +14,11 @@ export default defineConfig({
     ? undefined
     : {
         command: "npm run dev",
+        env: {
+          ...process.env,
+          AI_MOCK_MODE: process.env.AI_MOCK_MODE || "1",
+          STORAGEHO_AI_ENABLED: process.env.STORAGEHO_AI_ENABLED || "1",
+        },
         url: "http://127.0.0.1:3000",
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,
