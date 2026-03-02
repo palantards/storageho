@@ -24,3 +24,4 @@ export function MarketingNav({ locale }: { locale: Locale }) {
     </nav>
   );
 }
+

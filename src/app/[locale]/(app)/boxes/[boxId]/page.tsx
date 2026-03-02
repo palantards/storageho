@@ -18,10 +18,15 @@ import {
   listPhotoSuggestions,
   setContainerArchived,
   setContainerTags,
+  updateContainerItemQuantity,
+  updateItemName,
+  deleteContainerItem,
   upsertContainerItem,
 } from "@/lib/inventory/service";
 import { ActivityFeed } from "@/components/inventory/ActivityFeed";
 import { BoxSuggestionsPanel } from "@/components/inventory/BoxSuggestionsPanel";
+import { ContainerItemRow } from "@/components/inventory/ContainerItemRow";
+import { ItemAutocomplete } from "@/components/inventory/ItemAutocomplete";
 import { MoveItemDialog } from "@/components/inventory/MoveItemDialog";
 import { PhotoUploader } from "@/components/inventory/PhotoUploader";
 import { QRCodeRenderer } from "@/components/inventory/QRCodeRenderer";
@@ -29,7 +34,15 @@ import { SignedImage } from "@/components/inventory/SignedImage";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { HelpCircle } from "lucide-react";
 
 const appUrl =
   process.env.NEXT_PUBLIC_APP_URL ||
@@ -46,7 +59,9 @@ export default async function BoxPage({
   const householdId = context.activeMembership?.household.id;
 
   if (!householdId) {
-    return <div className="text-sm text-muted-foreground">No active household.</div>;
+    return (
+      <div className="text-sm text-muted-foreground">No active household.</div>
+    );
   }
   const activeHouseholdId = householdId;
 
@@ -62,52 +77,43 @@ export default async function BoxPage({
 
   const absoluteDeepLink = `${appUrl}/${locale}/boxes/${boxId}`;
 
-  async function addExistingItemAction(formData: FormData) {
+  async function addItemUnifiedAction(formData: FormData) {
     "use server";
 
-    const itemId = String(formData.get("itemId") || "");
+    const rawName = String(formData.get("item") || "").trim();
     const quantity = Number(formData.get("quantity") || "1");
     const note = String(formData.get("note") || "");
 
-    if (!itemId || quantity < 1) {
-      throw new Error("itemId and quantity are required");
+    if (!rawName) {
+      throw new Error("Item name is required");
+    }
+    if (quantity < 1) {
+      throw new Error("Quantity must be at least 1");
+    }
+
+    const existingItems = await listItemsForHousehold({
+      userId: context.user.id,
+      householdId: activeHouseholdId,
+    });
+    const match = existingItems.find(
+      (it) => it.name.trim().toLowerCase() === rawName.toLowerCase(),
+    );
+
+    let targetItemId = match?.id;
+    if (!targetItemId) {
+      const created = await createItem({
+        userId: context.user.id,
+        householdId: activeHouseholdId,
+        name: rawName,
+      });
+      targetItemId = created.id;
     }
 
     await upsertContainerItem({
       userId: context.user.id,
       householdId: activeHouseholdId,
       containerId: boxId,
-      itemId,
-      quantity,
-      note,
-    });
-
-    revalidatePath(`/${locale}/boxes/${boxId}`);
-    revalidatePath(`/${locale}/items`);
-  }
-
-  async function createAndAddItemAction(formData: FormData) {
-    "use server";
-
-    const name = String(formData.get("name") || "");
-    const quantity = Number(formData.get("quantity") || "1");
-    const note = String(formData.get("note") || "");
-
-    if (!name.trim() || quantity < 1) {
-      throw new Error("name and quantity are required");
-    }
-
-    const item = await createItem({
-      userId: context.user.id,
-      householdId: activeHouseholdId,
-      name,
-    });
-
-    await upsertContainerItem({
-      userId: context.user.id,
-      householdId: activeHouseholdId,
-      containerId: boxId,
-      itemId: item.id,
+      itemId: targetItemId,
       quantity,
       note,
     });
@@ -161,6 +167,57 @@ export default async function BoxPage({
     revalidatePath(`/${locale}/rooms/${row.room.id}`);
   }
 
+  async function updateItemNameAction(formData: FormData) {
+    "use server";
+    const itemId = String(formData.get("itemId") || "");
+    const name = String(formData.get("name") || "");
+    if (!itemId || !name.trim()) {
+      throw new Error("Item name is required");
+    }
+
+    await updateItemName({
+      userId: context.user.id,
+      householdId: activeHouseholdId,
+      itemId,
+      name,
+    });
+
+    revalidatePath(`/${locale}/boxes/${boxId}`);
+    revalidatePath(`/${locale}/items`);
+  }
+
+  async function updateQuantityAction(formData: FormData) {
+    "use server";
+    const containerItemId = String(formData.get("containerItemId") || "");
+    const quantity = Number(formData.get("quantity") || "1");
+    if (!containerItemId || quantity < 1) {
+      throw new Error("Quantity must be at least 1");
+    }
+
+    await updateContainerItemQuantity({
+      userId: context.user.id,
+      householdId: activeHouseholdId,
+      containerItemId,
+      quantity,
+    });
+
+    revalidatePath(`/${locale}/boxes/${boxId}`);
+  }
+
+  async function removeItemAction(formData: FormData) {
+    "use server";
+    const containerItemId = String(formData.get("containerItemId") || "");
+    if (!containerItemId) throw new Error("containerItemId required");
+
+    await deleteContainerItem({
+      userId: context.user.id,
+      householdId: activeHouseholdId,
+      containerItemId,
+    });
+
+    revalidatePath(`/${locale}/boxes/${boxId}`);
+  }
+
   async function deleteBoxAction() {
     "use server";
 
@@ -182,17 +239,41 @@ export default async function BoxPage({
     containerTags,
     suggestions,
   ] = await Promise.all([
-    listContainerItems({ userId: context.user.id, householdId: activeHouseholdId, containerId: boxId }),
-    listItemsForHousehold({ userId: context.user.id, householdId: activeHouseholdId }),
+    listContainerItems({
+      userId: context.user.id,
+      householdId: activeHouseholdId,
+      containerId: boxId,
+    }),
+    listItemsForHousehold({
+      userId: context.user.id,
+      householdId: activeHouseholdId,
+    }),
     listContainersForHousehold({
       userId: context.user.id,
       householdId: activeHouseholdId,
       excludeContainerId: boxId,
     }),
-    listContainerPhotos({ userId: context.user.id, householdId: activeHouseholdId, containerId: boxId }),
-    listActivity({ userId: context.user.id, householdId: activeHouseholdId, limit: 20 }),
-    listContainerTags({ userId: context.user.id, householdId: activeHouseholdId, containerId: boxId }),
-    listPhotoSuggestions({ userId: context.user.id, householdId: activeHouseholdId, containerId: boxId, limit: 80 }),
+    listContainerPhotos({
+      userId: context.user.id,
+      householdId: activeHouseholdId,
+      containerId: boxId,
+    }),
+    listActivity({
+      userId: context.user.id,
+      householdId: activeHouseholdId,
+      limit: 20,
+    }),
+    listContainerTags({
+      userId: context.user.id,
+      householdId: activeHouseholdId,
+      containerId: boxId,
+    }),
+    listPhotoSuggestions({
+      userId: context.user.id,
+      householdId: activeHouseholdId,
+      containerId: boxId,
+      limit: 80,
+    }),
   ]);
 
   return (
@@ -204,7 +285,8 @@ export default async function BoxPage({
         <CardContent className="grid gap-4 lg:grid-cols-[1fr_auto]">
           <div className="space-y-2 text-sm text-muted-foreground">
             <div>
-              Path: {row.location.name} {"->"} {row.room.name} {"->"} {row.container.name}
+              Path: {row.location.name} {"->"} {row.room.name} {"->"}{" "}
+              {row.container.name}
             </div>
             <div>Code: {row.container.code || "-"}</div>
             <div>Deep link: {absoluteDeepLink}</div>
@@ -230,51 +312,76 @@ export default async function BoxPage({
           <TabsTrigger value="photos">Photos</TabsTrigger>
           <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
-          <TabsTrigger value="map">Map</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="contents" className="space-y-4">
-          <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-            <Card>
-              <CardHeader>
-                <CardTitle>Add Existing Item</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form action={addExistingItemAction} className="grid gap-2">
-                  <select name="itemId" className="h-9 rounded-md border bg-background px-3 text-sm">
-                    <option value="">Select item</option>
-                    {itemLibrary.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                  </select>
-                  <Input type="number" min={1} defaultValue={1} name="quantity" />
-                  <Input name="note" placeholder="Optional note" />
-                  <Button type="submit" className="w-fit">
-                    Add item to box
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Add item</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form action={addItemUnifiedAction} className="grid gap-3">
+                <div className="grid gap-1">
+                  <div className="flex items-center gap-2">
+                    <Label
+                      htmlFor="item-name"
+                      className="text-xs font-medium text-muted-foreground"
+                    >
+                      Name
+                    </Label>
+                    <TooltipProvider delayDuration={200}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            className="inline-flex h-5 w-5 items-center justify-center text-muted-foreground hover:text-foreground"
+                            aria-label="Add item help"
+                          >
+                            <HelpCircle className="h-4 w-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs text-xs">
+                          Choose from suggestions or type. If the name doesn&apos;t match an
+                          existing item, a new one will be created.
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <ItemAutocomplete
+                    name="item"
+                    items={itemLibrary.map((it) => ({ id: it.id, name: it.name }))}
+                    placeholder="e.g. Power bank"
+                  />
+                </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Create + Add Item</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form action={createAndAddItemAction} className="grid gap-2">
-                  <Input name="name" placeholder="Item name" required />
-                  <Input type="number" min={1} defaultValue={1} name="quantity" />
-                  <Input name="note" placeholder="Optional note" />
-                  <Button type="submit" className="w-fit">
-                    Create and add
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="grid gap-1">
+                    <Label htmlFor="item-qty" className="text-xs font-medium text-muted-foreground">
+                      Quantity
+                    </Label>
+                    <Input
+                      id="item-qty"
+                      type="number"
+                      min={1}
+                      defaultValue={1}
+                      name="quantity"
+                    />
+                  </div>
+                  <div className="grid gap-1">
+                    <Label htmlFor="item-note" className="text-xs font-medium text-muted-foreground">
+                      Note
+                    </Label>
+                    <Input id="item-note" name="note" placeholder="Optional note" />
+                  </div>
+                </div>
+
+                <Button type="submit" className="w-fit">
+                  Add to box
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>
@@ -282,30 +389,49 @@ export default async function BoxPage({
             </CardHeader>
             <CardContent className="space-y-2">
               {containerItems.length === 0 ? (
-                <div className="text-sm text-muted-foreground">No items in this box.</div>
+                <div className="text-sm text-muted-foreground">
+                  No items in this box.
+                </div>
               ) : (
                 containerItems.map((entry) => (
-                  <div
+                  <ContainerItemRow
                     key={entry.containerItem.id}
-                    className="flex items-center justify-between rounded-md border p-3"
-                  >
-                    <div>
-                      <div className="font-medium">{entry.item.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        Qty: {entry.containerItem.quantity}
+                    itemId={entry.item.id}
+                    containerItemId={entry.containerItem.id}
+                    name={entry.item.name}
+                    quantity={entry.containerItem.quantity}
+                    onRename={updateItemNameAction}
+                    onUpdateQuantity={updateQuantityAction}
+                    rightSlot={
+                      <div className="flex items-center gap-2">
+                        <MoveItemDialog
+                          householdId={householdId}
+                          itemId={entry.item.id}
+                          fromContainerId={boxId}
+                          maxQuantity={entry.containerItem.quantity}
+                          containers={moveTargets.map((container) => ({
+                            id: container.id,
+                            name: container.name,
+                          }))}
+                        />
+                        <form action={removeItemAction}>
+                          <input
+                            type="hidden"
+                            name="containerItemId"
+                            value={entry.containerItem.id}
+                          />
+                          <Button
+                            type="submit"
+                            size="sm"
+                            variant="ghost"
+                            className="text-rose-600 hover:text-rose-700"
+                          >
+                            Remove
+                          </Button>
+                        </form>
                       </div>
-                    </div>
-                    <MoveItemDialog
-                      householdId={householdId}
-                      itemId={entry.item.id}
-                      fromContainerId={boxId}
-                      maxQuantity={entry.containerItem.quantity}
-                      containers={moveTargets.map((container) => ({
-                        id: container.id,
-                        name: container.name,
-                      }))}
-                    />
-                  </div>
+                    }
+                  />
                 ))
               )}
             </CardContent>
@@ -322,6 +448,8 @@ export default async function BoxPage({
                 householdId={householdId}
                 entityType="container"
                 entityId={boxId}
+                refreshOnComplete
+                analyzeBatchOnComplete
               />
               <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
                 {photos.map((photo) => (
@@ -345,6 +473,7 @@ export default async function BoxPage({
             <CardContent>
               <BoxSuggestionsPanel
                 householdId={householdId}
+                containerId={boxId}
                 suggestions={suggestions.map((suggestion) => ({
                   id: suggestion.id,
                   suggestedName: suggestion.suggestedName,
@@ -367,10 +496,12 @@ export default async function BoxPage({
             </CardHeader>
             <CardContent>
               <ActivityFeed
+                locale={locale}
                 items={activity.map((entry) => ({
                   id: entry.activity.id,
                   actionType: entry.activity.actionType,
                   entityType: entry.activity.entityType,
+                  entityId: entry.activity.entityId,
                   metadata: entry.activity.metadata as Record<string, unknown>,
                   createdAt: entry.activity.createdAt,
                   actorName:
@@ -379,31 +510,6 @@ export default async function BoxPage({
                     context.user.email,
                 }))}
               />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="map">
-          <Card>
-            <CardHeader>
-              <CardTitle>Map placement</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm text-muted-foreground">
-              <div>Place this box on the room map for faster in-person retrieval.</div>
-              <div className="flex flex-wrap gap-2">
-                <Button asChild variant="outline">
-                  <Link href={`/${locale}/rooms/${row.room.id}/map?focus=container:${row.container.id}`}>
-                    Open room map
-                  </Link>
-                </Button>
-                <Button asChild variant="outline">
-                  <Link
-                    href={`/${locale}/households/${activeHouseholdId}/canvas?focus=container:${row.container.id}`}
-                  >
-                    Open household canvas
-                  </Link>
-                </Button>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -418,7 +524,9 @@ export default async function BoxPage({
                 <Input
                   name="tagNames"
                   placeholder="winter, kitchen, electronics"
-                  defaultValue={containerTags.map((entry) => entry.tag.name).join(", ")}
+                  defaultValue={containerTags
+                    .map((entry) => entry.tag.name)
+                    .join(", ")}
                 />
                 <Button type="submit">Save tags</Button>
               </form>
@@ -431,7 +539,7 @@ export default async function BoxPage({
             </CardHeader>
             <CardContent className="space-y-1 text-sm text-muted-foreground">
               <div>Room: {row.room.name}</div>
-              <div>Location: {row.location.name}</div>
+              <div>Floor: {row.location.name}</div>
               <div>Code: {row.container.code || "-"}</div>
               <div>Status: {row.container.status}</div>
             </CardContent>

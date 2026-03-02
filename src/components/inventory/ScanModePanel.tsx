@@ -324,6 +324,7 @@ export function ScanModePanel({
                 householdId={householdId}
                 entityType="container"
                 entityId={activeBox.id}
+                analyzeBatchOnComplete
                 onUploaded={() => router.refresh()}
               />
             </div>
@@ -388,3 +389,4 @@ export function ScanModePanel({
     </div>
   );
 }
+

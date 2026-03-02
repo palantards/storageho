@@ -99,3 +99,4 @@ export const getAdminStats = async (): Promise<AdminStats> => {
     openTickets,
   };
 };
+

@@ -22,7 +22,6 @@ export async function POST(request: NextRequest) {
       userId: session.user.id,
       householdId: body.householdId,
       layerId: body.layerId,
-      locationId: body.locationId ?? null,
       name: body.name,
       description: body.description,
       x: body.x,
@@ -65,3 +64,4 @@ export async function DELETE(request: NextRequest) {
     );
   }
 }
+

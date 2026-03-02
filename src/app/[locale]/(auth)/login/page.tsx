@@ -28,12 +28,13 @@ export default async function LoginPage({
     "use server";
     const email = String(formData.get("email") ?? "").trim();
     const password = String(formData.get("password") ?? "").trim();
+    const rememberMe = String(formData.get("rememberMe") ?? "on") === "on";
 
     if (!email || !password) {
       return { errorKey: "required" };
     }
 
-    const result = await loginWithSupabase({ email, password });
+    const result = await loginWithSupabase({ email, password, rememberMe });
     if (!result.ok) {
       return { errorKey: result.errorKey || "generic" };
     }
@@ -60,6 +61,7 @@ export default async function LoginPage({
             subtitle: t("auth.login.subtitle"),
             forgotHref: localizedHref(locale, "/forgot-password"),
             switchHref: localizedHref(locale, "/register"),
+            remember: "Remember me",
             errors: {
               title: t("auth.login.errorTitle"),
               invalidCredentials: t("auth.login.errors.invalidCredentials"),

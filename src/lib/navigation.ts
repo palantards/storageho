@@ -13,3 +13,4 @@ export function isActiveRoute(pathname: string, href: string, locale: Locale) {
   if (normalizedPath === normalizedHref) return true;
   return normalizedPath.startsWith(`${normalizedHref}/`);
 }
+

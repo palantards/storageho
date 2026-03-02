@@ -202,3 +202,4 @@ function getSubscriptionId(subscription: unknown): string | null {
   }
   return null;
 }
+

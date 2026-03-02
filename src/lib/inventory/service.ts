@@ -1,11 +1,11 @@
-﻿import "server-only";
+import "server-only";
 
 import { cookies } from "next/headers";
 import { and, count, desc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm";
 
 import { embedTextForSearch } from "@/lib/inventory/ai";
 import { db, schema } from "@/server/db";
-import { enqueueEmbeddingJob } from "@/lib/inventory/ai-jobs";
+import { dispatchAiRunner, enqueueEmbeddingJob } from "@/lib/inventory/ai-jobs";
 import {
   clampContainerRectToRoom,
   isRectInsideRoomShape,
@@ -22,6 +22,7 @@ import {
 } from "@/lib/inventory/roles";
 
 const ACTIVE_HOUSEHOLD_COOKIE = "active_household_id";
+const SYSTEM_UNASSIGNED_ROOM_NAME = "Unassigned";
 
 type Membership = typeof schema.householdMembers.$inferSelect;
 type UserPreferencesRecord = typeof schema.userPreferences.$inferSelect;
@@ -50,7 +51,7 @@ function clean(v: string | null | undefined) {
 
 function parsePathSegments(path: string) {
   return path
-    .split(/>|→/g)
+    .split(/[>\u2192]/g)
     .map((segment) => segment.trim())
     .filter(Boolean)
     .slice(0, 12);
@@ -64,84 +65,6 @@ function getPgCode(error: unknown): string | undefined {
 
 function isMissingRelation(error: unknown) {
   return getPgCode(error) === "42P01";
-}
-
-async function buildUniqueLocationName(input: {
-  householdId: string;
-  baseName: string;
-  excludeLocationId?: string;
-}) {
-  const normalizedBase = clean(input.baseName) || "Floor";
-  const rows = await db
-    .select({ id: schema.locations.id, name: schema.locations.name })
-    .from(schema.locations)
-    .where(eq(schema.locations.householdId, input.householdId));
-
-  const used = new Set(
-    rows
-      .filter((row) => row.id !== input.excludeLocationId)
-      .map((row) => row.name.trim().toLowerCase()),
-  );
-
-  if (!used.has(normalizedBase.toLowerCase())) {
-    return normalizedBase;
-  }
-
-  let candidateNumber = 2;
-  while (used.has(`${normalizedBase} ${candidateNumber}`.toLowerCase())) {
-    candidateNumber += 1;
-  }
-  return `${normalizedBase} ${candidateNumber}`;
-}
-
-async function createFloorLocation(input: Queryable & { name: string }) {
-  const locationName = await buildUniqueLocationName({
-    householdId: input.householdId,
-    baseName: input.name,
-  });
-  return createLocation({
-    userId: input.userId,
-    householdId: input.householdId,
-    name: locationName,
-    description: "Auto-managed floor location for household canvas",
-  });
-}
-
-async function assertLocationAvailableForLayer(input: Queryable & {
-  locationId: string;
-  excludeLayerId?: string;
-}) {
-  const [location] = await db
-    .select({ id: schema.locations.id })
-    .from(schema.locations)
-    .where(
-      and(
-        eq(schema.locations.id, input.locationId),
-        eq(schema.locations.householdId, input.householdId),
-      ),
-    )
-    .limit(1);
-  if (!location) {
-    throw new Error("Location not found");
-  }
-
-  const [conflictingLayer] = await db
-    .select({ id: schema.householdCanvasLayers.id })
-    .from(schema.householdCanvasLayers)
-    .where(
-      and(
-        eq(schema.householdCanvasLayers.householdId, input.householdId),
-        eq(schema.householdCanvasLayers.locationId, input.locationId),
-        input.excludeLayerId
-          ? sql`${schema.householdCanvasLayers.id} <> ${input.excludeLayerId}`
-          : undefined,
-      ),
-    )
-    .limit(1);
-
-  if (conflictingLayer) {
-    throw new Error("Location is already linked to another floor");
-  }
 }
 
 export async function getUserPreferences(userId: string) {
@@ -310,10 +233,10 @@ export async function setActiveLocationPreference(
   await assertMembership(input);
 
   if (input.locationId) {
-    const location = await db.query.locations.findFirst({
+    const location = await db.query.householdCanvasLayers.findFirst({
       where: and(
-        eq(schema.locations.id, input.locationId),
-        eq(schema.locations.householdId, input.householdId),
+        eq(schema.householdCanvasLayers.id, input.locationId),
+        eq(schema.householdCanvasLayers.householdId, input.householdId),
       ),
       columns: { id: true },
     });
@@ -360,15 +283,21 @@ export async function setActiveRoomPreference(
   });
 }
 
-export async function createHousehold(input: { userId: string; name: string }) {
+export async function createHousehold(input: {
+  userId: string;
+  name: string;
+  language?: string;
+}) {
   const name = input.name.trim();
   if (!name) throw new Error("Name required");
+  const language = input.language?.trim() || "en";
 
   return db.transaction(async (tx) => {
     const [household] = await tx
       .insert(schema.households)
       .values({
         name,
+        language,
         createdBy: input.userId,
       })
       .returning();
@@ -436,43 +365,58 @@ export async function logActivity(input: {
     metadata: input.metadata ?? {},
   });
 }
-export async function listLocations(input: Queryable & { q?: string }) {
+export async function listFloors(
+  input: Queryable & { q?: string; includeFloorLinked?: boolean },
+) {
   await assertMembership(input);
 
   const q = clean(input.q);
   const where = and(
-    eq(schema.locations.householdId, input.householdId),
-    q
-      ? or(
-          ilike(schema.locations.name, `%${q}%`),
-          ilike(schema.locations.description, `%${q}%`),
-        )
-      : undefined,
+    eq(schema.householdCanvasLayers.householdId, input.householdId),
+    q ? ilike(schema.householdCanvasLayers.name, `%${q}%`) : undefined,
   );
 
   return db
     .select({
-      location: schema.locations,
+      location: {
+        id: schema.householdCanvasLayers.id,
+        householdId: schema.householdCanvasLayers.householdId,
+        name: schema.householdCanvasLayers.name,
+        description: sql<string | null>`null`,
+        createdAt: schema.householdCanvasLayers.createdAt,
+        createdBy: schema.householdCanvasLayers.createdBy,
+      },
       roomCount: count(schema.rooms.id),
     })
-    .from(schema.locations)
-    .leftJoin(schema.rooms, eq(schema.rooms.locationId, schema.locations.id))
+    .from(schema.householdCanvasLayers)
+    .leftJoin(schema.rooms, eq(schema.rooms.locationId, schema.householdCanvasLayers.id))
     .where(where)
-    .groupBy(schema.locations.id)
-    .orderBy(schema.locations.name);
+    .groupBy(schema.householdCanvasLayers.id)
+    .orderBy(schema.householdCanvasLayers.name);
 }
 
-export async function createLocation(
+export async function createFloor(
   input: Queryable & { name: string; description?: string },
 ) {
   await assertRole(input, canWriteInventory);
 
+  const [maxSortRow] = await db
+    .select({
+      maxSort: sql<number>`coalesce(max(${schema.householdCanvasLayers.sortOrder}), -1)`,
+    })
+    .from(schema.householdCanvasLayers)
+    .where(eq(schema.householdCanvasLayers.householdId, input.householdId))
+    .limit(1);
+  const id = crypto.randomUUID();
+
   const [location] = await db
-    .insert(schema.locations)
+    .insert(schema.householdCanvasLayers)
     .values({
+      id,
       householdId: input.householdId,
       name: input.name.trim(),
-      description: clean(input.description),
+      locationId: id,
+      sortOrder: Number(maxSortRow?.maxSort ?? -1) + 1,
       createdBy: input.userId,
     })
     .returning();
@@ -495,18 +439,18 @@ export async function createLocation(
   return location;
 }
 
-export async function getLocationById(input: Queryable & { locationId: string }) {
+export async function getFloorById(input: Queryable & { locationId: string }) {
   await assertMembership(input);
-  return db.query.locations.findFirst({
+  return db.query.householdCanvasLayers.findFirst({
     where: and(
-      eq(schema.locations.id, input.locationId),
-      eq(schema.locations.householdId, input.householdId),
+      eq(schema.householdCanvasLayers.id, input.locationId),
+      eq(schema.householdCanvasLayers.householdId, input.householdId),
     ),
   });
 }
 
 export async function listRoomsForLocation(
-  input: Queryable & { locationId: string },
+  input: Queryable & { locationId: string; includeSystem?: boolean },
 ) {
   await assertMembership(input);
   return db
@@ -520,6 +464,7 @@ export async function listRoomsForLocation(
       and(
         eq(schema.rooms.locationId, input.locationId),
         eq(schema.rooms.householdId, input.householdId),
+        input.includeSystem ? undefined : eq(schema.rooms.isSystem, false),
       ),
     )
     .groupBy(schema.rooms.id)
@@ -527,7 +472,7 @@ export async function listRoomsForLocation(
 }
 
 export async function listRooms(
-  input: Queryable & { locationId?: string; limit?: number },
+  input: Queryable & { locationId?: string; includeSystem?: boolean; limit?: number },
 ) {
   await assertMembership(input);
   const limit = Math.min(200, Math.max(1, input.limit ?? 100));
@@ -536,14 +481,15 @@ export async function listRooms(
     where: and(
       eq(schema.rooms.householdId, input.householdId),
       input.locationId ? eq(schema.rooms.locationId, input.locationId) : undefined,
+      input.includeSystem ? undefined : eq(schema.rooms.isSystem, false),
     ),
     orderBy: [schema.rooms.name],
     limit,
   });
 }
 
-export async function listRoomsWithLocation(
-  input: Queryable & { limit?: number },
+export async function listRoomsWithFloor(
+  input: Queryable & { includeSystem?: boolean; limit?: number },
 ) {
   await assertMembership(input);
   const limit = Math.min(300, Math.max(1, input.limit ?? 150));
@@ -551,15 +497,20 @@ export async function listRoomsWithLocation(
   return db
     .select({
       room: schema.rooms,
-      location: schema.locations,
+      location: schema.householdCanvasLayers,
     })
     .from(schema.rooms)
     .innerJoin(
-      schema.locations,
-      eq(schema.locations.id, schema.rooms.locationId),
+      schema.householdCanvasLayers,
+      eq(schema.householdCanvasLayers.id, schema.rooms.locationId),
     )
-    .where(eq(schema.rooms.householdId, input.householdId))
-    .orderBy(schema.locations.name, schema.rooms.name)
+    .where(
+      and(
+        eq(schema.rooms.householdId, input.householdId),
+        input.includeSystem ? undefined : eq(schema.rooms.isSystem, false),
+      ),
+    )
+    .orderBy(schema.householdCanvasLayers.name, schema.rooms.name)
     .limit(limit);
 }
 
@@ -595,6 +546,182 @@ export async function createRoom(
   });
 
   return room;
+}
+
+export async function ensureUnassignedRoom(
+  input: Queryable & { locationId: string },
+): Promise<typeof schema.rooms.$inferSelect> {
+  await assertRole(input, canWriteInventory);
+
+  return db.transaction(async (tx) => {
+    const systemRoom = await tx.query.rooms.findFirst({
+      where: and(
+        eq(schema.rooms.householdId, input.householdId),
+        eq(schema.rooms.locationId, input.locationId),
+        eq(schema.rooms.isSystem, true),
+      ),
+    });
+    if (systemRoom) return systemRoom;
+
+    const namedRoom = await tx.query.rooms.findFirst({
+      where: and(
+        eq(schema.rooms.householdId, input.householdId),
+        eq(schema.rooms.locationId, input.locationId),
+        sql`lower(${schema.rooms.name}) = lower(${SYSTEM_UNASSIGNED_ROOM_NAME})`,
+      ),
+    });
+
+    if (namedRoom) {
+      if (!namedRoom.isSystem) {
+        const [updated] = await tx
+          .update(schema.rooms)
+          .set({ isSystem: true })
+          .where(eq(schema.rooms.id, namedRoom.id))
+          .returning();
+        return updated ?? namedRoom;
+      }
+      return namedRoom;
+    }
+
+    const [created] = await tx
+      .insert(schema.rooms)
+      .values({
+        householdId: input.householdId,
+        locationId: input.locationId,
+        name: SYSTEM_UNASSIGNED_ROOM_NAME,
+        description: "System room used when no explicit room is selected.",
+        isSystem: true,
+        createdBy: input.userId,
+      })
+      .onConflictDoNothing()
+      .returning();
+
+    if (created) {
+      await tx.insert(schema.activityLog).values({
+        householdId: input.householdId,
+        actorUserId: input.userId,
+        actionType: "created",
+        entityType: "room",
+        entityId: created.id,
+        metadata: {
+          name: created.name,
+          locationId: created.locationId,
+          isSystem: true,
+        },
+      });
+      return created;
+    }
+
+    const fallback = await tx.query.rooms.findFirst({
+      where: and(
+        eq(schema.rooms.householdId, input.householdId),
+        eq(schema.rooms.locationId, input.locationId),
+        or(
+          eq(schema.rooms.isSystem, true),
+          sql`lower(${schema.rooms.name}) = lower(${SYSTEM_UNASSIGNED_ROOM_NAME})`,
+        ),
+      ),
+    });
+
+    if (!fallback) {
+      throw new Error("Unable to resolve unassigned room");
+    }
+    return fallback;
+  });
+}
+
+export async function createRoomFromSetupFlow(
+  input: Queryable & {
+    layerId: string;
+    name: string;
+    description?: string;
+  },
+) {
+  await assertRole(input, canWriteInventory);
+
+  const [layer] = await db
+    .select()
+    .from(schema.householdCanvasLayers)
+    .where(
+      and(
+        eq(schema.householdCanvasLayers.id, input.layerId),
+        eq(schema.householdCanvasLayers.householdId, input.householdId),
+      ),
+    )
+    .limit(1);
+  if (!layer) {
+    throw new Error("Floor not found");
+  }
+
+  const room = await createRoom({
+    userId: input.userId,
+    householdId: input.householdId,
+    locationId: layer.id,
+    name: input.name,
+    description: input.description,
+  });
+
+  return { room, layer, location: layer };
+}
+
+export async function createContainerFromSetupFlow(
+  input: Queryable & {
+    layerId: string;
+    roomId?: string | null;
+    name: string;
+    code?: string;
+    description?: string;
+  },
+) {
+  await assertRole(input, canWriteInventory);
+
+  const [layer] = await db
+    .select()
+    .from(schema.householdCanvasLayers)
+    .where(
+      and(
+        eq(schema.householdCanvasLayers.id, input.layerId),
+        eq(schema.householdCanvasLayers.householdId, input.householdId),
+      ),
+    )
+    .limit(1);
+  if (!layer) {
+    throw new Error("Floor not found");
+  }
+  const location = layer;
+
+  let room: typeof schema.rooms.$inferSelect | null = null;
+  if (input.roomId) {
+    room =
+      (await db.query.rooms.findFirst({
+        where: and(
+          eq(schema.rooms.id, input.roomId),
+          eq(schema.rooms.householdId, input.householdId),
+          eq(schema.rooms.locationId, location.id),
+        ),
+      })) ?? null;
+    if (!room) {
+      throw new Error("Room not found in selected floor");
+    }
+  } else {
+    room = await ensureUnassignedRoom({
+      userId: input.userId,
+      householdId: input.householdId,
+      locationId: location.id,
+    });
+  }
+
+  const container = await createContainer({
+    userId: input.userId,
+    householdId: input.householdId,
+    roomId: room.id,
+    parentContainerId: null,
+    name: input.name,
+    code: input.code,
+    description: input.description,
+  });
+
+  return { container, room, location, layer };
 }
 
 export async function createContainerPathInRoom(
@@ -793,10 +920,10 @@ export async function deleteLocation(
 ) {
   await assertRole(input, canWriteInventory);
 
-  const location = await db.query.locations.findFirst({
+  const location = await db.query.householdCanvasLayers.findFirst({
     where: and(
-      eq(schema.locations.id, input.locationId),
-      eq(schema.locations.householdId, input.householdId),
+      eq(schema.householdCanvasLayers.id, input.locationId),
+      eq(schema.householdCanvasLayers.householdId, input.householdId),
     ),
   });
 
@@ -905,11 +1032,11 @@ export async function deleteLocation(
       );
 
     await tx
-      .delete(schema.locations)
+      .delete(schema.householdCanvasLayers)
       .where(
         and(
-          eq(schema.locations.id, input.locationId),
-          eq(schema.locations.householdId, input.householdId),
+          eq(schema.householdCanvasLayers.id, input.locationId),
+          eq(schema.householdCanvasLayers.householdId, input.householdId),
         ),
       );
 
@@ -1203,21 +1330,6 @@ export async function ensureHouseholdCanvasInitialized(input: Queryable) {
       householdId: input.householdId,
       name: "Base floor",
     });
-    return;
-  }
-
-  const missingLocationLayers = layers.filter((layer) => !layer.locationId);
-  if (missingLocationLayers.length === 0) {
-    return;
-  }
-
-  for (const layer of missingLocationLayers) {
-    await updateHouseholdCanvasLayer({
-      userId: input.userId,
-      householdId: input.householdId,
-      layerId: layer.id,
-      name: layer.name,
-    });
   }
 }
 
@@ -1243,7 +1355,6 @@ export async function listHouseholdCanvasLayers(input: Queryable) {
 export async function createHouseholdCanvasLayer(
   input: Queryable & {
     name: string;
-    locationId?: string | null;
     sortOrder?: number;
   },
 ) {
@@ -1254,39 +1365,25 @@ export async function createHouseholdCanvasLayer(
     throw new Error("Layer name required");
   }
 
-  let locationId = input.locationId ?? null;
-  if (locationId) {
-    await assertLocationAvailableForLayer({
-      userId: input.userId,
-      householdId: input.householdId,
-      locationId,
-    });
-  } else {
-    const location = await createFloorLocation({
-      userId: input.userId,
-      householdId: input.householdId,
-      name,
-    });
-    locationId = location.id;
-  }
-
-  const maxSortRow = await db
+  const [maxSortRow] = await db
     .select({
       maxSort: sql<number>`coalesce(max(${schema.householdCanvasLayers.sortOrder}), -1)`,
     })
     .from(schema.householdCanvasLayers)
     .where(eq(schema.householdCanvasLayers.householdId, input.householdId))
     .limit(1);
+  const id = crypto.randomUUID();
   const nextSort = Math.max(
     0,
-    input.sortOrder ?? Number(maxSortRow[0]?.maxSort ?? -1) + 1,
+    input.sortOrder ?? Number(maxSortRow?.maxSort ?? -1) + 1,
   );
 
   const [layer] = await db
     .insert(schema.householdCanvasLayers)
     .values({
+      id,
       householdId: input.householdId,
-      locationId,
+      locationId: id,
       name,
       sortOrder: nextSort,
       createdBy: input.userId,
@@ -1316,7 +1413,6 @@ export async function updateHouseholdCanvasLayer(
   input: Queryable & {
     layerId: string;
     name?: string;
-    locationId?: string | null;
     sortOrder?: number;
   },
 ) {
@@ -1338,47 +1434,12 @@ export async function updateHouseholdCanvasLayer(
 
   const explicitName = typeof input.name === "string" ? input.name.trim() : undefined;
   const nextName = explicitName && explicitName.length ? explicitName : layer.name;
-  let nextLocationId =
-    typeof input.locationId !== "undefined" ? input.locationId : layer.locationId;
-
-  if (nextLocationId) {
-    await assertLocationAvailableForLayer({
-      userId: input.userId,
-      householdId: input.householdId,
-      locationId: nextLocationId,
-      excludeLayerId: layer.id,
-    });
-  } else {
-    const location = await createFloorLocation({
-      userId: input.userId,
-      householdId: input.householdId,
-      name: nextName,
-    });
-    nextLocationId = location.id;
-  }
-
-  if (explicitName && nextLocationId) {
-    const renamedLocation = await buildUniqueLocationName({
-      householdId: input.householdId,
-      baseName: nextName,
-      excludeLocationId: nextLocationId,
-    });
-    await db
-      .update(schema.locations)
-      .set({ name: renamedLocation })
-      .where(
-        and(
-          eq(schema.locations.id, nextLocationId),
-          eq(schema.locations.householdId, input.householdId),
-        ),
-      );
-  }
 
   const [updated] = await db
     .update(schema.householdCanvasLayers)
     .set({
       name: nextName,
-      locationId: nextLocationId,
+      locationId: layer.id,
       sortOrder:
         typeof input.sortOrder === "number"
           ? Math.max(0, input.sortOrder)
@@ -1686,7 +1747,6 @@ export async function deleteHouseholdCanvasPlacement(
 export async function createAndPlaceRoomOnHouseholdCanvas(
   input: Queryable & {
     layerId: string;
-    locationId?: string | null;
     name: string;
     description?: string;
     x: number;
@@ -1714,29 +1774,10 @@ export async function createAndPlaceRoomOnHouseholdCanvas(
     throw new Error("Layer not found");
   }
 
-  let locationId = input.locationId ?? layer.locationId;
-  if (!locationId) {
-    const location = await createFloorLocation({
-      userId: input.userId,
-      householdId: input.householdId,
-      name: layer.name,
-    });
-    locationId = location.id;
-    await db
-      .update(schema.householdCanvasLayers)
-      .set({ locationId, updatedAt: new Date() })
-      .where(
-        and(
-          eq(schema.householdCanvasLayers.id, input.layerId),
-          eq(schema.householdCanvasLayers.householdId, input.householdId),
-        ),
-      );
-  }
-
   const room = await createRoom({
     userId: input.userId,
     householdId: input.householdId,
-    locationId,
+    locationId: layer.id,
     name: input.name,
     description: input.description,
   });
@@ -2101,6 +2142,134 @@ export async function setContainerArchived(
   return container;
 }
 
+export async function updateContainerItemQuantity(input: {
+  userId: string;
+  householdId: string;
+  containerItemId: string;
+  quantity: number;
+}) {
+  await assertRole(input, canWriteInventory);
+  const qty = Math.max(1, Math.min(100000, Math.floor(input.quantity)));
+
+  const [row] = await db
+    .update(schema.containerItems)
+    .set({ quantity: qty, updatedAt: new Date() })
+    .where(
+      and(
+        eq(schema.containerItems.id, input.containerItemId),
+        eq(schema.containerItems.householdId, input.householdId),
+      ),
+    )
+    .returning();
+
+  if (!row) throw new Error("Container item not found");
+
+  await logActivity({
+    householdId: input.householdId,
+    actorUserId: input.userId,
+    actionType: "updated",
+    entityType: "container_item",
+    entityId: row.id,
+    metadata: { containerId: row.containerId, itemId: row.itemId, quantity: qty },
+  });
+
+  await enqueueEmbeddingJob({
+    householdId: input.householdId,
+    entityType: "item",
+    entityId: row.itemId,
+  });
+  await enqueueEmbeddingJob({
+    householdId: input.householdId,
+    entityType: "container",
+    entityId: row.containerId,
+  });
+
+  return row;
+}
+
+export async function updateItemName(input: {
+  userId: string;
+  householdId: string;
+  itemId: string;
+  name: string;
+}) {
+  await assertRole(input, canWriteInventory);
+  const cleanName = input.name.trim();
+  if (!cleanName) throw new Error("Name required");
+
+  const [row] = await db
+    .update(schema.items)
+    .set({ name: cleanName, updatedAt: new Date() })
+    .where(
+      and(
+        eq(schema.items.id, input.itemId),
+        eq(schema.items.householdId, input.householdId),
+      ),
+    )
+    .returning();
+
+  if (!row) throw new Error("Item not found");
+
+  await logActivity({
+    householdId: input.householdId,
+    actorUserId: input.userId,
+    actionType: "updated",
+    entityType: "item",
+    entityId: row.id,
+    metadata: { name: cleanName },
+  });
+
+  await enqueueEmbeddingJob({
+    householdId: input.householdId,
+    entityType: "item",
+    entityId: row.id,
+  });
+
+  return row;
+}
+
+export async function deleteContainerItem(
+  input: Queryable & { containerItemId: string },
+) {
+  await assertRole(input, canWriteInventory);
+
+  const [row] = await db
+    .delete(schema.containerItems)
+    .where(
+      and(
+        eq(schema.containerItems.id, input.containerItemId),
+        eq(schema.containerItems.householdId, input.householdId),
+      ),
+    )
+    .returning();
+
+  if (!row) {
+    throw new Error("Container item not found");
+  }
+
+  await logActivity({
+    householdId: input.householdId,
+    actorUserId: input.userId,
+    actionType: "deleted",
+    entityType: "container_item",
+    entityId: row.id,
+    metadata: { containerId: row.containerId, itemId: row.itemId, quantity: row.quantity },
+  });
+
+  await enqueueEmbeddingJob({
+    householdId: input.householdId,
+    entityType: "item",
+    entityId: row.itemId,
+  });
+  await enqueueEmbeddingJob({
+    householdId: input.householdId,
+    entityType: "container",
+    entityId: row.containerId,
+  });
+
+  return row;
+}
+
 export async function deleteContainer(
   input: Queryable & { containerId: string },
 ) {
@@ -2233,13 +2402,13 @@ export async function getContainerById(
     .select({
       container: schema.containers,
       room: schema.rooms,
-      location: schema.locations,
+      location: schema.householdCanvasLayers,
     })
     .from(schema.containers)
     .innerJoin(schema.rooms, eq(schema.rooms.id, schema.containers.roomId))
     .innerJoin(
-      schema.locations,
-      eq(schema.locations.id, schema.rooms.locationId),
+      schema.householdCanvasLayers,
+      eq(schema.householdCanvasLayers.id, schema.rooms.locationId),
     )
     .where(
       and(
@@ -2545,7 +2714,7 @@ export async function listItemPlacements(
       containerItem: schema.containerItems,
       container: schema.containers,
       room: schema.rooms,
-      location: schema.locations,
+      location: schema.householdCanvasLayers,
     })
     .from(schema.containerItems)
     .innerJoin(
@@ -2554,8 +2723,8 @@ export async function listItemPlacements(
     )
     .innerJoin(schema.rooms, eq(schema.rooms.id, schema.containers.roomId))
     .innerJoin(
-      schema.locations,
-      eq(schema.locations.id, schema.rooms.locationId),
+      schema.householdCanvasLayers,
+      eq(schema.householdCanvasLayers.id, schema.rooms.locationId),
     )
     .where(
       and(
@@ -2563,7 +2732,7 @@ export async function listItemPlacements(
         eq(schema.containerItems.householdId, input.householdId),
       ),
     )
-    .orderBy(schema.locations.name, schema.rooms.name, schema.containers.name);
+    .orderBy(schema.householdCanvasLayers.name, schema.rooms.name, schema.containers.name);
 }
 
 export async function listItemsForHousehold(input: Queryable) {
@@ -2998,6 +3167,8 @@ export async function enqueueAiJob(
     })
     .returning();
 
+  dispatchAiRunner({ reason: `${input.jobType}_enqueue`, limit: 6 });
+
   return job;
 }
 
@@ -3194,11 +3365,7 @@ export async function rejectPhotoSuggestion(
   await assertRole(input, canWriteInventory);
 
   const [suggestion] = await db
-    .update(schema.photoSuggestions)
-    .set({
-      status: "rejected",
-      updatedAt: new Date(),
-    })
+    .delete(schema.photoSuggestions)
     .where(
       and(
         eq(schema.photoSuggestions.id, input.suggestionId),
@@ -3220,7 +3387,7 @@ export async function rejectPhotoSuggestion(
     metadata: {
       photoId: suggestion.photoId,
       containerId: suggestion.containerId,
-      status: "rejected",
+      status: "rejected_deleted",
     },
   });
 
@@ -3294,15 +3461,12 @@ export async function globalSearch(
         'location'::text as entity_type,
         l.id as entity_id,
         l.name as title,
-        coalesce(l.description, '') as subtitle,
-        ('/locations/' || l.id)::text as href,
+        ''::text as subtitle,
+        ('/canvas?floor=' || l.id)::text as href,
         similarity(lower(l.name), ${term}) as score
-      from ${schema.locations} l
+      from ${schema.householdCanvasLayers} l
       where l.household_id = ${input.householdId}
-        and (
-          lower(l.name) like ${likeTerm}
-          or lower(coalesce(l.description, '')) like ${likeTerm}
-        )
+        and lower(l.name) like ${likeTerm}
     ),
     room_hits as (
       select
@@ -3316,7 +3480,7 @@ export async function globalSearch(
           similarity(lower(l.name), ${term})
         ) as score
       from ${schema.rooms} r
-      inner join ${schema.locations} l on l.id = r.location_id
+      inner join ${schema.householdCanvasLayers} l on l.id = r.location_id
       where r.household_id = ${input.householdId}
         and (
           lower(r.name) like ${likeTerm}
@@ -3338,7 +3502,7 @@ export async function globalSearch(
         ) as score
       from ${schema.containers} c
       inner join ${schema.rooms} r on r.id = c.room_id
-      inner join ${schema.locations} l on l.id = r.location_id
+      inner join ${schema.householdCanvasLayers} l on l.id = r.location_id
       left join ${schema.containerTags} ct on ct.container_id = c.id
       left join ${schema.tags} t on t.id = ct.tag_id
       where c.household_id = ${input.householdId}
@@ -3366,7 +3530,7 @@ export async function globalSearch(
       left join ${schema.containerItems} ci on ci.item_id = i.id
       left join ${schema.containers} c on c.id = ci.container_id
       left join ${schema.rooms} r on r.id = c.room_id
-      left join ${schema.locations} l on l.id = r.location_id
+      left join ${schema.householdCanvasLayers} l on l.id = r.location_id
       left join ${schema.itemAliases} a on a.item_id = i.id
       left join ${schema.itemTags} it on it.item_id = i.id
       left join ${schema.tags} t on t.id = it.tag_id
@@ -3483,7 +3647,7 @@ export async function semanticSearch(
               from ${schema.containerItems} ci
               inner join ${schema.containers} c on c.id = ci.container_id
               inner join ${schema.rooms} r on r.id = c.room_id
-              inner join ${schema.locations} l on l.id = r.location_id
+              inner join ${schema.householdCanvasLayers} l on l.id = r.location_id
               where ci.item_id = i.id
               order by ci.updated_at desc
               limit 1
@@ -3508,7 +3672,7 @@ export async function semanticSearch(
             concat_ws(' -> ', l.name, r.name) as subtitle
           from ${schema.containers} c
           inner join ${schema.rooms} r on r.id = c.room_id
-          inner join ${schema.locations} l on l.id = r.location_id
+          inner join ${schema.householdCanvasLayers} l on l.id = r.location_id
           where c.household_id = ${input.householdId}
             and c.id = any(${containerIds}::uuid[])
         `)
@@ -3527,7 +3691,7 @@ export async function semanticSearch(
             r.name,
             l.name as subtitle
           from ${schema.rooms} r
-          inner join ${schema.locations} l on l.id = r.location_id
+          inner join ${schema.householdCanvasLayers} l on l.id = r.location_id
           where r.household_id = ${input.householdId}
             and r.id = any(${roomIds}::uuid[])
         `)
@@ -3544,8 +3708,8 @@ export async function semanticSearch(
           select
             l.id,
             l.name,
-            coalesce(l.description, '') as subtitle
-          from ${schema.locations} l
+            ''::text as subtitle
+          from ${schema.householdCanvasLayers} l
           where l.household_id = ${input.householdId}
             and l.id = any(${locationIds}::uuid[])
         `)
@@ -3632,7 +3796,7 @@ export async function semanticSearch(
         entityId: row.id,
         title: row.name,
         subtitle: row.subtitle,
-        href: `/locations/${row.id}`,
+        href: `/canvas?floor=${row.id}`,
         score: Number(hit.score ?? 0),
         matchSource: "semantic",
         matchFields: ["semantic"],
@@ -3817,7 +3981,7 @@ export async function getExportRows(
       ci.note
     from ${schema.containers} c
     inner join ${schema.rooms} r on r.id = c.room_id
-    inner join ${schema.locations} l on l.id = r.location_id
+    inner join ${schema.householdCanvasLayers} l on l.id = r.location_id
     left join ${schema.containers} pc on pc.id = c.parent_container_id
     left join ${schema.containerItems} ci on ci.container_id = c.id
     left join ${schema.items} i on i.id = ci.item_id
@@ -3851,7 +4015,7 @@ export async function getExportRows(
   }));
 }
 
-export async function listAllContainersInLocation(
+export async function listAllContainersInFloor(
   input: Queryable & { locationId: string },
 ) {
   await assertMembership(input);
@@ -3859,18 +4023,18 @@ export async function listAllContainersInLocation(
     .select({
       container: schema.containers,
       room: schema.rooms,
-      location: schema.locations,
+      location: schema.householdCanvasLayers,
     })
     .from(schema.containers)
     .innerJoin(schema.rooms, eq(schema.rooms.id, schema.containers.roomId))
     .innerJoin(
-      schema.locations,
-      eq(schema.locations.id, schema.rooms.locationId),
+      schema.householdCanvasLayers,
+      eq(schema.householdCanvasLayers.id, schema.rooms.locationId),
     )
     .where(
       and(
         eq(schema.containers.householdId, input.householdId),
-        eq(schema.locations.id, input.locationId),
+        eq(schema.householdCanvasLayers.id, input.locationId),
       ),
     )
     .orderBy(schema.rooms.name, schema.containers.name);
@@ -3886,13 +4050,13 @@ export async function listRecentContainers(
     .select({
       container: schema.containers,
       room: schema.rooms,
-      location: schema.locations,
+      location: schema.householdCanvasLayers,
     })
     .from(schema.containers)
     .innerJoin(schema.rooms, eq(schema.rooms.id, schema.containers.roomId))
     .innerJoin(
-      schema.locations,
-      eq(schema.locations.id, schema.rooms.locationId),
+      schema.householdCanvasLayers,
+      eq(schema.householdCanvasLayers.id, schema.rooms.locationId),
     )
     .where(
       and(
@@ -3921,7 +4085,7 @@ export async function listContainersForHousehold(
   });
 }
 
-export async function listContainersWithRoomLocation(
+export async function listContainersWithRoomFloor(
   input: Queryable & { includeArchived?: boolean; limit?: number },
 ) {
   await assertMembership(input);
@@ -3931,13 +4095,13 @@ export async function listContainersWithRoomLocation(
     .select({
       container: schema.containers,
       room: schema.rooms,
-      location: schema.locations,
+      location: schema.householdCanvasLayers,
     })
     .from(schema.containers)
     .innerJoin(schema.rooms, eq(schema.rooms.id, schema.containers.roomId))
     .innerJoin(
-      schema.locations,
-      eq(schema.locations.id, schema.rooms.locationId),
+      schema.householdCanvasLayers,
+      eq(schema.householdCanvasLayers.id, schema.rooms.locationId),
     )
     .where(
       and(
@@ -3945,7 +4109,7 @@ export async function listContainersWithRoomLocation(
         input.includeArchived ? undefined : isNull(schema.containers.archivedAt),
       ),
     )
-    .orderBy(schema.locations.name, schema.rooms.name, schema.containers.name)
+    .orderBy(schema.householdCanvasLayers.name, schema.rooms.name, schema.containers.name)
     .limit(limit);
 }
 
@@ -3955,3 +4119,33 @@ export async function getHouseholdById(input: Queryable) {
     where: eq(schema.households.id, input.householdId),
   });
 }
+
+export async function updateHouseholdLanguage(input: {
+  userId: string;
+  householdId: string;
+  language: string;
+}) {
+  const lang = input.language.trim().slice(0, 10);
+  if (!lang) throw new Error("Language is required");
+
+  await assertRole(input, canManageHousehold);
+
+  const [row] = await db
+    .update(schema.households)
+    .set({ language: lang })
+    .where(eq(schema.households.id, input.householdId))
+    .returning();
+
+  await logActivity({
+    householdId: input.householdId,
+    actorUserId: input.userId,
+    actionType: "updated",
+    entityType: "household",
+    entityId: input.householdId,
+    metadata: { language: lang },
+  });
+
+  return row;
+}
+
+

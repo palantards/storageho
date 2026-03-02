@@ -1,4 +1,4 @@
-﻿import { HOUSEHOLD_ROLES } from "@/lib/inventory/roles";
+import { HOUSEHOLD_ROLES } from "@/lib/inventory/roles";
 import { z } from "zod";
 
 export const householdRoleSchema = z.enum(HOUSEHOLD_ROLES);
@@ -64,7 +64,6 @@ export const householdCanvasLayoutSchema = z.object({
 export const householdCanvasLayerSchema = z.object({
   householdId: z.string().uuid(),
   name: z.string().trim().min(1).max(120),
-  locationId: z.string().uuid().nullable().optional(),
   sortOrder: z.number().int().min(0).max(10000).optional(),
 });
 
@@ -72,7 +71,6 @@ export const householdCanvasLayerUpdateSchema = z.object({
   householdId: z.string().uuid(),
   layerId: z.string().uuid(),
   name: z.string().trim().min(1).max(120).optional(),
-  locationId: z.string().uuid().nullable().optional(),
   sortOrder: z.number().int().min(0).max(10000).optional(),
 });
 
@@ -103,7 +101,6 @@ export const householdCanvasPlacementSchema = z
 export const householdCanvasCreateRoomSchema = z.object({
   householdId: z.string().uuid(),
   layerId: z.string().uuid(),
-  locationId: z.string().uuid().nullable().optional(),
   name: z.string().trim().min(1).max(120),
   description: z.string().trim().max(1000).optional(),
   x: z.number().min(0).max(100000),
@@ -129,6 +126,29 @@ export const householdCanvasCreateContainerSchema = z.object({
   height: z.number().min(0.5).max(1000).default(2),
   rotation: z.number().min(-360).max(360).optional(),
   label: z.string().trim().max(120).optional(),
+});
+
+export const createRoomFromSetupSchema = z.object({
+  householdId: z.string().uuid(),
+  layerId: z.string().uuid(),
+  name: z.string().trim().min(1).max(120),
+  description: z.string().trim().max(1000).optional(),
+});
+
+export const createContainerFromSetupSchema = z.object({
+  householdId: z.string().uuid(),
+  layerId: z.string().uuid(),
+  roomId: z.string().uuid().nullable().optional(),
+  name: z.string().trim().min(1).max(150),
+  code: z.string().trim().max(80).optional(),
+  description: z.string().trim().max(2000).optional(),
+});
+
+export const listRoomsSchema = z.object({
+  householdId: z.string().uuid(),
+  locationId: z.string().uuid().optional(),
+  includeSystem: z.boolean().optional(),
+  limit: z.number().int().min(1).max(2000).optional(),
 });
 
 export const createItemSchema = z.object({
@@ -170,6 +190,11 @@ export const inviteMemberSchema = z.object({
   role: householdRoleSchema,
 });
 
+export const updateHouseholdLanguageSchema = z.object({
+  householdId: z.string().uuid(),
+  language: z.string().trim().min(2).max(10),
+});
+
 export const updateMemberRoleSchema = z.object({
   householdId: z.string().uuid(),
   memberId: z.string().uuid(),
@@ -183,3 +208,4 @@ export const searchSchema = z.object({
   limit: z.number().int().min(1).max(100).default(30),
   offset: z.number().int().min(0).default(0),
 });
+

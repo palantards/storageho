@@ -8,7 +8,7 @@ import {
   listContainersForHousehold,
   listPhotoSuggestions,
   listRecentContainers,
-  listRoomsWithLocation,
+  listRoomsWithFloor,
 } from "@/lib/inventory/service";
 import { BoxSuggestionsPanel } from "@/components/inventory/BoxSuggestionsPanel";
 import { MoveItemDialog } from "@/components/inventory/MoveItemDialog";
@@ -38,7 +38,7 @@ export default async function ScanModePage({
     return <div className="text-sm text-muted-foreground">No active household.</div>;
   }
 
-  const rooms = await listRoomsWithLocation({
+  const rooms = await listRoomsWithFloor({
     userId: context.user.id,
     householdId,
   });
@@ -152,6 +152,7 @@ export default async function ScanModePage({
               ) : (
                 <BoxSuggestionsPanel
                   householdId={householdId}
+                  containerId={activeBox.container.id}
                   suggestions={suggestions.map((suggestion) => ({
                     id: suggestion.id,
                     suggestedName: suggestion.suggestedName,

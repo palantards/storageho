@@ -27,18 +27,18 @@ function isAiEnabled() {
 }
 
 function isMockMode() {
-  return (
-    process.env.AI_MOCK_MODE === "1" ||
-    process.env.NODE_ENV === "test" ||
-    process.env.NODE_ENV === "development"
-  );
+  return process.env.AI_MOCK_MODE === "1" || process.env.NODE_ENV === "test";
 }
 
 function toDeterministicVector(input: string, dimensions = 1536) {
-  const seed = Array.from(input).reduce((acc, char) => acc + char.charCodeAt(0), 17);
+  const seed = Array.from(input).reduce(
+    (acc, char) => acc + char.charCodeAt(0),
+    17,
+  );
   const vector: number[] = [];
   for (let i = 0; i < dimensions; i += 1) {
-    const value = Math.sin((seed + i) * 0.017) * 0.4 + Math.cos((seed - i) * 0.011) * 0.2;
+    const value =
+      Math.sin((seed + i) * 0.017) * 0.4 + Math.cos((seed - i) * 0.011) * 0.2;
     vector.push(Number(value.toFixed(8)));
   }
   return vector;
@@ -58,7 +58,10 @@ function sanitizeSuggestion(input: AiSuggestion): AiSuggestion | null {
     .filter(Boolean)
     .slice(0, 8);
 
-  const qty = input.qty && input.qty > 0 ? Math.min(1000, Math.floor(input.qty)) : undefined;
+  const qty =
+    input.qty && input.qty > 0
+      ? Math.min(1000, Math.floor(input.qty))
+      : undefined;
   const confidence = Number.isFinite(input.confidence)
     ? Math.max(0, Math.min(1, Number(input.confidence)))
     : 0.55;
@@ -71,7 +74,10 @@ function sanitizeSuggestion(input: AiSuggestion): AiSuggestion | null {
   };
 }
 
-function normalizeSuggestions(suggestions: AiSuggestion[], maxSuggestions: number) {
+function normalizeSuggestions(
+  suggestions: AiSuggestion[],
+  maxSuggestions: number,
+) {
   const normalized: AiSuggestion[] = [];
   const seen = new Set<string>();
 
@@ -104,34 +110,16 @@ function extractJsonFromModelOutput(content: string) {
   return "{}";
 }
 
-export async function analyzePhotoWithAi(input: {
-  signedUrl: string;
-  maxSuggestions?: number;
+async function runVisionSuggestionModel(input: {
+  messages: Array<Record<string, unknown>>;
+  maxSuggestions: number;
 }) {
-  const maxSuggestions = Math.min(20, Math.max(1, input.maxSuggestions ?? 10));
-  if (!isAiEnabled()) {
-    return { suggestions: [] as AiSuggestion[] };
-  }
-
-  if (isMockMode()) {
-    return {
-      suggestions: normalizeSuggestions(
-        [
-          { name: "USB Cable", qty: 2, tags: ["electronics"], confidence: 0.84 },
-          { name: "Power Adapter", qty: 1, tags: ["electronics"], confidence: 0.74 },
-          { name: "Small Screws", qty: 1, tags: ["hardware"], confidence: 0.58 },
-        ],
-        maxSuggestions,
-      ),
-    };
-  }
-
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY is missing while AI is enabled");
   }
 
-  const model = process.env.OPENAI_MODEL_VISION || "gpt-4o-mini";
+  const model = process.env.OPENAI_MODEL_VISION;
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -140,30 +128,9 @@ export async function analyzePhotoWithAi(input: {
     },
     body: JSON.stringify({
       model,
-      temperature: 0.1,
+      temperature: 1,
       response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            "You extract inventory candidates from a storage photo. Return JSON only with shape { suggestions: [{ name, qty, tags, confidence }] }. Never output prose.",
-        },
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: "List visible objects likely worth tracking in household inventory. Keep it concise.",
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: input.signedUrl,
-              },
-            },
-          ],
-        },
-      ],
+      messages: input.messages,
     }),
   });
 
@@ -192,9 +159,145 @@ export async function analyzePhotoWithAi(input: {
         tags: suggestion.tags,
         confidence: suggestion.confidence ?? 0.55,
       })),
-      maxSuggestions,
+      input.maxSuggestions,
     ),
   };
+}
+
+export async function analyzePhotoWithAi(input: {
+  signedUrl: string;
+  maxSuggestions?: number;
+  language?: string;
+}) {
+  const maxSuggestions = Math.min(20, Math.max(1, input.maxSuggestions ?? 10));
+  const language = input.language?.trim() || "en";
+  if (!isAiEnabled()) {
+    return { suggestions: [] as AiSuggestion[] };
+  }
+
+  if (isMockMode()) {
+    return {
+      suggestions: normalizeSuggestions(
+        [
+          {
+            name: "USB Cable",
+            qty: 2,
+            tags: ["electronics"],
+            confidence: 0.84,
+          },
+          {
+            name: "Power Adapter",
+            qty: 1,
+            tags: ["electronics"],
+            confidence: 0.74,
+          },
+          {
+            name: "Small Screws",
+            qty: 1,
+            tags: ["hardware"],
+            confidence: 0.58,
+          },
+        ],
+        maxSuggestions,
+      ),
+    };
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY is missing while AI is enabled");
+  }
+
+  return runVisionSuggestionModel({
+    maxSuggestions,
+    messages: [
+      {
+        role: "system",
+        content: `You extract inventory candidates from a storage photo. Return JSON only with shape { suggestions: [{ name, qty, tags, confidence }] }. Never output prose. Use language ${language} for item names and tags; if unsure, use English.`,
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: "List visible objects likely worth tracking in household inventory. Keep it concise.",
+          },
+          {
+            type: "image_url",
+            image_url: {
+              url: input.signedUrl,
+            },
+          },
+        ],
+      },
+    ],
+  });
+}
+
+export async function analyzeContainerPhotosWithAi(input: {
+  signedUrls: string[];
+  maxSuggestions?: number;
+  language?: string;
+}) {
+  const urls = input.signedUrls.filter(Boolean).slice(0, 4);
+  const maxSuggestions = Math.min(24, Math.max(1, input.maxSuggestions ?? 12));
+  const language = input.language?.trim() || "en";
+
+  if (!isAiEnabled() || urls.length === 0) {
+    return { suggestions: [] as AiSuggestion[] };
+  }
+
+  if (isMockMode()) {
+    return {
+      suggestions: normalizeSuggestions(
+        [
+          {
+            name: "USB Cable",
+            qty: 3,
+            tags: ["electronics"],
+            confidence: 0.86,
+          },
+          {
+            name: "Power Adapter",
+            qty: 2,
+            tags: ["electronics"],
+            confidence: 0.78,
+          },
+          {
+            name: "Batteries",
+            qty: 1,
+            tags: ["electronics"],
+            confidence: 0.67,
+          },
+          { name: "Small Screws", qty: 1, tags: ["hardware"], confidence: 0.6 },
+        ],
+        maxSuggestions,
+      ),
+    };
+  }
+
+  return runVisionSuggestionModel({
+    maxSuggestions,
+    messages: [
+      {
+        role: "system",
+        content: `You extract inventory candidates from multiple photos of the same storage container. Return JSON only with shape { suggestions: [{ name, qty, tags, confidence }] }. Deduplicate entities across photos, merge quantities conservatively, and never output prose. Use language ${language} for item names and tags; if unsure, use English.`,
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: "These images show the same box from different angles. Return one consolidated deduplicated suggestion list of trackable items.",
+          },
+          ...urls.map((url) => ({
+            type: "image_url",
+            image_url: { url },
+          })),
+        ],
+      },
+    ],
+  });
 }
 
 export async function embedTextForSearch(text: string) {

@@ -28,6 +28,48 @@ const MAX_ATTEMPTS = 6;
 type AiJobRecord = typeof schema.aiJobs.$inferSelect;
 type SearchEntityType = typeof schema.searchDocuments.$inferSelect.entityType;
 
+function getJobRunnerDispatchConfig() {
+  if (process.env.NODE_ENV === "test") {
+    return null;
+  }
+
+  if (process.env.AI_DISPATCH_ON_ENQUEUE === "0") {
+    return null;
+  }
+
+  const token = process.env.AI_JOB_RUNNER_TOKEN;
+  const appUrl =
+    process.env.INTERNAL_APP_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL;
+
+  if (!token || !appUrl) {
+    return null;
+  }
+
+  const base = appUrl.endsWith("/") ? appUrl.slice(0, -1) : appUrl;
+  return { token, base };
+}
+
+export function dispatchAiRunner(input?: { reason?: string; limit?: number }) {
+  const config = getJobRunnerDispatchConfig();
+  if (!config) return;
+
+  const limit = Math.min(30, Math.max(1, input?.limit ?? 6));
+  const url = `${config.base}/api/jobs/run?limit=${limit}&token=${encodeURIComponent(config.token)}`;
+
+  void fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-storageho-dispatch-reason": input?.reason || "enqueue",
+    },
+    cache: "no-store",
+  }).catch((error) => {
+    console.error("AI runner dispatch failed", error);
+  });
+}
+
 export async function enqueueEmbeddingJob(input: {
   householdId: string;
   entityType: SearchEntityType;
@@ -63,6 +105,8 @@ export async function enqueueEmbeddingJob(input: {
     })
     .returning({ id: schema.aiJobs.id });
 
+  dispatchAiRunner({ reason: "embedding_upsert_enqueue", limit: 4 });
+
   return job;
 }
 
@@ -96,6 +140,32 @@ export async function claimAiJobs(input: {
   `);
 
   return rows.rows;
+}
+
+export async function claimAiJobById(input: {
+  jobId: string;
+  workerId: string;
+}) {
+  const rows = await db
+    .update(schema.aiJobs)
+    .set({
+      status: "running",
+      lockedAt: new Date(),
+      lockedBy: input.workerId,
+      attemptCount: sql`${schema.aiJobs.attemptCount} + 1`,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(schema.aiJobs.id, input.jobId),
+        sql`${schema.aiJobs.status} in ('queued', 'failed')`,
+        sql`${schema.aiJobs.runAfter} <= now()`,
+        sql`${schema.aiJobs.attemptCount} < ${MAX_ATTEMPTS}`,
+      ),
+    )
+    .returning();
+
+  return rows[0] ?? null;
 }
 
 async function markJobSucceeded(jobId: string) {
@@ -191,7 +261,7 @@ async function buildSearchDocumentContent(input: {
           from ${schema.containerItems} ci
           inner join ${schema.containers} c on c.id = ci.container_id
           inner join ${schema.rooms} r on r.id = c.room_id
-          inner join ${schema.locations} l on l.id = r.location_id
+          inner join ${schema.householdCanvasLayers} l on l.id = r.location_id
           where ci.item_id = i.id
         ) as paths
       from ${schema.items} i
@@ -239,7 +309,7 @@ async function buildSearchDocumentContent(input: {
         ) as tags
       from ${schema.containers} c
       inner join ${schema.rooms} r on r.id = c.room_id
-      inner join ${schema.locations} l on l.id = r.location_id
+      inner join ${schema.householdCanvasLayers} l on l.id = r.location_id
       left join ${schema.containers} pc on pc.id = c.parent_container_id
       where c.household_id = ${input.householdId}
         and c.id = ${input.entityId}
@@ -264,12 +334,12 @@ async function buildSearchDocumentContent(input: {
     const room = await db
       .select({
         room: schema.rooms,
-        location: schema.locations,
+        location: schema.householdCanvasLayers,
       })
       .from(schema.rooms)
       .innerJoin(
-        schema.locations,
-        eq(schema.locations.id, schema.rooms.locationId),
+        schema.householdCanvasLayers,
+        eq(schema.householdCanvasLayers.id, schema.rooms.locationId),
       )
       .where(
         and(
@@ -287,14 +357,14 @@ async function buildSearchDocumentContent(input: {
   }
 
   if (input.entityType === "location") {
-    const location = await db.query.locations.findFirst({
+    const location = await db.query.householdCanvasLayers.findFirst({
       where: and(
-        eq(schema.locations.householdId, input.householdId),
-        eq(schema.locations.id, input.entityId),
+        eq(schema.householdCanvasLayers.householdId, input.householdId),
+        eq(schema.householdCanvasLayers.id, input.entityId),
       ),
     });
     if (!location) return null;
-    return [location.name, location.description].filter(Boolean).join(" | ");
+    return [location.name].filter(Boolean).join(" | ");
   }
 
   const tag = await db.query.tags.findFirst({
@@ -322,6 +392,12 @@ async function processPhotoAnalyzeJob(job: AiJobRecord) {
     return;
   }
 
+  const householdRow = await db.query.households.findFirst({
+    where: eq(schema.households.id, parsed.householdId),
+    columns: { language: true },
+  });
+  const language = householdRow?.language || "en";
+
   const supabase = createSupabaseAdminClient();
   const signed = await supabase.storage
     .from(STORAGE_BUCKET)
@@ -334,6 +410,7 @@ async function processPhotoAnalyzeJob(job: AiJobRecord) {
   const analysis = await analyzePhotoWithAi({
     signedUrl: signed.data.signedUrl,
     maxSuggestions: 12,
+    language,
   });
 
   await db
@@ -403,6 +480,39 @@ export async function runAiJobBatch(input: { workerId: string; limit?: number })
   };
 }
 
+export async function runAiJobNow(input: { jobId: string; workerId: string }) {
+  const job = await claimAiJobById({
+    jobId: input.jobId,
+    workerId: input.workerId,
+  });
+
+  if (!job) {
+    return {
+      ran: false as const,
+      status: "skipped" as const,
+      reason: "Job not claimable (already running/succeeded or delayed).",
+    };
+  }
+
+  try {
+    await processAiJob(job);
+    await markJobSucceeded(job.id);
+    return {
+      ran: true as const,
+      status: "succeeded" as const,
+      jobId: job.id,
+    };
+  } catch (error) {
+    await markJobFailed(job, error);
+    return {
+      ran: true as const,
+      status: "failed" as const,
+      jobId: job.id,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 export async function runEmbeddingUpsertNow(input: {
   householdId: string;
   entityType: SearchEntityType;
@@ -434,3 +544,5 @@ export async function runEmbeddingUpsertNow(input: {
   });
   return { deleted: false };
 }
+
+

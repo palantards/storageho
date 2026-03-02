@@ -1,6 +1,6 @@
-﻿import type { Locale } from "@/i18n/config";
+import type { Locale } from "@/i18n/config";
 import { getInventoryContext } from "@/lib/inventory/page-context";
-import { listLocations } from "@/lib/inventory/service";
+import { listFloors } from "@/lib/inventory/service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -17,7 +17,7 @@ export default async function ExportPage({
     return <div className="text-sm text-muted-foreground">No active household.</div>;
   }
 
-  const locations = await listLocations({
+  const floors = await listFloors({
     userId: context.user.id,
     householdId,
   });
@@ -33,14 +33,14 @@ export default async function ExportPage({
             <input type="hidden" name="householdId" value={householdId} />
 
             <label className="grid gap-1 text-sm">
-              Location scope (optional)
+              Floor scope (optional)
               <select
-                name="locationId"
+                name="floorId"
                 className="h-9 rounded-md border bg-background px-3 text-sm"
                 defaultValue=""
               >
-                <option value="">All locations</option>
-                {locations.map((entry) => (
+                <option value="">All floors</option>
+                {floors.map((entry) => (
                   <option key={entry.location.id} value={entry.location.id}>
                     {entry.location.name}
                   </option>

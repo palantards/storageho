@@ -67,3 +67,4 @@ export function StatsSection({ adminStats }: { adminStats: AdminStats }) {
     </div>
   );
 }
+

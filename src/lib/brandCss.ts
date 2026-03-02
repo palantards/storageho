@@ -38,3 +38,4 @@ ${tokensToCssVars(dark)}
 }
 `.trim();
 }
+

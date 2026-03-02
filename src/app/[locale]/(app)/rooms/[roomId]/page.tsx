@@ -49,7 +49,6 @@ export default async function RoomPage({
   if (!room) {
     return <div className="text-sm text-muted-foreground">Room not found.</div>;
   }
-  const roomLocationId = room.locationId;
 
   async function createContainerAction(formData: FormData) {
     "use server";
@@ -161,7 +160,7 @@ export default async function RoomPage({
       roomId,
     });
 
-    redirect(`/${locale}/locations/${roomLocationId}`);
+    redirect(`/${locale}/households/${activeHouseholdId}/canvas`);
   }
 
   const [containers, tags] = await Promise.all([
@@ -183,7 +182,9 @@ export default async function RoomPage({
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-2 text-xs">
           <Button asChild variant="outline" size="sm">
-            <Link href={`/${locale}/locations/${roomLocationId}`}>Back to location</Link>
+            <Link href={`/${locale}/households/${activeHouseholdId}/canvas`}>
+              Back to household canvas
+            </Link>
           </Button>
           <Link
             href={`/${locale}/rooms/${roomId}/map`}

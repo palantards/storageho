@@ -1,4 +1,4 @@
-﻿export const HOUSEHOLD_ROLES = ["owner", "admin", "member", "viewer"] as const;
+export const HOUSEHOLD_ROLES = ["owner", "admin", "member", "viewer"] as const;
 
 export type HouseholdRole = (typeof HOUSEHOLD_ROLES)[number];
 

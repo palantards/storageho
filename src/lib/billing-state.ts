@@ -72,3 +72,4 @@ export async function billingState({
     subscriptionExists: Boolean(subscription),
   };
 }
+

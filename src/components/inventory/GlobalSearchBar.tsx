@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -201,3 +201,4 @@ export function GlobalSearchBar({ householdId }: { householdId?: string }) {
     </>
   );
 }
+

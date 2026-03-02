@@ -20,6 +20,7 @@ type Labels = {
   errors: Record<string, string>;
   forgotHref: string;
   switchHref: string;
+  remember?: string;
 };
 
 type State = { errorKey?: string };
@@ -78,6 +79,16 @@ export function LoginForm({
         </div>
       </div>
 
+      <label className="flex items-center gap-2 text-sm text-muted-foreground">
+        <input
+          type="checkbox"
+          name="rememberMe"
+          defaultChecked
+          className="h-4 w-4 accent-primary"
+        />
+        <span>{labels.remember ?? "Remember me"}</span>
+      </label>
+
       <Button type="submit" className="w-full" disabled={pending}>
         {pending ? `${labels.submit}…` : labels.submit}
       </Button>
@@ -90,3 +101,4 @@ export function LoginForm({
     </form>
   );
 }
+

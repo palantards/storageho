@@ -1,4 +1,4 @@
-﻿export const STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || "inventory-private";
+export const STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || "inventory-private";
 
 export const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES || 8 * 1024 * 1024);
 export const MAX_IMAGES_PER_CONTAINER = Number(

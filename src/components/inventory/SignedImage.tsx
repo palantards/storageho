@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 
@@ -49,3 +49,4 @@ export function SignedImage({
 
   return <img src={url} alt={alt} className={className} loading="lazy" />;
 }
+

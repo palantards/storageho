@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";

@@ -14,3 +14,4 @@ export async function MarketingHeader({ locale }: { locale: Locale }) {
     <MarketingHeaderClient locale={locale} homeHref={homeHref} isAuthed={!!session} />
   );
 }
+

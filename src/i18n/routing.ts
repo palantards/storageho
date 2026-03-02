@@ -6,3 +6,4 @@ export function localizedHref(locale: Locale, href: string): string {
   if (href.startsWith("/")) return `/${locale}${href}`;
   return href;
 }
+

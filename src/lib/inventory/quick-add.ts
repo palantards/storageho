@@ -40,3 +40,4 @@ export function parseQuickAddText(input: string): QuickAddEntry[] {
 
   return entries;
 }
+

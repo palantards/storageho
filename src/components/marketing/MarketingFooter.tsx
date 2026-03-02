@@ -40,3 +40,4 @@ export function MarketingFooter({ locale }: { locale: Locale }) {
   );
 }
 
+

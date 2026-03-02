@@ -176,6 +176,7 @@ export const households = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     name: text("name").notNull(),
+    language: text("language").notNull().default("en"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -193,9 +194,12 @@ export const userPreferences = pgTable(
     activeHouseholdId: uuid("active_household_id").references(() => households.id, {
       onDelete: "set null",
     }),
-    activeLocationId: uuid("active_location_id").references(() => locations.id, {
-      onDelete: "set null",
-    }),
+    activeLocationId: uuid("active_location_id").references(
+      () => householdCanvasLayers.id,
+      {
+        onDelete: "set null",
+      },
+    ),
     activeRoomId: uuid("active_room_id").references(() => rooms.id, {
       onDelete: "set null",
     }),
@@ -237,29 +241,6 @@ export const householdMembers = pgTable(
   }),
 );
 
-export const locations = pgTable(
-  "locations",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    householdId: uuid("household_id")
-      .notNull()
-      .references(() => households.id, { onDelete: "cascade" }),
-    name: text("name").notNull(),
-    description: text("description"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    createdBy: uuid("created_by").notNull(),
-  },
-  (table) => ({
-    householdIdx: index("locations_household_idx").on(table.householdId),
-    householdNameIdx: uniqueIndex("locations_household_name_idx").on(
-      table.householdId,
-      table.name,
-    ),
-  }),
-);
-
 export const rooms = pgTable(
   "rooms",
   {
@@ -269,8 +250,9 @@ export const rooms = pgTable(
       .references(() => households.id, { onDelete: "cascade" }),
     locationId: uuid("location_id")
       .notNull()
-      .references(() => locations.id, { onDelete: "cascade" }),
+      .references(() => householdCanvasLayers.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    isSystem: boolean("is_system").notNull().default(false),
     description: text("description"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -280,6 +262,14 @@ export const rooms = pgTable(
   (table) => ({
     locationIdx: index("rooms_location_idx").on(table.locationId),
     householdIdx: index("rooms_household_idx").on(table.householdId),
+    householdLocationSystemIdx: index("rooms_household_location_is_system_idx").on(
+      table.householdId,
+      table.locationId,
+      table.isSystem,
+    ),
+    locationSystemUniqueIdx: uniqueIndex("rooms_location_system_unique_idx")
+      .on(table.locationId)
+      .where(sql`${table.isSystem} = true`),
     locationNameIdx: uniqueIndex("rooms_location_name_idx").on(
       table.locationId,
       table.name,
@@ -532,9 +522,7 @@ export const householdCanvasLayers = pgTable(
     householdId: uuid("household_id")
       .notNull()
       .references(() => households.id, { onDelete: "cascade" }),
-    locationId: uuid("location_id").references(() => locations.id, {
-      onDelete: "set null",
-    }),
+    locationId: uuid("location_id").notNull(),
     name: text("name").notNull(),
     sortOrder: integer("sort_order").notNull().default(0),
     createdBy: uuid("created_by").notNull(),
@@ -865,3 +853,4 @@ export const ticketVotes = pgTable(
     }),
   }),
 );
+

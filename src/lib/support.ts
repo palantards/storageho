@@ -97,3 +97,4 @@ export async function getPublicTicketsPage(opts: {
 
   return { items, hasMore, nextCursor };
 }
+

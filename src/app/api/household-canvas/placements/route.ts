@@ -9,6 +9,9 @@ import {
 } from "@/lib/inventory/service";
 import { householdCanvasPlacementSchema } from "@/lib/inventory/validation";
 
+// Legacy compatibility endpoint: setup-first household canvas no longer edits placements in UI,
+// but room map and older clients still rely on this route.
+
 const getSchema = z.object({
   householdId: z.string().uuid(),
   layerId: z.string().uuid().optional(),
@@ -99,3 +102,4 @@ export async function DELETE(request: NextRequest) {
     );
   }
 }
+

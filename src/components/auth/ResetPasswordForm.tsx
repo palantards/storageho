@@ -135,3 +135,4 @@ export function ResetPasswordForm({ labels }: { labels: ResetPasswordLabels }) {
     </div>
   );
 }
+

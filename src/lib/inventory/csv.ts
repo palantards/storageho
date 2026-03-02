@@ -1,4 +1,4 @@
-﻿import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 
 import { enqueueEmbeddingJob } from "@/lib/inventory/ai-jobs";
 import { db, schema } from "@/server/db";
@@ -33,23 +33,26 @@ export async function commitInventoryCsv(input: {
   for (const row of input.rows) {
     let locationId = locationCache.get(row.location);
     if (!locationId) {
-      const existing = await db.query.locations.findFirst({
+      const existing = await db.query.householdCanvasLayers.findFirst({
         where: and(
-          eq(schema.locations.householdId, input.householdId),
-          eq(schema.locations.name, row.location),
+          eq(schema.householdCanvasLayers.householdId, input.householdId),
+          eq(schema.householdCanvasLayers.name, row.location),
         ),
       });
       if (existing) {
         locationId = existing.id;
       } else {
+        const floorId = crypto.randomUUID();
         const [created] = await db
-          .insert(schema.locations)
+          .insert(schema.householdCanvasLayers)
           .values({
+            id: floorId,
             householdId: input.householdId,
             name: row.location,
+            locationId: floorId,
             createdBy: input.userId,
           })
-          .returning({ id: schema.locations.id });
+          .returning({ id: schema.householdCanvasLayers.id });
         locationId = created.id;
       }
       locationCache.set(row.location, locationId);
@@ -97,7 +100,9 @@ export async function commitInventoryCsv(input: {
           where: and(
             eq(schema.containers.householdId, input.householdId),
             eq(schema.containers.roomId, roomId),
-            eq(schema.containers.parentContainerId, parentContainerId),
+            parentContainerId
+              ? eq(schema.containers.parentContainerId, parentContainerId)
+              : isNull(schema.containers.parentContainerId),
             eq(schema.containers.name, part),
           ),
         });
@@ -295,3 +300,5 @@ export async function commitInventoryCsv(input: {
     importedRows: input.rows.length,
   };
 }
+
+

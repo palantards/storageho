@@ -15,3 +15,4 @@ export function normalizePlacement(input: {
     y: Number(clampToRange(input.y, 0, height).toFixed(2)),
   };
 }
+

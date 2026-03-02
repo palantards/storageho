@@ -7,9 +7,14 @@ import {
   getUsageHints,
   inviteMember,
   listHouseholdMembers,
+  updateHouseholdLanguage,
   updateMemberRole,
 } from "@/lib/inventory/service";
-import { inviteMemberSchema, updateMemberRoleSchema } from "@/lib/inventory/validation";
+import {
+  inviteMemberSchema,
+  updateHouseholdLanguageSchema,
+  updateMemberRoleSchema,
+} from "@/lib/inventory/validation";
 import { createSupabaseAdminClient } from "@/lib/supabaseServer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -91,6 +96,22 @@ export default async function HouseholdSettingsPage({
     getUsageHints({ userId: context.user.id, householdId }),
   ]);
 
+  async function updateLanguageAction(formData: FormData) {
+    "use server";
+    const parsed = updateHouseholdLanguageSchema.parse({
+      householdId,
+      language: String(formData.get("language") || ""),
+    });
+
+    await updateHouseholdLanguage({
+      userId: context.user.id,
+      householdId: parsed.householdId,
+      language: parsed.language,
+    });
+
+    revalidatePath(`/${locale}/households/${householdId}/settings`);
+  }
+
   return (
     <div className="space-y-4">
       <Card>
@@ -110,6 +131,32 @@ export default async function HouseholdSettingsPage({
             <div className="text-muted-foreground">Estimated storage</div>
             <div className="text-lg font-semibold">{usage.estimatedStorageMb} MB</div>
           </div>
+          <form action={updateLanguageAction} className="rounded-md border p-3 text-sm grid gap-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-muted-foreground">Language</div>
+                <div className="text-xs text-muted-foreground">
+                  Affects AI suggestions + default labels
+                </div>
+              </div>
+              <select
+                name="language"
+                defaultValue={household.language || "en"}
+                className="h-9 rounded-md border bg-background px-2 text-sm"
+              >
+                <option value="en">English</option>
+                <option value="sv">Svenska</option>
+              </select>
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                className="inline-flex h-9 items-center rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground hover:opacity-90"
+              >
+                Save
+              </button>
+            </div>
+          </form>
         </CardContent>
       </Card>
 

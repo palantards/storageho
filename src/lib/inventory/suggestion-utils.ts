@@ -13,3 +13,4 @@ export function normalizeSuggestionQuantity(value: number | null | undefined) {
   if (!Number.isFinite(numeric)) return 1;
   return Math.max(1, Math.floor(numeric));
 }
+

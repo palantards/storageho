@@ -14,3 +14,4 @@ export async function GET(req: Request) {
   const usersList = await getUsers({ offset, limit });
   return NextResponse.json(usersList);
 }
+

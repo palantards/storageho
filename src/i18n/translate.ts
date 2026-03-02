@@ -27,3 +27,4 @@ export function t(messages: unknown, key: string, vars?: Vars): string {
 export function m<T = unknown>(messages: unknown, key: string): T | undefined {
   return getByPath(messages, key) as T | undefined;
 }
+

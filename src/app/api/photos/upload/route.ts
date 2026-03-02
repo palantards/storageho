@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import { getSession } from "@/lib/auth";
 import {
@@ -13,6 +13,7 @@ import {
   listContainerPhotos,
   listMembershipsForUser,
 } from "@/lib/inventory/service";
+import { runAiJobNow } from "@/lib/inventory/ai-jobs";
 import { canWriteInventory } from "@/lib/inventory/roles";
 import { createSupabaseAdminClient } from "@/lib/supabaseServer";
 
@@ -157,7 +158,7 @@ export async function POST(request: NextRequest) {
       thumbPath,
     });
 
-    await enqueueAiJob({
+    const aiJob = await enqueueAiJob({
       userId: session.user.id,
       householdId,
       jobType: "photo_analyze",
@@ -171,7 +172,16 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ photo });
+    let aiResult: Awaited<ReturnType<typeof runAiJobNow>> | null = null;
+    const runNow = process.env.AI_RUN_ON_UPLOAD !== "0";
+    if (runNow) {
+      aiResult = await runAiJobNow({
+        jobId: aiJob.id,
+        workerId: `upload-${session.user.id}-${crypto.randomUUID()}`,
+      });
+    }
+
+    return NextResponse.json({ photo, ai: aiResult });
   } catch (error) {
     console.error(error);
     return NextResponse.json(
@@ -180,3 +190,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+

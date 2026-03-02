@@ -1,6 +1,6 @@
-﻿import type { Locale } from "@/i18n/config";
+import type { Locale } from "@/i18n/config";
 import { getInventoryContext } from "@/lib/inventory/page-context";
-import { listAllContainersInLocation, listLocations } from "@/lib/inventory/service";
+import { listAllContainersInFloor, listFloors } from "@/lib/inventory/service";
 import { PrintButton } from "@/components/inventory/PrintButton";
 import { QRCodeRenderer } from "@/components/inventory/QRCodeRenderer";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ export default async function PrintLabelsPage({
   searchParams,
 }: {
   params: Promise<{ locale: Locale }>;
-  searchParams?: Promise<{ locationId?: string }>;
+  searchParams?: Promise<{ floorId?: string }>;
 }) {
   const { locale } = await params;
   const search = (await searchParams) || {};
@@ -27,21 +27,21 @@ export default async function PrintLabelsPage({
     return <div className="text-sm text-muted-foreground">No active household.</div>;
   }
 
-  const locations = await listLocations({
+  const floors = await listFloors({
     userId: context.user.id,
     householdId,
   });
 
-  const locationId = search.locationId || locations[0]?.location.id;
+  const floorId = search.floorId || floors[0]?.location.id;
 
-  if (!locationId) {
-    return <div className="text-sm text-muted-foreground">No locations to print.</div>;
+  if (!floorId) {
+    return <div className="text-sm text-muted-foreground">No floors to print.</div>;
   }
 
-  const containers = await listAllContainersInLocation({
+  const containers = await listAllContainersInFloor({
     userId: context.user.id,
     householdId,
-    locationId,
+    locationId: floorId,
   });
 
   return (
@@ -53,11 +53,11 @@ export default async function PrintLabelsPage({
         <CardContent className="space-y-2">
           <form method="get" className="flex items-center gap-2">
             <select
-              name="locationId"
-              defaultValue={locationId}
+              name="floorId"
+              defaultValue={floorId}
               className="h-9 rounded-md border bg-background px-3 text-sm"
             >
-              {locations.map((entry) => (
+              {floors.map((entry) => (
                 <option key={entry.location.id} value={entry.location.id}>
                   {entry.location.name}
                 </option>

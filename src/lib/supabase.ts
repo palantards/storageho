@@ -137,26 +137,30 @@ export function calculateExpiryEpoch(expiresIn: number): number {
   return Math.floor(Date.now() / 1000) + expiresIn;
 }
 
-export async function persistSession(session: SupabaseSession) {
+export async function persistSession(
+  session: SupabaseSession,
+  options?: { rememberMe?: boolean },
+) {
+  const rememberMe = options?.rememberMe ?? true;
   const expiry = session.expires_at || calculateExpiryEpoch(session.expires_in);
   const cookieStore = await cookies();
   cookieStore.set(ACCESS_COOKIE, session.access_token, {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
-    maxAge: session.expires_in,
+    maxAge: rememberMe ? session.expires_in : undefined,
   });
   cookieStore.set(REFRESH_COOKIE, session.refresh_token, {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 24 * 30,
+    maxAge: rememberMe ? 60 * 60 * 24 * 30 : undefined,
   });
   cookieStore.set(EXPIRES_COOKIE, String(expiry), {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 24 * 30,
+    maxAge: rememberMe ? 60 * 60 * 24 * 30 : undefined,
   });
 }
 
@@ -204,3 +208,4 @@ export async function updateSupabasePassword({
     body: JSON.stringify({ password }),
   });
 }
+

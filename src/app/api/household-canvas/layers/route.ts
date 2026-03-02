@@ -71,7 +71,6 @@ export async function POST(request: NextRequest) {
       userId: session.user.id,
       householdId: body.householdId,
       name: body.name,
-      locationId: body.locationId ?? null,
       sortOrder: body.sortOrder,
     });
     return NextResponse.json({ ok: true, layer });
@@ -97,7 +96,6 @@ export async function PATCH(request: NextRequest) {
       householdId: body.householdId,
       layerId: body.layerId,
       name: body.name,
-      locationId: body.locationId,
       sortOrder: body.sortOrder,
     });
     return NextResponse.json({ ok: true, layer });
@@ -132,3 +130,4 @@ export async function DELETE(request: NextRequest) {
     );
   }
 }
+

@@ -82,29 +82,32 @@ test("signup -> onboarding -> scan -> suggestions -> search -> map", async ({ pa
   await expect(page.getByText("Placement saved.")).toBeVisible();
 
   await page.goto("/en/canvas");
-  await expect(page.getByText("Home Builder")).toBeVisible();
+  await expect(page.getByText("Household setup")).toBeVisible();
+  await expect(page.getByText("Read-only map")).toBeVisible();
 
-  const viewport = page.getByTestId("household-canvas-viewport");
-  await viewport.hover();
-  const zoomValue = page.getByTestId("canvas-zoom-value");
-  await expect(zoomValue).toHaveText("100%");
-  await page.mouse.wheel(0, -700);
-  await expect(zoomValue).not.toHaveText("100%");
+  await page.getByPlaceholder("New floor name").fill("Top Floor");
+  await page.getByRole("button", { name: "+ Floor" }).click();
+  await expect(page.getByRole("option", { name: "Top Floor" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Triangle room" }).click();
-  const grid = page.getByTestId("household-canvas-grid");
-  const box = await grid.boundingBox();
-  if (!box) throw new Error("Expected household canvas grid bounding box");
-  await page.mouse.move(box.x + 140, box.y + 140);
-  await page.mouse.down();
-  await page.mouse.move(box.x + 300, box.y + 260);
-  await page.mouse.up();
-  await expect(grid.getByText("(triangle)")).toBeVisible();
+  await page.getByPlaceholder("Create room").fill("Closet");
+  await page.getByRole("button", { name: "Add room" }).click();
+  await expect(page.getByRole("option", { name: "Closet" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Tap to add box" }).click();
-  await page.mouse.click(box.x + 220, box.y + 220);
-  await expect(page.getByText("Box actions")).toBeVisible();
-  await page.getByPlaceholder("Box name").fill("Canvas box");
-  await page.getByRole("button", { name: "Create + place" }).click();
-  await expect(grid.getByText("Canvas box")).toBeVisible();
+  await page.getByPlaceholder("Container name").fill("Canvas Flow Box");
+  await page.getByTestId("setup-create-container").click();
+  await expect(page.getByTestId("setup-post-create-panel")).toBeVisible();
+  await expect(page.getByText("Container created: Canvas Flow Box")).toBeVisible();
+
+  await page
+    .getByTestId("setup-post-create-panel")
+    .locator("input[type='file']")
+    .setInputFiles({
+      name: "setup-box.png",
+      mimeType: "image/png",
+      buffer: tinyPng,
+    });
+  await page.request.get("/api/jobs/run?limit=10");
+  await page.reload();
+  await expect(page.getByText("Read-only map")).toBeVisible();
+  await expect(page.getByTestId("household-readonly-map")).toBeVisible();
 });

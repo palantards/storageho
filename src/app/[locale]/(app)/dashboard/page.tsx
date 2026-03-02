@@ -5,11 +5,11 @@ import { redirect } from "next/navigation";
 import type { Locale } from "@/i18n/config";
 import { getInventoryContext } from "@/lib/inventory/page-context";
 import {
+  createFloor,
   createHousehold,
-  createLocation,
   getUsageHints,
   listActivity,
-  listLocations,
+  listFloors,
   setActiveHousehold,
 } from "@/lib/inventory/service";
 import { createHouseholdSchema, createLocationSchema } from "@/lib/inventory/validation";
@@ -44,6 +44,7 @@ export default async function DashboardPage({
     const household = await createHousehold({
       userId: context.user.id,
       name: parsed.name,
+      language: locale,
     });
 
     await setActiveHousehold(context.user.id, household.id);
@@ -74,7 +75,7 @@ export default async function DashboardPage({
 
   const householdId = active.household.id;
 
-  async function quickLocationAction(formData: FormData) {
+  async function quickFloorAction(formData: FormData) {
     "use server";
 
     const parsed = createLocationSchema.parse({
@@ -83,7 +84,7 @@ export default async function DashboardPage({
       description: String(formData.get("description") || ""),
     });
 
-    await createLocation({
+    await createFloor({
       userId: context.user.id,
       householdId: parsed.householdId,
       name: parsed.name,
@@ -91,13 +92,13 @@ export default async function DashboardPage({
     });
 
     revalidatePath(`/${locale}/dashboard`);
-    revalidatePath(`/${locale}/locations`);
+    revalidatePath(`/${locale}/households/${householdId}/canvas`);
   }
 
-  const [activity, usage, locations] = await Promise.all([
+  const [activity, usage, floors] = await Promise.all([
     listActivity({ userId: context.user.id, householdId, limit: 12 }),
     getUsageHints({ userId: context.user.id, householdId }),
-    listLocations({ userId: context.user.id, householdId }),
+    listFloors({ userId: context.user.id, householdId }),
   ]);
 
   return (
@@ -132,17 +133,17 @@ export default async function DashboardPage({
       <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
         <Card>
           <CardHeader>
-            <CardTitle>Quick Add Location</CardTitle>
+            <CardTitle>Quick Add Floor</CardTitle>
             <CardDescription>
-              Create locations like Apartment, Basement storage, Garage.
+              Create floors like Basement, Floor 1, Floor 2, Attic.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form action={quickLocationAction} className="grid gap-3">
-              <Input name="name" placeholder="Basement storage" required />
+            <form action={quickFloorAction} className="grid gap-3">
+              <Input name="name" placeholder="Floor 1" required />
               <Input name="description" placeholder="Optional description" />
               <Button type="submit" className="w-fit">
-                Add location
+                Add floor
               </Button>
             </form>
           </CardContent>
@@ -164,9 +165,6 @@ export default async function DashboardPage({
             </Button>
             <Button asChild>
               <Link href={`/${locale}/onboarding`}>Onboarding Wizard</Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href={`/${locale}/locations`}>Locations</Link>
             </Button>
             <Button asChild variant="outline">
               <Link href={`/${locale}/items`}>Item Library</Link>
@@ -199,6 +197,7 @@ export default async function DashboardPage({
               id: entry.activity.id,
               actionType: entry.activity.actionType,
               entityType: entry.activity.entityType,
+              entityId: entry.activity.entityId,
               metadata: entry.activity.metadata as Record<string, unknown>,
               createdAt: entry.activity.createdAt,
               actorName:
@@ -206,19 +205,20 @@ export default async function DashboardPage({
                 entry.profile?.name ||
                 context.user.email,
             }))}
+            locale={locale}
           />
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Locations in this household</CardTitle>
+          <CardTitle>Floors in this household</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {locations.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No locations yet.</div>
+          {floors.length === 0 ? (
+            <div className="text-sm text-muted-foreground">No floors yet.</div>
           ) : (
-            locations.map((row) => (
+            floors.map((row) => (
               <div
                 key={row.location.id}
                 className="flex items-center justify-between rounded-md border p-3"
@@ -230,7 +230,7 @@ export default async function DashboardPage({
                   </div>
                 </div>
                 <Button asChild size="sm" variant="outline">
-                  <Link href={`/${locale}/locations/${row.location.id}`}>Open</Link>
+                  <Link href={`/${locale}/households/${householdId}/canvas`}>Open</Link>
                 </Button>
               </div>
             ))

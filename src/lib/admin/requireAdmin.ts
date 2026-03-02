@@ -26,3 +26,4 @@ export async function requireAdmin(): Promise<AdminSessionGuard> {
 
   return { ok: true, status: 200, session, me: { isAdmin: true } };
 }
+

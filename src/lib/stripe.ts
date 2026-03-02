@@ -124,3 +124,4 @@ export async function fetchLatestStripeSubscription(
   if (subs.data.length === 0) return null;
   return subs.data[0];
 }
+

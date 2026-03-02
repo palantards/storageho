@@ -215,13 +215,15 @@ function mapSupabaseError(error: unknown): string {
 export async function loginWithSupabase({
   email,
   password,
+  rememberMe = true,
 }: {
   email: string;
   password: string;
+  rememberMe?: boolean;
 }): Promise<{ ok: boolean; errorKey?: string }> {
   try {
     const session = await signInWithPassword({ email, password });
-    await persistSession(session);
+    await persistSession(session, { rememberMe });
     return { ok: true };
   } catch (error) {
     console.error("Login failed", error);
@@ -265,3 +267,4 @@ export async function signOutSupabase(accessToken?: string) {
     }
   }
 }
+

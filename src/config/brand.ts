@@ -104,11 +104,6 @@ export const brand: BrandConfig = {
             icon: "LayoutDashboard",
           },
           {
-            labelKey: "nav.onboarding",
-            href: "/onboarding",
-            icon: "Sparkles",
-          },
-          {
             labelKey: "nav.scan",
             href: "/scan",
             icon: "ScanLine",
@@ -117,11 +112,6 @@ export const brand: BrandConfig = {
             labelKey: "nav.canvas",
             href: "/canvas",
             icon: "Map",
-          },
-          {
-            labelKey: "nav.locations",
-            href: "/locations",
-            icon: "MapPin",
           },
           {
             labelKey: "nav.items",
@@ -234,3 +224,4 @@ export const brand: BrandConfig = {
     },
   },
 } as const;
+

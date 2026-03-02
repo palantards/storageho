@@ -452,3 +452,4 @@ export function applyRoomMoveWithChildren<TPlacement extends PlacementWithId>(in
     return { ...entry, x: normalized.x, y: normalized.y };
   });
 }
+

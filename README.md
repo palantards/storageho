@@ -6,12 +6,12 @@ StorageHo is a shared household + storage inventory app built on:
 - Drizzle ORM (typed queries)
 
 V2 wedge highlights:
-- Onboarding wizard: `/[locale]/onboarding`
+- Floor-first household setup: `/[locale]/households/[id]/canvas`
 - Scan Mode (mobile loop): `/[locale]/scan`
 - AI capture suggestions (human approval required)
 - AI Find (fuzzy + semantic fused search)
 - Spatial room map: `/[locale]/rooms/[roomId]/map`
-- Household multi-floor canvas (map-first): `/[locale]/households/[id]/canvas`
+- Household setup-first canvas (read-only map preview): `/[locale]/households/[id]/canvas`
 
 ## 1) Prerequisites
 
@@ -44,11 +44,17 @@ OPENAI_MODEL_EMBEDDING=text-embedding-3-small
 AI_JOB_RUNNER_TOKEN=change-me
 AI_CRON_TOKEN=change-me
 AI_INTERNAL_TOKEN=change-me
+AI_RUN_ON_UPLOAD=1
+AI_DISPATCH_ON_ENQUEUE=1
+INTERNAL_APP_URL=http://localhost:3000
 ```
 
 Notes:
 - `AI_MOCK_MODE=1` gives deterministic local suggestions/embeddings without external API calls.
 - Set `AI_MOCK_MODE=0` in production when `OPENAI_API_KEY` is configured.
+- `AI_RUN_ON_UPLOAD=1` runs photo analyze immediately in upload request for faster UX. Set `0` to rely only on background workers.
+- `AI_DISPATCH_ON_ENQUEUE=1` triggers `/api/jobs/run` automatically when jobs are enqueued (event-like push).
+- `INTERNAL_APP_URL` should point to your deployed app base URL so dispatch calls reach the job runner endpoint.
 
 ## 3) Install and migrate
 
@@ -62,6 +68,8 @@ Migrations are in `supabase/migrations` and now include:
 - `20260228190000_inventory_v2_wedge.sql` (pgvector + V2 tables + RLS)
 - `20260301093000_household_canvas.sql` (multi-floor household canvas tables + RLS)
 - `20260301120000_household_canvas_shapes.sql` (shape types + floor/location 1:1 backfill)
+- `20260301143000_rooms_system_flag.sql` (`rooms.is_system` + single `Unassigned` room per floor)
+- `20260301190000_remove_locations_table.sql` (drops `locations`; floors are now `household_canvas_layers`)
 
 ## 4) Run locally
 
@@ -71,9 +79,8 @@ npm run dev
 
 Main app routes:
 - `/{locale}/dashboard`
-- `/{locale}/onboarding`
 - `/{locale}/scan`
-- `/{locale}/locations`
+- `/{locale}/households/[id]/canvas` (floor-first setup)
 - `/{locale}/rooms/[roomId]`
 - `/{locale}/rooms/[roomId]/map`
 - `/{locale}/canvas`
@@ -82,12 +89,16 @@ Main app routes:
 - `/{locale}/items`
 - `/{locale}/import`
 - `/{locale}/export`
-- `/{locale}/print/labels?locationId=...`
+- `/{locale}/print/labels?floorId=...`
 - `/{locale}/households/[id]/settings`
 
 ## 5) AI job runner
 
 Photo analysis + embedding upserts are queued in `ai_jobs`.
+Default execution strategy:
+- direct: run photo analyze immediately on upload (`AI_RUN_ON_UPLOAD=1`)
+- push-dispatch: enqueue also triggers `/api/jobs/run` (`AI_DISPATCH_ON_ENQUEUE=1`)
+- fallback: cron endpoint still available for retries/recovery
 
 Manual dev run:
 ```bash
@@ -102,6 +113,10 @@ Internal AI endpoints:
 - `POST /api/ai/analyze-photo`
 - `POST /api/ai/embeddings/upsert`
 - authorize with `AI_INTERNAL_TOKEN` (or runner token fallback)
+
+Batch capture endpoint:
+- `POST /api/suggestions/analyze-container`
+- analyzes up to 4 latest container photos in one prompt and writes a deduplicated pending suggestion set
 
 ## 6) Search model
 
@@ -125,19 +140,23 @@ npm run test:e2e
 ```
 
 Current smoke flow covers:
-- signup -> onboarding -> scan -> suggestions accept -> search -> map placement -> household canvas zoom/draw/tap-place
+- signup -> onboarding -> scan -> suggestions accept -> search -> room map -> household setup-first canvas create flow
 
-## 10) Household canvas (Map Mode V2)
+## 10) Household canvas (Setup-first V2)
 
 `/{locale}/canvas` redirects to your active household canvas.
 
-Map-first flow:
-1. Add/select floor in the vertical floor stack.
-2. Draw rooms using rectangle/square/triangle tools.
-3. Switch to **Tap to add box** and tap map to open quick actions:
-   - create + place a new box
-   - place an existing box
-4. Wheel/pinch zoom is scoped to the canvas viewport only (page zoom/scroll outside map is unaffected).
+Setup-first flow:
+1. Create/select floor (name only).
+2. Optionally create/select room.
+3. Create container with floor + optional room (if omitted, system `Unassigned` room is used).
+4. Immediately add optional photo(s) and review AI suggestions.
+5. Optionally quick-add items (`2 HDMI cables, 1 powerbank`) or open the box page.
+6. Read-only map preview renders rooms and containers with deterministic non-overlapping layout.
+
+Notes:
+- Interactive draw/drag/resize/rotate is disabled in this iteration.
+- The data model is now floor-first: `household -> floor -> room -> container`.
 
 ## 8) Deploy (Vercel)
 

@@ -11,3 +11,4 @@ export async function getMessages(locale: Locale): Promise<Messages> {
       return (await import("@/i18n/messages/en.json")).default as Messages;
   }
 }
+

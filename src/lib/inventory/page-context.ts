@@ -1,4 +1,4 @@
-﻿import "server-only";
+import "server-only";
 
 import type { Locale } from "@/i18n/config";
 import { requireSessionUser } from "@/lib/inventory/auth";
@@ -24,3 +24,4 @@ export async function getInventoryContext(locale: Locale) {
     preferences: context.preferences,
   };
 }
+

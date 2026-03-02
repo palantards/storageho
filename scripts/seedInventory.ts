@@ -21,16 +21,28 @@ async function run() {
     on conflict do nothing
   `);
 
-  const locationResult = await db.execute(sql`
-    insert into locations (household_id, name, created_by)
-    values (${householdId}::uuid, 'Apartment', ${seedUser}::uuid)
+  const floorResult = await db.execute(sql`
+    insert into household_canvas_layers (household_id, location_id, name, sort_order, created_by)
+    values (
+      ${householdId}::uuid,
+      gen_random_uuid(),
+      'Floor 1',
+      0,
+      ${seedUser}::uuid
+    )
     returning id
   `);
-  const locationId = String(locationResult.rows[0]?.id || "");
+  const floorId = String(floorResult.rows[0]?.id || "");
+
+  await db.execute(sql`
+    update household_canvas_layers
+    set location_id = id
+    where id = ${floorId}::uuid
+  `);
 
   const roomResult = await db.execute(sql`
     insert into rooms (household_id, location_id, name, created_by)
-    values (${householdId}::uuid, ${locationId}::uuid, 'Storage Room', ${seedUser}::uuid)
+    values (${householdId}::uuid, ${floorId}::uuid, 'Storage Room', ${seedUser}::uuid)
     returning id
   `);
   const roomId = String(roomResult.rows[0]?.id || "");

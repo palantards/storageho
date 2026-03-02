@@ -607,3 +607,4 @@ export function RoomMapEditor({
     </div>
   );
 }
+

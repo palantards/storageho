@@ -6,6 +6,7 @@ import { analyzePhotoWithAi } from "@/lib/inventory/ai";
 const bodySchema = z.object({
   signedUrl: z.string().url(),
   maxSuggestions: z.number().int().min(1).max(20).optional(),
+  language: z.string().trim().min(2).max(10).optional(),
 });
 
 function isAuthorized(request: NextRequest) {
@@ -31,6 +32,7 @@ export async function POST(request: NextRequest) {
     const result = await analyzePhotoWithAi({
       signedUrl: body.signedUrl,
       maxSuggestions: body.maxSuggestions,
+      language: body.language,
     });
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
@@ -41,3 +43,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+

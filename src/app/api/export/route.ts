@@ -1,4 +1,4 @@
-﻿import { NextRequest } from "next/server";
+import { NextRequest } from "next/server";
 
 import { getSession } from "@/lib/auth";
 import { exportRowsToCsv } from "@/lib/inventory/csv";
@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   }
 
   const householdId = request.nextUrl.searchParams.get("householdId");
-  const locationId = request.nextUrl.searchParams.get("locationId");
+  const floorId = request.nextUrl.searchParams.get("floorId");
 
   if (!householdId) {
     return new Response("householdId is required", { status: 400 });
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     const rows = await getExportRows({
       userId: session.user.id,
       householdId,
-      locationId,
+      locationId: floorId,
     });
 
     const csv = exportRowsToCsv(rows);
@@ -37,3 +37,4 @@ export async function GET(request: NextRequest) {
     return new Response("Export failed", { status: 400 });
   }
 }
+

@@ -19,13 +19,16 @@ export type BoxSuggestionRow = {
 
 export function BoxSuggestionsPanel({
   householdId,
+  containerId,
   suggestions,
 }: {
   householdId: string;
+  containerId?: string;
   suggestions: BoxSuggestionRow[];
 }) {
   const router = useRouter();
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [pendingAnalyze, setPendingAnalyze] = useState(false);
   const [draftNames, setDraftNames] = useState<Record<string, string>>({});
   const [draftQty, setDraftQty] = useState<Record<string, string>>({});
   const [message, setMessage] = useState("");
@@ -84,36 +87,87 @@ export function BoxSuggestionsPanel({
 
   return (
     <div className="space-y-3">
-      {pendingSuggestions.length > 0 ? (
+      <div className="text-xs text-muted-foreground">
+        Suggestions are generated automatically after upload (single-photo + batch pass).
+        If they still do not appear, use Refresh or run the AI job runner endpoint.
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="outline" onClick={() => router.refresh()}>
+          Refresh suggestions
+        </Button>
         <Button
           type="button"
           variant="outline"
+          disabled={!containerId || pendingAnalyze}
           onClick={async () => {
-            const highConfidence = pendingSuggestions.filter(
-              (suggestion) => suggestion.confidence >= 0.82,
-            );
-            if (highConfidence.length === 0) {
-              setMessage("No high-confidence suggestions to accept.");
+            if (!containerId) {
+              setMessage("Select a container first.");
               return;
             }
 
-            for (const suggestion of highConfidence) {
-              await submitAction(
-                {
-                  suggestionId: suggestion.id,
-                  action: "accept",
-                },
-                false,
-              );
+            try {
+              setPendingAnalyze(true);
+              setMessage("");
+              const response = await fetch("/api/suggestions/analyze-container", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  householdId,
+                  containerId,
+                  maxPhotos: 4,
+                  maxSuggestions: 12,
+                  replacePending: true,
+                }),
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok) {
+                throw new Error(data?.error || "Re-analyze failed");
+              }
+              const count = Number(data?.suggestionsCount ?? 0);
+              setMessage(`Re-analyzed latest photos. ${count} suggestion(s) generated.`);
+              router.refresh();
+            } catch (error) {
+              setMessage(error instanceof Error ? error.message : "Re-analyze failed");
+            } finally {
+              setPendingAnalyze(false);
             }
-
-            router.refresh();
-            setMessage(`Accepted ${highConfidence.length} high-confidence suggestions.`);
           }}
         >
-          Accept all high confidence
+          {pendingAnalyze ? "Analyzing..." : "Re-analyze latest photos"}
         </Button>
-      ) : null}
+
+        {pendingSuggestions.length > 0 ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={async () => {
+              const highConfidence = pendingSuggestions.filter(
+                (suggestion) => suggestion.confidence >= 0.82,
+              );
+              if (highConfidence.length === 0) {
+                setMessage("No high-confidence suggestions to accept.");
+                return;
+              }
+
+              for (const suggestion of highConfidence) {
+                await submitAction(
+                  {
+                    suggestionId: suggestion.id,
+                    action: "accept",
+                  },
+                  false,
+                );
+              }
+
+              router.refresh();
+              setMessage(`Accepted ${highConfidence.length} high-confidence suggestions.`);
+            }}
+          >
+            Accept all high confidence
+          </Button>
+        ) : null}
+      </div>
 
       {message ? <div className="text-xs text-muted-foreground">{message}</div> : null}
 
@@ -185,3 +239,4 @@ export function BoxSuggestionsPanel({
     </div>
   );
 }
+

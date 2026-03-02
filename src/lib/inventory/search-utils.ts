@@ -1,4 +1,4 @@
-﻿export function normalizeSearchQuery(input: string) {
+export function normalizeSearchQuery(input: string) {
   return input.trim().toLowerCase().replace(/\s+/g, " ");
 }
 

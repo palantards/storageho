@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createContainerFromSetupSchema,
   householdCanvasCreateRoomSchema,
   householdCanvasPlacementSchema,
 } from "@/lib/inventory/validation";
@@ -52,5 +53,17 @@ describe("household canvas validation", () => {
       shapeType: "square",
     });
     expect(parsed.shapeType).toBe("square");
+  });
+
+  it("accepts setup container payload with optional room", () => {
+    const parsed = createContainerFromSetupSchema.parse({
+      householdId,
+      layerId,
+      roomId: null,
+      name: "Box 12",
+      code: "B-12",
+    });
+    expect(parsed.roomId).toBeNull();
+    expect(parsed.name).toBe("Box 12");
   });
 });

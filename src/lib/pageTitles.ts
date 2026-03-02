@@ -5,8 +5,7 @@ export function getTitleKey(pathname: string): string {
   const parts = pathname.split("/").filter(Boolean);
   const rest = parts.slice(1).join("/");
 
-  if (rest.startsWith("locations/")) return "page.locations.title";
-  if (rest.startsWith("rooms/")) return "page.locations.title";
+  if (rest.startsWith("rooms/")) return "page.canvas.title";
   if (rest.startsWith("boxes/")) return "page.items.title";
   if (rest.startsWith("households/") && rest.includes("/canvas")) {
     return "page.canvas.title";
@@ -17,14 +16,10 @@ export function getTitleKey(pathname: string): string {
   switch (`/${rest}`) {
     case "/dashboard":
       return "page.dashboard.title";
-    case "/onboarding":
-      return "page.onboarding.title";
     case "/scan":
       return "page.scan.title";
     case "/canvas":
       return "page.canvas.title";
-    case "/locations":
-      return "page.locations.title";
     case "/items":
       return "page.items.title";
     case "/import":
@@ -51,3 +46,4 @@ export function getTitleKey(pathname: string): string {
 export function stripLocale(pathname: string, locale: Locale): string {
   return pathname === `/${locale}` ? "/" : pathname.replace(`/${locale}`, "") || "/";
 }
+
