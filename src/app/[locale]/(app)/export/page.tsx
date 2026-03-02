@@ -3,6 +3,13 @@ import { getInventoryContext } from "@/lib/inventory/page-context";
 import { listFloors } from "@/lib/inventory/service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 
 export default async function ExportPage({
   params,
@@ -32,21 +39,22 @@ export default async function ExportPage({
           <form action="/api/export" method="get" className="space-y-3">
             <input type="hidden" name="householdId" value={householdId} />
 
-            <label className="grid gap-1 text-sm">
-              Floor scope (optional)
-              <select
-                name="floorId"
-                className="h-9 rounded-md border bg-background px-3 text-sm"
-                defaultValue=""
-              >
-                <option value="">All floors</option>
-                {floors.map((entry) => (
-                  <option key={entry.location.id} value={entry.location.id}>
-                    {entry.location.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="grid gap-1 text-sm">
+              <span>Floor scope (optional)</span>
+              <Select name="floorId" defaultValue="">
+                <SelectTrigger>
+                  <SelectValue placeholder="All floors" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All floors</SelectItem>
+                  {floors.map((entry) => (
+                    <SelectItem key={entry.location.id} value={entry.location.id}>
+                      {entry.location.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             <Button type="submit">Download CSV</Button>
           </form>

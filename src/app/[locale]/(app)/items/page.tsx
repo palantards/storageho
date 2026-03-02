@@ -15,9 +15,19 @@ import {
   ItemsVirtualizedList,
   type ItemsVirtualizedRow,
 } from "@/components/inventory/ItemsVirtualizedList";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/inventory/EmptyState";
+import { SectionHeader } from "@/components/inventory/SectionHeader";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 export default async function ItemsPage({
   params,
@@ -126,27 +136,33 @@ export default async function ItemsPage({
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>Item Library</CardTitle>
+          <SectionHeader
+            title="Item Library"
+            description="Search, filter, and manage all items across your household."
+          />
         </CardHeader>
         <CardContent>
-          <form method="get" className="flex gap-2">
+          <form method="get" className="flex flex-col gap-3 md:flex-row md:items-end">
             <Input
               name="q"
               defaultValue={search.q || ""}
               placeholder="Search items"
             />
-            <select
-              name="tag"
-              defaultValue={search.tag || ""}
-              className="h-9 rounded-md border bg-background px-3 text-sm"
-            >
-              <option value="">All tags</option>
-              {tags.map((tag) => (
-                <option key={tag.id} value={tag.id}>
-                  {tag.name}
-                </option>
-              ))}
-            </select>
+            <div className="w-full md:w-52">
+              <Select name="tag" defaultValue={search.tag || ""}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All tags" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All tags</SelectItem>
+                  {tags.map((tag) => (
+                    <SelectItem key={tag.id} value={tag.id}>
+                      {tag.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <Button type="submit" variant="outline">
               Search
             </Button>
@@ -156,15 +172,25 @@ export default async function ItemsPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>All items ({items.length})</CardTitle>
+          <SectionHeader
+            title={`All items (${items.length})`}
+            description="Virtualized list for fast browsing."
+          />
         </CardHeader>
         <CardContent>
-          <ItemsVirtualizedList
-            locale={locale}
-            rows={itemRows}
-            q={search.q}
-            tag={search.tag}
-          />
+          {items.length === 0 ? (
+            <EmptyState
+              title="No items yet"
+              description="Add items via bulk paste, AI suggestions, or quick add."
+            />
+          ) : (
+            <ItemsVirtualizedList
+              locale={locale}
+              rows={itemRows}
+              q={search.q}
+              tag={search.tag}
+            />
+          )}
         </CardContent>
       </Card>
 
@@ -175,9 +201,9 @@ export default async function ItemsPage({
           </CardHeader>
           <CardContent>
             <form action={bulkAddAction} className="space-y-2">
-              <textarea
+              <Textarea
                 name="bulkText"
-                className="min-h-36 w-full rounded-md border bg-background p-2 text-sm"
+                className="min-h-36"
                 placeholder="2 HDMI cables, 1 powerbank&#10;winter gloves&#10;flashlight"
               />
               <Button type="submit" variant="outline">
@@ -189,11 +215,17 @@ export default async function ItemsPage({
 
         <Card>
           <CardHeader>
-            <CardTitle>Merge duplicates</CardTitle>
+            <SectionHeader
+              title="Merge duplicates"
+              description="Combine items with the same name to keep counts accurate."
+            />
           </CardHeader>
           <CardContent>
             {duplicates.length === 0 ? (
-              <div className="text-sm text-muted-foreground">No likely duplicates found.</div>
+              <EmptyState
+                title="No likely duplicates found."
+                description="Duplicate names will appear here automatically."
+              />
             ) : (
               <div className="space-y-3">
                 {duplicates.map((group) => (
@@ -203,27 +235,30 @@ export default async function ItemsPage({
                     className="grid gap-2 rounded-md border p-3"
                   >
                     <div className="text-sm font-medium">{group[0]?.name}</div>
-                    <select
-                      name="sourceItemId"
-                      className="h-9 rounded-md border bg-background px-3 text-sm"
-                    >
-                      {group.map((row) => (
-                        <option key={`source-${row.id}`} value={row.id}>
-                          Source: {row.name} ({row.placements} placements)
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      name="targetItemId"
-                      className="h-9 rounded-md border bg-background px-3 text-sm"
-                      defaultValue={group[0]?.id}
-                    >
-                      {group.map((row) => (
-                        <option key={`target-${row.id}`} value={row.id}>
-                          Keep: {row.name} ({row.quantityTotal} qty total)
-                        </option>
-                      ))}
-                    </select>
+                    <Select name="sourceItemId">
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose source" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {group.map((row) => (
+                          <SelectItem key={`source-${row.id}`} value={row.id}>
+                            Source: {row.name} ({row.placements} placements)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select name="targetItemId" defaultValue={group[0]?.id}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Keep item" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {group.map((row) => (
+                          <SelectItem key={`target-${row.id}`} value={row.id}>
+                            Keep: {row.name} ({row.quantityTotal} qty total)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <Button type="submit" variant="outline" className="w-fit">
                       Merge
                     </Button>
@@ -238,13 +273,17 @@ export default async function ItemsPage({
       {selectedItemId ? (
         <Card>
           <CardHeader>
-            <CardTitle>Where this item exists</CardTitle>
+            <SectionHeader
+              title="Where this item exists"
+              description="All boxes containing the selected item."
+            />
           </CardHeader>
           <CardContent className="space-y-2">
             {placements.length === 0 ? (
-              <div className="text-sm text-muted-foreground">
-                No placements found.
-              </div>
+              <EmptyState
+                title="No placements found."
+                description="Add the item to a box to see it here."
+              />
             ) : (
               placements.map((row) => (
                 <div key={row.containerItem.id} className="rounded-md border p-3">

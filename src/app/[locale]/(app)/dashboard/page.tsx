@@ -14,13 +14,13 @@ import {
 } from "@/lib/inventory/service";
 import { createHouseholdSchema, createLocationSchema } from "@/lib/inventory/validation";
 import { ActivityFeed } from "@/components/inventory/ActivityFeed";
+import { ActionBar } from "@/components/inventory/ActionBar";
+import { SectionHeader } from "@/components/inventory/SectionHeader";
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -106,26 +106,22 @@ export default async function DashboardPage({
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Containers</CardDescription>
-            <CardTitle>{usage.containers}</CardTitle>
+            <SectionHeader title={`${usage.containers}`} description="Containers" />
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Items</CardDescription>
-            <CardTitle>{usage.items}</CardTitle>
+            <SectionHeader title={`${usage.items}`} description="Items" />
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Photos</CardDescription>
-            <CardTitle>{usage.photos}</CardTitle>
+            <SectionHeader title={`${usage.photos}`} description="Photos" />
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Estimated storage</CardDescription>
-            <CardTitle>{usage.estimatedStorageMb} MB</CardTitle>
+            <SectionHeader title={`${usage.estimatedStorageMb} MB`} description="Estimated storage" />
           </CardHeader>
         </Card>
       </div>
@@ -133,10 +129,10 @@ export default async function DashboardPage({
       <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
         <Card>
           <CardHeader>
-            <CardTitle>Quick Add Floor</CardTitle>
-            <CardDescription>
-              Create floors like Basement, Floor 1, Floor 2, Attic.
-            </CardDescription>
+            <SectionHeader
+              title="Quick Add Floor"
+              description="Create floors like Basement, Floor 1, Floor 2, Attic."
+            />
           </CardHeader>
           <CardContent>
             <form action={quickFloorAction} className="grid gap-3">
@@ -151,45 +147,47 @@ export default async function DashboardPage({
 
         <Card>
           <CardHeader>
-            <CardTitle>Open Inventory</CardTitle>
-            <CardDescription>
-              Fastest flow on mobile: Scan Mode. For setup, use Onboarding + map.
-            </CardDescription>
+            <SectionHeader
+              title="Open Inventory"
+              description="Fastest flow on mobile: Scan Mode. For setup, use Onboarding + map."
+            />
           </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            <Button asChild>
-              <Link href={`/${locale}/scan`}>Scan Mode</Link>
-            </Button>
-            <Button asChild>
-              <Link href={`/${locale}/canvas`}>Household Canvas</Link>
-            </Button>
-            <Button asChild>
-              <Link href={`/${locale}/onboarding`}>Onboarding Wizard</Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href={`/${locale}/items`}>Item Library</Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href={`/${locale}/import`}>Import CSV</Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href={`/${locale}/export`}>Export CSV</Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href={`/${locale}/households/${householdId}/settings`}>
-                Household Settings
-              </Link>
-            </Button>
+          <CardContent>
+            <ActionBar>
+              <Button asChild>
+                <Link href={`/${locale}/canvas`}>Household Canvas</Link>
+              </Button>
+              <Button asChild>
+                <Link href={`/${locale}/scan`}>Scan Mode</Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href={`/${locale}/onboarding`}>Onboarding</Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href={`/${locale}/items`}>Item Library</Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href={`/${locale}/import`}>Import CSV</Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href={`/${locale}/export`}>Export CSV</Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href={`/${locale}/households/${householdId}/settings`}>
+                  Household Settings
+                </Link>
+              </Button>
+            </ActionBar>
           </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent activity</CardTitle>
-          <CardDescription>
-            Latest create/move/photo/invite events in this household.
-          </CardDescription>
+          <SectionHeader
+            title="Recent activity"
+            description="Latest create/move/photo/invite events in this household."
+          />
         </CardHeader>
         <CardContent>
           <ActivityFeed
@@ -212,7 +210,7 @@ export default async function DashboardPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Floors in this household</CardTitle>
+          <SectionHeader title="Floors in this household" />
         </CardHeader>
         <CardContent className="space-y-2">
           {floors.length === 0 ? (

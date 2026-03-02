@@ -31,8 +31,10 @@ import { MoveItemDialog } from "@/components/inventory/MoveItemDialog";
 import { PhotoUploader } from "@/components/inventory/PhotoUploader";
 import { QRCodeRenderer } from "@/components/inventory/QRCodeRenderer";
 import { SignedImage } from "@/components/inventory/SignedImage";
+import { SectionHeader } from "@/components/inventory/SectionHeader";
+import { TagChips } from "@/components/inventory/TagChips";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -280,29 +282,28 @@ export default async function BoxPage({
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>{row.container.name}</CardTitle>
+          <SectionHeader
+            title={row.container.name}
+            description={`${row.location.name} → ${row.room.name}`}
+            actions={
+              <QRCodeRenderer
+                value={absoluteDeepLink}
+              />
+            }
+          />
         </CardHeader>
-        <CardContent className="grid gap-4 lg:grid-cols-[1fr_auto]">
+        <CardContent className="grid gap-4">
           <div className="space-y-2 text-sm text-muted-foreground">
-            <div>
-              Path: {row.location.name} {"->"} {row.room.name} {"->"}{" "}
-              {row.container.name}
-            </div>
             <div>Code: {row.container.code || "-"}</div>
             <div>Deep link: {absoluteDeepLink}</div>
-            <div className="flex flex-wrap gap-2 pt-1">
-              {containerTags.map((tagRow) => (
-                <span
-                  key={tagRow.tag.id}
-                  className="rounded border px-2 py-1 text-xs"
-                  style={{ color: tagRow.tag.color || undefined }}
-                >
-                  {tagRow.tag.name}
-                </span>
-              ))}
-            </div>
+            <TagChips
+              tags={containerTags.map((tagRow) => ({
+                id: tagRow.tag.id,
+                name: tagRow.tag.name,
+                color: tagRow.tag.color,
+              }))}
+            />
           </div>
-          <QRCodeRenderer value={absoluteDeepLink} />
         </CardContent>
       </Card>
 
@@ -318,7 +319,10 @@ export default async function BoxPage({
         <TabsContent value="contents" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Add item</CardTitle>
+              <SectionHeader
+                title="Add item"
+                description="Select an existing item or type a new name to create and add."
+              />
             </CardHeader>
             <CardContent>
               <form action={addItemUnifiedAction} className="grid gap-3">
@@ -385,7 +389,10 @@ export default async function BoxPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Items in this box</CardTitle>
+              <SectionHeader
+                title="Items in this box"
+                description="Rename, adjust quantity, move or remove items."
+              />
             </CardHeader>
             <CardContent className="space-y-2">
               {containerItems.length === 0 ? (
@@ -441,7 +448,7 @@ export default async function BoxPage({
         <TabsContent value="photos">
           <Card>
             <CardHeader>
-              <CardTitle>Photos</CardTitle>
+              <SectionHeader title="Photos" description="Upload and manage box photos." />
             </CardHeader>
             <CardContent className="space-y-3">
               <PhotoUploader
@@ -468,7 +475,10 @@ export default async function BoxPage({
         <TabsContent value="suggestions">
           <Card>
             <CardHeader>
-              <CardTitle>AI capture suggestions</CardTitle>
+              <SectionHeader
+                title="AI capture suggestions"
+                description="Review and accept/reject AI-detected items."
+              />
             </CardHeader>
             <CardContent>
               <BoxSuggestionsPanel
@@ -492,7 +502,7 @@ export default async function BoxPage({
         <TabsContent value="activity">
           <Card>
             <CardHeader>
-              <CardTitle>History</CardTitle>
+              <SectionHeader title="History" description="Recent changes related to this box." />
             </CardHeader>
             <CardContent>
               <ActivityFeed
@@ -517,7 +527,7 @@ export default async function BoxPage({
         <TabsContent value="settings" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Tags</CardTitle>
+              <SectionHeader title="Tags" description="Set default tags for this box." />
             </CardHeader>
             <CardContent>
               <form action={updateTagsAction} className="flex gap-2">
@@ -535,7 +545,7 @@ export default async function BoxPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Box metadata</CardTitle>
+              <SectionHeader title="Box metadata" />
             </CardHeader>
             <CardContent className="space-y-1 text-sm text-muted-foreground">
               <div>Room: {row.room.name}</div>
@@ -547,7 +557,7 @@ export default async function BoxPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Danger zone</CardTitle>
+              <SectionHeader title="Danger zone" />
             </CardHeader>
             <CardContent className="flex flex-wrap gap-2">
               <form action={archiveBoxAction}>

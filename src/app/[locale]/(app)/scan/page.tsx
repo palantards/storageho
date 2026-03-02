@@ -17,10 +17,9 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
+import { SectionHeader } from "@/components/inventory/SectionHeader";
 
 export default async function ScanModePage({
   params,
@@ -99,10 +98,10 @@ export default async function ScanModePage({
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>Scan Mode</CardTitle>
-          <CardDescription>
-            Mobile-first loop: scan box QR, capture, quick add, move, next.
-          </CardDescription>
+          <SectionHeader
+            title="Scan Mode"
+            description="Mobile-first loop: scan box QR, capture, quick add, move, next."
+          />
         </CardHeader>
       </Card>
 
@@ -139,10 +138,10 @@ export default async function ScanModePage({
         <div className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>AI suggestions</CardTitle>
-              <CardDescription>
-                Review AI capture output before anything is committed.
-              </CardDescription>
+              <SectionHeader
+                title="AI suggestions"
+                description="Review AI capture output before anything is committed."
+              />
             </CardHeader>
             <CardContent>
               {!activeBox ? (
@@ -170,10 +169,10 @@ export default async function ScanModePage({
 
           <Card>
             <CardHeader>
-              <CardTitle>3) Move items</CardTitle>
-              <CardDescription>
-                Split quantities by scanning/selecting destination box.
-              </CardDescription>
+              <SectionHeader
+                title="3) Move items"
+                description="Split quantities by scanning/selecting destination box."
+              />
             </CardHeader>
             <CardContent className="space-y-2">
               {!activeBox ? (

@@ -22,6 +22,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 export default async function RoomPage({
   params,
@@ -187,12 +195,6 @@ export default async function RoomPage({
             </Link>
           </Button>
           <Link
-            href={`/${locale}/rooms/${roomId}/map`}
-            className="rounded border px-2 py-1 underline-offset-2 hover:underline"
-          >
-            Open map
-          </Link>
-          <Link
             href={`/${locale}/households/${activeHouseholdId}/canvas?focus=room:${roomId}`}
             className="rounded border px-2 py-1 underline-offset-2 hover:underline"
           >
@@ -230,18 +232,19 @@ export default async function RoomPage({
             <Input name="name" placeholder="Box A" required />
             <Input name="code" placeholder="A-01" />
             <Input name="description" placeholder="Description" />
-            <select
-              name="parentContainerId"
-              defaultValue="__root__"
-              className="h-9 rounded-md border bg-background px-3 text-sm"
-            >
-              <option value="__root__">Top-level box</option>
-              {containers.map((entry) => (
-                <option key={entry.container.id} value={entry.container.id}>
-                  Nested in: {entry.container.name}
-                </option>
-              ))}
-            </select>
+            <Select name="parentContainerId" defaultValue="__root__">
+              <SelectTrigger>
+                <SelectValue placeholder="Parent container" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__root__">Top-level box</SelectItem>
+                {containers.map((entry) => (
+                  <SelectItem key={entry.container.id} value={entry.container.id}>
+                    Nested in: {entry.container.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button type="submit" className="md:col-span-5 w-fit">
               Add container
             </Button>
@@ -251,21 +254,22 @@ export default async function RoomPage({
             <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Bulk create paths
             </div>
-            <select
-              name="rootParentContainerId"
-              defaultValue="__root__"
-              className="h-9 rounded-md border bg-background px-3 text-sm md:max-w-sm"
-            >
-              <option value="__root__">Top-level root</option>
-              {containers.map((entry) => (
-                <option key={`bulk-${entry.container.id}`} value={entry.container.id}>
-                  Under: {entry.container.name}
-                </option>
-              ))}
-            </select>
-            <textarea
+            <Select name="rootParentContainerId" defaultValue="__root__">
+              <SelectTrigger className="md:max-w-sm">
+                <SelectValue placeholder="Top-level root" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__root__">Top-level root</SelectItem>
+                {containers.map((entry) => (
+                  <SelectItem key={`bulk-${entry.container.id}`} value={entry.container.id}>
+                    Under: {entry.container.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Textarea
               name="paths"
-              className="min-h-28 rounded-md border bg-background p-2 text-sm"
+              className="min-h-28"
               placeholder={"Shelf A > Box 01\nShelf A > Box 02\nShelf B > Box 10"}
             />
             <Button type="submit" variant="outline" className="w-fit">

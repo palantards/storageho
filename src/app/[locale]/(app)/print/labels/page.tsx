@@ -5,6 +5,13 @@ import { PrintButton } from "@/components/inventory/PrintButton";
 import { QRCodeRenderer } from "@/components/inventory/QRCodeRenderer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL ||
@@ -52,17 +59,18 @@ export default async function PrintLabelsPage({
         </CardHeader>
         <CardContent className="space-y-2">
           <form method="get" className="flex items-center gap-2">
-            <select
-              name="floorId"
-              defaultValue={floorId}
-              className="h-9 rounded-md border bg-background px-3 text-sm"
-            >
-              {floors.map((entry) => (
-                <option key={entry.location.id} value={entry.location.id}>
-                  {entry.location.name}
-                </option>
-              ))}
-            </select>
+            <Select name="floorId" defaultValue={floorId}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Select floor" />
+              </SelectTrigger>
+              <SelectContent>
+                {floors.map((entry) => (
+                  <SelectItem key={entry.location.id} value={entry.location.id}>
+                    {entry.location.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button type="submit" variant="outline">
               Load
             </Button>

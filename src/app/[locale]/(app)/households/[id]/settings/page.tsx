@@ -17,8 +17,17 @@ import {
 } from "@/lib/inventory/validation";
 import { createSupabaseAdminClient } from "@/lib/supabaseServer";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { SectionHeader } from "@/components/inventory/SectionHeader";
+import { EmptyState } from "@/components/inventory/EmptyState";
 
 const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL ||
@@ -116,7 +125,7 @@ export default async function HouseholdSettingsPage({
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>{household.name} · Settings</CardTitle>
+          <SectionHeader title={`${household.name} · Settings`} />
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-md border p-3 text-sm">
@@ -139,22 +148,20 @@ export default async function HouseholdSettingsPage({
                   Affects AI suggestions + default labels
                 </div>
               </div>
-              <select
-                name="language"
-                defaultValue={household.language || "en"}
-                className="h-9 rounded-md border bg-background px-2 text-sm"
-              >
-                <option value="en">English</option>
-                <option value="sv">Svenska</option>
-              </select>
+              <Select name="language" defaultValue={household.language || "en"}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Language" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="en">English</SelectItem>
+                  <SelectItem value="sv">Svenska</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex justify-end">
-              <button
-                type="submit"
-                className="inline-flex h-9 items-center rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground hover:opacity-90"
-              >
+              <Button type="submit" size="sm">
                 Save
-              </button>
+              </Button>
             </div>
           </form>
         </CardContent>
@@ -162,16 +169,21 @@ export default async function HouseholdSettingsPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Invite member</CardTitle>
+          <SectionHeader title="Invite member" />
         </CardHeader>
         <CardContent>
           <form action={inviteAction} className="grid gap-2 md:grid-cols-[1fr_160px_auto]">
             <Input type="email" name="email" placeholder="partner@example.com" required />
-            <select name="role" className="h-9 rounded-md border bg-background px-3 text-sm">
-              <option value="viewer">viewer</option>
-              <option value="member">member</option>
-              <option value="admin">admin</option>
-            </select>
+            <Select name="role" defaultValue="viewer">
+              <SelectTrigger>
+                <SelectValue placeholder="Role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="viewer">viewer</SelectItem>
+                <SelectItem value="member">member</SelectItem>
+                <SelectItem value="admin">admin</SelectItem>
+              </SelectContent>
+            </Select>
             <Button type="submit">Send invite</Button>
           </form>
         </CardContent>
@@ -179,40 +191,60 @@ export default async function HouseholdSettingsPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Members</CardTitle>
+          <SectionHeader title="Members" />
         </CardHeader>
         <CardContent className="space-y-2">
-          {members.map((row) => (
-            <form
-              key={row.membership.id}
-              action={updateMemberAction}
-              className="grid items-center gap-2 rounded-md border p-3 md:grid-cols-[1fr_130px_130px_auto]"
-            >
-              <input type="hidden" name="memberId" value={row.membership.id} />
-              <div>
-                <div className="font-medium">
-                  {row.profile?.displayName || row.profile?.name || row.membership.invitedEmail || row.membership.userId}
+          {members.length === 0 ? (
+            <EmptyState
+              title="No members yet"
+              description="Invite a partner or family member to collaborate."
+            />
+          ) : (
+            members.map((row) => (
+              <form
+                key={row.membership.id}
+                action={updateMemberAction}
+                className="grid items-center gap-2 rounded-md border p-3 md:grid-cols-[1fr_130px_130px_auto]"
+              >
+                <input type="hidden" name="memberId" value={row.membership.id} />
+                <div>
+                  <div className="font-medium">
+                    {row.profile?.displayName ||
+                      row.profile?.name ||
+                      row.membership.invitedEmail ||
+                      row.membership.userId}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {row.membership.userId || row.membership.invitedEmail || "invited"}
+                  </div>
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  {row.membership.userId || row.membership.invitedEmail || "invited"}
-                </div>
-              </div>
-              <select name="role" defaultValue={row.membership.role} className="h-9 rounded-md border bg-background px-3 text-sm">
-                <option value="viewer">viewer</option>
-                <option value="member">member</option>
-                <option value="admin">admin</option>
-                <option value="owner">owner</option>
-              </select>
-              <select name="status" defaultValue={row.membership.status} className="h-9 rounded-md border bg-background px-3 text-sm">
-                <option value="invited">invited</option>
-                <option value="active">active</option>
-                <option value="removed">removed</option>
-              </select>
-              <Button type="submit" size="sm" variant="outline">
-                Update
-              </Button>
-            </form>
-          ))}
+                <Select name="role" defaultValue={row.membership.role}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="viewer">viewer</SelectItem>
+                    <SelectItem value="member">member</SelectItem>
+                    <SelectItem value="admin">admin</SelectItem>
+                    <SelectItem value="owner">owner</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select name="status" defaultValue={row.membership.status}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="invited">invited</SelectItem>
+                    <SelectItem value="active">active</SelectItem>
+                    <SelectItem value="removed">removed</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button type="submit" size="sm" variant="outline">
+                  Update
+                </Button>
+              </form>
+            ))
+          )}
         </CardContent>
       </Card>
     </div>
