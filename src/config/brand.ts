@@ -104,14 +104,14 @@ export const brand: BrandConfig = {
             icon: "LayoutDashboard",
           },
           {
-            labelKey: "nav.scan",
-            href: "/scan",
-            icon: "ScanLine",
-          },
-          {
             labelKey: "nav.canvas",
             href: "/canvas",
             icon: "Map",
+          },
+          {
+            labelKey: "nav.scan",
+            href: "/scan",
+            icon: "ScanLine",
           },
           {
             labelKey: "nav.items",
