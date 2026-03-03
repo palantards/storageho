@@ -12,14 +12,9 @@ import {
   listRoomsWithFloor,
 } from "@/lib/inventory/service";
 import { HouseholdSetupFlow } from "@/components/inventory/HouseholdSetupFlow";
+import { SurfaceCard } from "@/components/inventory/SurfaceCard";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function HouseholdCanvasPage({
   params,
@@ -69,13 +64,13 @@ export default async function HouseholdCanvasPage({
 
   return (
     <div className="space-y-4">
-      <Card>
+      <SurfaceCard variant="hero">
         <CardHeader>
-          <CardTitle>{t("app.canvasSetup.pageTitle", "Household setup")}</CardTitle>
+          <CardTitle>{t("app.canvasSetup.pageTitle", "Set up your storage workflow")}</CardTitle>
           <CardDescription>
             {t(
               "app.canvasSetup.pageDescription",
-              "Define floors and optional rooms, create containers quickly, then use the read-only map preview.",
+              "Create floors and rooms, add containers, then review the read-only map preview.",
             )}
           </CardDescription>
         </CardHeader>
@@ -87,7 +82,7 @@ export default async function HouseholdCanvasPage({
             </Link>
           </Button>
         </CardContent>
-      </Card>
+      </SurfaceCard>
 
       <HouseholdSetupFlow
         locale={locale}

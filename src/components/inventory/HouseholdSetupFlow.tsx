@@ -7,10 +7,18 @@ import { useRouter } from "next/navigation";
 import { HouseholdMapPreview } from "@/components/inventory/household-canvas/HouseholdMapPreview";
 import { useI18n } from "@/components/i18n/I18nProvider";
 import { PhotoUploader } from "@/components/inventory/PhotoUploader";
+import { SurfaceCard } from "@/components/inventory/SurfaceCard";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type Floor = {
   id: string;
@@ -84,8 +92,9 @@ export function HouseholdSetupFlow({
   const [floors, setFloors] = useState(sortFloors(initialFloors));
   const [rooms, setRooms] = useState(initialRooms);
   const [containers, setContainers] = useState(initialContainers);
-  const [selectedFloorId, setSelectedFloorId] = useState<string>(initialFloors[0]?.id || "");
-  const [selectedRoomId, setSelectedRoomId] = useState<string>("");
+  const NONE = "__none__";
+  const [selectedFloorId, setSelectedFloorId] = useState<string>(initialFloors[0]?.id || NONE);
+  const [selectedRoomId, setSelectedRoomId] = useState<string>(NONE);
   const [floorName, setFloorName] = useState("");
   const [roomName, setRoomName] = useState("");
   const [roomDescription, setRoomDescription] = useState("");
@@ -106,7 +115,10 @@ export function HouseholdSetupFlow({
     return value === key ? fallback : value;
   };
 
-  const selectedFloor = floors.find((floor) => floor.id === selectedFloorId) || null;
+  const selectedFloor =
+    selectedFloorId === NONE
+      ? null
+      : floors.find((floor) => floor.id === selectedFloorId) || null;
   const selectedLocationId = selectedFloor?.locationId ?? null;
 
   const selectableRooms = useMemo(
@@ -118,14 +130,14 @@ export function HouseholdSetupFlow({
   );
 
   useEffect(() => {
-    if (!selectedFloorId && floors[0]?.id) {
+    if ((selectedFloorId === NONE || !selectedFloorId) && floors[0]?.id) {
       setSelectedFloorId(floors[0].id);
     }
-  }, [floors, selectedFloorId]);
+  }, [floors, selectedFloorId, NONE]);
 
   useEffect(() => {
-    setSelectedRoomId("");
-  }, [selectedFloorId]);
+    setSelectedRoomId(NONE);
+  }, [selectedFloorId, NONE]);
 
   async function callJson(path: string, method: string, body?: Record<string, unknown>) {
     const response = await fetch(path, {
@@ -393,7 +405,7 @@ export function HouseholdSetupFlow({
 
   return (
     <div className="space-y-4">
-      <Card>
+      <SurfaceCard variant="hero">
         <CardHeader>
           <CardTitle>{tt("app.canvasSetup.title", "Setup your storage workflow")}</CardTitle>
         </CardHeader>
@@ -401,13 +413,12 @@ export function HouseholdSetupFlow({
           <div className="grid gap-3 lg:grid-cols-2">
             <div className="space-y-2">
               <div className="text-sm font-medium">{tt("app.canvasSetup.step1", "1) Floors")}</div>
-              <select
-                className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+              <Select
                 value={selectedFloorId}
-                onChange={async (event) => {
-                  const nextFloorId = event.target.value;
+                onValueChange={async (nextFloorId) => {
                   setSelectedFloorId(nextFloorId);
-                  const nextFloor = floors.find((floor) => floor.id === nextFloorId);
+                  const nextFloor =
+                    nextFloorId === NONE ? null : floors.find((floor) => floor.id === nextFloorId);
                   if (nextFloor?.locationId) {
                     await syncActivePreference({
                       locationId: nextFloor.locationId,
@@ -416,13 +427,20 @@ export function HouseholdSetupFlow({
                   }
                 }}
               >
-                <option value="">{tt("app.canvasSetup.selectFloor", "Select floor")}</option>
-                {floors.map((floor) => (
-                  <option key={floor.id} value={floor.id}>
-                    {floor.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue placeholder={tt("app.canvasSetup.selectFloor", "Select floor")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>
+                    {tt("app.canvasSetup.selectFloor", "Select floor")}
+                  </SelectItem>
+                  {floors.map((floor) => (
+                    <SelectItem key={floor.id} value={floor.id}>
+                      {floor.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
               <div className="flex gap-2">
                 <Input
@@ -442,29 +460,34 @@ export function HouseholdSetupFlow({
               <div className="text-sm font-medium">
                 {tt("app.canvasSetup.step2", "2) Rooms (optional)")}
               </div>
-              <select
-                className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+              <Select
                 value={selectedRoomId}
-                onChange={async (event) => {
-                  const nextRoomId = event.target.value;
+                onValueChange={async (nextRoomId) => {
                   setSelectedRoomId(nextRoomId);
-                  if (nextRoomId) {
+                  if (nextRoomId !== NONE) {
                     await syncActivePreference({ roomId: nextRoomId });
                   } else if (selectedLocationId) {
                     await syncActivePreference({ locationId: selectedLocationId, roomId: null });
                   }
                 }}
-                disabled={!selectedFloorId}
+                disabled={!selectedFloorId || selectedFloorId === NONE}
               >
-                <option value="">
-                  {tt("app.canvasSetup.noRoomOption", "No room (use Unassigned)")}
-                </option>
-                {selectableRooms.map((room) => (
-                  <option key={room.id} value={room.id}>
-                    {room.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="h-9 w-full" disabled={!selectedFloorId || selectedFloorId === NONE}>
+                  <SelectValue
+                    placeholder={tt("app.canvasSetup.noRoomOption", "No room (use Unassigned)")}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>
+                    {tt("app.canvasSetup.noRoomOption", "No room (use Unassigned)")}
+                  </SelectItem>
+                  {selectableRooms.map((room) => (
+                    <SelectItem key={room.id} value={room.id}>
+                      {room.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
               <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
                 <Input
@@ -530,10 +553,10 @@ export function HouseholdSetupFlow({
 
           {message ? <div className="text-xs text-muted-foreground">{message}</div> : null}
         </CardContent>
-      </Card>
+      </SurfaceCard>
 
       {createdContainer ? (
-        <Card data-testid="setup-post-create-panel">
+        <SurfaceCard variant="muted" data-testid="setup-post-create-panel">
           <CardHeader>
             <CardTitle>
               {tt("app.canvasSetup.createdTitle", "Container created: {name}").replace(
@@ -666,10 +689,10 @@ export function HouseholdSetupFlow({
               </div>
             </div>
           </CardContent>
-        </Card>
+        </SurfaceCard>
       ) : null}
 
-      <Card>
+      <SurfaceCard variant="muted">
         <CardHeader>
           <CardTitle>{tt("app.canvasSetup.readOnlyMapTitle", "Read-only map")}</CardTitle>
         </CardHeader>
@@ -684,7 +707,7 @@ export function HouseholdSetupFlow({
             }}
           />
         </CardContent>
-      </Card>
+      </SurfaceCard>
 
       <div className="text-xs text-muted-foreground">
         {tt("app.canvasSetup.householdLabel", "Household")}: {householdName}

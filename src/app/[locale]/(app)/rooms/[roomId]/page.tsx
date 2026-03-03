@@ -20,6 +20,7 @@ import {
   deleteEntitySchema,
 } from "@/lib/inventory/validation";
 import { Button } from "@/components/ui/button";
+import { SurfaceCard } from "@/components/inventory/SurfaceCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -184,7 +185,7 @@ export default async function RoomPage({
 
   return (
     <div className="space-y-4">
-      <Card>
+      <SurfaceCard variant="hero">
         <CardHeader>
           <CardTitle>{room.name}</CardTitle>
         </CardHeader>
@@ -221,9 +222,9 @@ export default async function RoomPage({
             </Button>
           </form>
         </CardContent>
-      </Card>
+      </SurfaceCard>
 
-      <Card>
+      <Card className="transition hover:shadow-md">
         <CardHeader>
           <CardTitle>Quick Add Container</CardTitle>
         </CardHeader>
@@ -279,7 +280,7 @@ export default async function RoomPage({
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="transition hover:shadow-md">
         <CardHeader>
           <CardTitle>Containers</CardTitle>
         </CardHeader>

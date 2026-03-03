@@ -1,7 +1,8 @@
 ﻿import type { Locale } from "@/i18n/config";
 import { getInventoryContext } from "@/lib/inventory/page-context";
 import { ImportCsvPanel } from "@/components/inventory/ImportCsvPanel";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SurfaceCard } from "@/components/inventory/SurfaceCard";
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function ImportPage({
   params,
@@ -14,14 +15,14 @@ export default async function ImportPage({
 
   return (
     <div className="space-y-4">
-      <Card>
+      <SurfaceCard variant="hero">
         <CardHeader>
           <CardTitle>Import CSV</CardTitle>
         </CardHeader>
         <CardContent>
           <ImportCsvPanel householdId={householdId} />
         </CardContent>
-      </Card>
+      </SurfaceCard>
     </div>
   );
 }

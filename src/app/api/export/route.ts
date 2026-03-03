@@ -11,7 +11,8 @@ export async function GET(request: NextRequest) {
   }
 
   const householdId = request.nextUrl.searchParams.get("householdId");
-  const floorId = request.nextUrl.searchParams.get("floorId");
+  const floorParam = request.nextUrl.searchParams.get("floorId");
+  const floorId = floorParam && floorParam !== "all" ? floorParam : null;
 
   if (!householdId) {
     return new Response("householdId is required", { status: 400 });
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
     const rows = await getExportRows({
       userId: session.user.id,
       householdId,
-      locationId: floorId,
+      locationId: floorId || undefined,
     });
 
     const csv = exportRowsToCsv(rows);

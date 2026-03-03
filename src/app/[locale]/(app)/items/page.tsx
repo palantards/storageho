@@ -17,7 +17,8 @@ import {
 } from "@/components/inventory/ItemsVirtualizedList";
 import { EmptyState } from "@/components/inventory/EmptyState";
 import { SectionHeader } from "@/components/inventory/SectionHeader";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { SurfaceCard } from "@/components/inventory/SurfaceCard";
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,12 +49,14 @@ export default async function ItemsPage({
   }
   const activeHouseholdId = householdId;
 
+  const tagFilter = search.tag && search.tag !== "all" ? search.tag : undefined;
+
   const [items, tags] = await Promise.all([
     listItems({
       userId: context.user.id,
       householdId: activeHouseholdId,
       q: search.q,
-      tagId: search.tag,
+      tagId: tagFilter,
     }),
     listTags({
       userId: context.user.id,
@@ -134,7 +137,7 @@ export default async function ItemsPage({
 
   return (
     <div className="space-y-4">
-      <Card>
+      <SurfaceCard variant="hero">
         <CardHeader>
           <SectionHeader
             title="Item Library"
@@ -149,12 +152,12 @@ export default async function ItemsPage({
               placeholder="Search items"
             />
             <div className="w-full md:w-52">
-              <Select name="tag" defaultValue={search.tag || ""}>
+              <Select name="tag" defaultValue={search.tag ?? "all"}>
                 <SelectTrigger>
                   <SelectValue placeholder="All tags" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All tags</SelectItem>
+                  <SelectItem value="all">All tags</SelectItem>
                   {tags.map((tag) => (
                     <SelectItem key={tag.id} value={tag.id}>
                       {tag.name}
@@ -168,9 +171,9 @@ export default async function ItemsPage({
             </Button>
           </form>
         </CardContent>
-      </Card>
+      </SurfaceCard>
 
-      <Card>
+      <SurfaceCard variant="muted" className="transition hover:shadow-md">
         <CardHeader>
           <SectionHeader
             title={`All items (${items.length})`}
@@ -192,10 +195,10 @@ export default async function ItemsPage({
             />
           )}
         </CardContent>
-      </Card>
+      </SurfaceCard>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-        <Card>
+        <SurfaceCard variant="muted" className="transition hover:shadow-md">
           <CardHeader>
             <CardTitle>Bulk add / paste list</CardTitle>
           </CardHeader>
@@ -211,9 +214,9 @@ export default async function ItemsPage({
               </Button>
             </form>
           </CardContent>
-        </Card>
+        </SurfaceCard>
 
-        <Card>
+        <SurfaceCard variant="muted" className="transition hover:shadow-md">
           <CardHeader>
             <SectionHeader
               title="Merge duplicates"
@@ -267,11 +270,11 @@ export default async function ItemsPage({
               </div>
             )}
           </CardContent>
-        </Card>
+        </SurfaceCard>
       </div>
 
       {selectedItemId ? (
-        <Card>
+        <SurfaceCard variant="muted" className="transition hover:shadow-md">
           <CardHeader>
             <SectionHeader
               title="Where this item exists"
@@ -301,7 +304,7 @@ export default async function ItemsPage({
               ))
             )}
           </CardContent>
-        </Card>
+        </SurfaceCard>
       ) : null}
     </div>
   );

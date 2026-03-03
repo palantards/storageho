@@ -16,11 +16,14 @@ import { createHouseholdSchema, createLocationSchema } from "@/lib/inventory/val
 import { ActivityFeed } from "@/components/inventory/ActivityFeed";
 import { ActionBar } from "@/components/inventory/ActionBar";
 import { SectionHeader } from "@/components/inventory/SectionHeader";
+import { SurfaceCard } from "@/components/inventory/SurfaceCard";
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardHeader,
+  CardTitle,
+  CardDescription,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -104,30 +107,30 @@ export default async function DashboardPage({
   return (
     <div className="space-y-4">
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
+        <SurfaceCard variant="hero" className="shadow-sm">
           <CardHeader className="pb-2">
             <SectionHeader title={`${usage.containers}`} description="Containers" />
           </CardHeader>
-        </Card>
-        <Card>
+        </SurfaceCard>
+        <SurfaceCard variant="hero" className="shadow-sm">
           <CardHeader className="pb-2">
             <SectionHeader title={`${usage.items}`} description="Items" />
           </CardHeader>
-        </Card>
-        <Card>
+        </SurfaceCard>
+        <SurfaceCard variant="hero" className="shadow-sm">
           <CardHeader className="pb-2">
             <SectionHeader title={`${usage.photos}`} description="Photos" />
           </CardHeader>
-        </Card>
-        <Card>
+        </SurfaceCard>
+        <SurfaceCard variant="hero" className="shadow-sm">
           <CardHeader className="pb-2">
             <SectionHeader title={`${usage.estimatedStorageMb} MB`} description="Estimated storage" />
           </CardHeader>
-        </Card>
+        </SurfaceCard>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-        <Card>
+        <SurfaceCard variant="muted" className="transition hover:shadow-md">
           <CardHeader>
             <SectionHeader
               title="Quick Add Floor"
@@ -143,9 +146,9 @@ export default async function DashboardPage({
               </Button>
             </form>
           </CardContent>
-        </Card>
+        </SurfaceCard>
 
-        <Card>
+        <SurfaceCard variant="muted" className="transition hover:shadow-md">
           <CardHeader>
             <SectionHeader
               title="Open Inventory"
@@ -179,10 +182,10 @@ export default async function DashboardPage({
               </Button>
             </ActionBar>
           </CardContent>
-        </Card>
+        </SurfaceCard>
       </div>
 
-      <Card>
+      <SurfaceCard variant="muted" className="transition hover:shadow-md">
         <CardHeader>
           <SectionHeader
             title="Recent activity"
@@ -206,9 +209,9 @@ export default async function DashboardPage({
             locale={locale}
           />
         </CardContent>
-      </Card>
+      </SurfaceCard>
 
-      <Card>
+      <SurfaceCard variant="muted" className="transition hover:shadow-md">
         <CardHeader>
           <SectionHeader title="Floors in this household" />
         </CardHeader>
@@ -234,7 +237,7 @@ export default async function DashboardPage({
             ))
           )}
         </CardContent>
-      </Card>
+      </SurfaceCard>
     </div>
   );
 }

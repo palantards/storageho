@@ -1,7 +1,8 @@
 import type { Locale } from "@/i18n/config";
 import { getInventoryContext } from "@/lib/inventory/page-context";
 import { listFloors } from "@/lib/inventory/service";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SurfaceCard } from "@/components/inventory/SurfaceCard";
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -29,9 +30,11 @@ export default async function ExportPage({
     householdId,
   });
 
+  const selectedFloor = floors[0]?.location.id;
+
   return (
     <div className="space-y-4">
-      <Card>
+      <SurfaceCard variant="hero">
         <CardHeader>
           <CardTitle>Export CSV</CardTitle>
         </CardHeader>
@@ -41,12 +44,12 @@ export default async function ExportPage({
 
             <div className="grid gap-1 text-sm">
               <span>Floor scope (optional)</span>
-              <Select name="floorId" defaultValue="">
+              <Select name="floorId" defaultValue={selectedFloor ?? "all"}>
                 <SelectTrigger>
                   <SelectValue placeholder="All floors" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All floors</SelectItem>
+                  <SelectItem value="all">All floors</SelectItem>
                   {floors.map((entry) => (
                     <SelectItem key={entry.location.id} value={entry.location.id}>
                       {entry.location.name}
@@ -59,7 +62,7 @@ export default async function ExportPage({
             <Button type="submit">Download CSV</Button>
           </form>
         </CardContent>
-      </Card>
+      </SurfaceCard>
     </div>
   );
 }

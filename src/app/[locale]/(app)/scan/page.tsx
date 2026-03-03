@@ -13,12 +13,9 @@ import {
 import { BoxSuggestionsPanel } from "@/components/inventory/BoxSuggestionsPanel";
 import { MoveItemDialog } from "@/components/inventory/MoveItemDialog";
 import { ScanModePanel } from "@/components/inventory/ScanModePanel";
+import { SurfaceCard } from "@/components/inventory/SurfaceCard";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-} from "@/components/ui/card";
+import { CardContent, CardHeader } from "@/components/ui/card";
 import { SectionHeader } from "@/components/inventory/SectionHeader";
 
 export default async function ScanModePage({
@@ -96,14 +93,14 @@ export default async function ScanModePage({
 
   return (
     <div className="space-y-4">
-      <Card>
+      <SurfaceCard variant="hero">
         <CardHeader>
           <SectionHeader
             title="Scan Mode"
-            description="Mobile-first loop: scan box QR, capture, quick add, move, next."
+            description="Scan a box QR to open its session, capture photos, quick add, move items, and move on."
           />
         </CardHeader>
-      </Card>
+      </SurfaceCard>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
         <ScanModePanel
@@ -136,7 +133,7 @@ export default async function ScanModePage({
         />
 
         <div className="space-y-4">
-          <Card>
+          <SurfaceCard variant="muted" className="transition hover:shadow-md">
             <CardHeader>
               <SectionHeader
                 title="AI suggestions"
@@ -165,9 +162,9 @@ export default async function ScanModePage({
                 />
               )}
             </CardContent>
-          </Card>
+          </SurfaceCard>
 
-          <Card>
+          <SurfaceCard variant="muted" className="transition hover:shadow-md">
             <CardHeader>
               <SectionHeader
                 title="3) Move items"
@@ -215,7 +212,7 @@ export default async function ScanModePage({
                 </Button>
               ) : null}
             </CardContent>
-          </Card>
+          </SurfaceCard>
         </div>
       </div>
     </div>

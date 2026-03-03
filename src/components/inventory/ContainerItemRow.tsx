@@ -2,7 +2,6 @@
 
 import { InlineNameEditor } from "@/components/inventory/InlineNameEditor";
 import { InlineQuantityEditor } from "@/components/inventory/InlineQuantityEditor";
-import { Button } from "@/components/ui/button";
 
 type Props = {
   itemId: string;

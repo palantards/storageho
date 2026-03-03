@@ -32,9 +32,10 @@ import { PhotoUploader } from "@/components/inventory/PhotoUploader";
 import { QRCodeRenderer } from "@/components/inventory/QRCodeRenderer";
 import { SignedImage } from "@/components/inventory/SignedImage";
 import { SectionHeader } from "@/components/inventory/SectionHeader";
+import { SurfaceCard } from "@/components/inventory/SurfaceCard";
 import { TagChips } from "@/components/inventory/TagChips";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -280,7 +281,7 @@ export default async function BoxPage({
 
   return (
     <div className="space-y-4">
-      <Card>
+      <SurfaceCard variant="hero">
         <CardHeader>
           <SectionHeader
             title={row.container.name}
@@ -305,19 +306,19 @@ export default async function BoxPage({
             />
           </div>
         </CardContent>
-      </Card>
+      </SurfaceCard>
 
-      <Tabs defaultValue="contents" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
-          <TabsTrigger value="contents">Contents</TabsTrigger>
-          <TabsTrigger value="photos">Photos</TabsTrigger>
-          <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
+        <Tabs defaultValue="contents" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
+            <TabsTrigger value="contents">Contents</TabsTrigger>
+            <TabsTrigger value="photos">Photos</TabsTrigger>
+            <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
+            <TabsTrigger value="activity">Activity</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="contents" className="space-y-4">
-          <Card>
+          <SurfaceCard variant="muted" className="transition hover:shadow-md">
             <CardHeader>
               <SectionHeader
                 title="Add item"
@@ -385,9 +386,9 @@ export default async function BoxPage({
                 </Button>
               </form>
             </CardContent>
-          </Card>
+          </SurfaceCard>
 
-          <Card>
+          <SurfaceCard variant="muted" className="transition hover:shadow-md">
             <CardHeader>
               <SectionHeader
                 title="Items in this box"
@@ -442,11 +443,11 @@ export default async function BoxPage({
                 ))
               )}
             </CardContent>
-          </Card>
+          </SurfaceCard>
         </TabsContent>
 
         <TabsContent value="photos">
-          <Card>
+          <SurfaceCard variant="muted" className="transition hover:shadow-md">
             <CardHeader>
               <SectionHeader title="Photos" description="Upload and manage box photos." />
             </CardHeader>
@@ -469,11 +470,11 @@ export default async function BoxPage({
                 ))}
               </div>
             </CardContent>
-          </Card>
+          </SurfaceCard>
         </TabsContent>
 
         <TabsContent value="suggestions">
-          <Card>
+          <SurfaceCard variant="muted" className="transition hover:shadow-md">
             <CardHeader>
               <SectionHeader
                 title="AI capture suggestions"
@@ -496,11 +497,11 @@ export default async function BoxPage({
                 }))}
               />
             </CardContent>
-          </Card>
+          </SurfaceCard>
         </TabsContent>
 
         <TabsContent value="activity">
-          <Card>
+          <SurfaceCard variant="muted" className="transition hover:shadow-md">
             <CardHeader>
               <SectionHeader title="History" description="Recent changes related to this box." />
             </CardHeader>
@@ -521,11 +522,11 @@ export default async function BoxPage({
                 }))}
               />
             </CardContent>
-          </Card>
+          </SurfaceCard>
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-4">
-          <Card>
+          <SurfaceCard variant="muted" className="transition hover:shadow-md">
             <CardHeader>
               <SectionHeader title="Tags" description="Set default tags for this box." />
             </CardHeader>
@@ -541,9 +542,9 @@ export default async function BoxPage({
                 <Button type="submit">Save tags</Button>
               </form>
             </CardContent>
-          </Card>
+          </SurfaceCard>
 
-          <Card>
+          <SurfaceCard variant="muted" className="transition hover:shadow-md">
             <CardHeader>
               <SectionHeader title="Box metadata" />
             </CardHeader>
@@ -553,9 +554,9 @@ export default async function BoxPage({
               <div>Code: {row.container.code || "-"}</div>
               <div>Status: {row.container.status}</div>
             </CardContent>
-          </Card>
+          </SurfaceCard>
 
-          <Card>
+          <SurfaceCard variant="danger" className="transition hover:shadow-md">
             <CardHeader>
               <SectionHeader title="Danger zone" />
             </CardHeader>
@@ -576,7 +577,7 @@ export default async function BoxPage({
                 </Button>
               </form>
             </CardContent>
-          </Card>
+          </SurfaceCard>
         </TabsContent>
       </Tabs>
 

@@ -123,7 +123,7 @@ export default async function HouseholdSettingsPage({
 
   return (
     <div className="space-y-4">
-      <Card>
+      <Card className="border border-primary/15 bg-gradient-to-br from-primary/10 via-background to-background transition hover:shadow-lg hover:-translate-y-[1px]">
         <CardHeader>
           <SectionHeader title={`${household.name} · Settings`} />
         </CardHeader>
@@ -140,7 +140,7 @@ export default async function HouseholdSettingsPage({
             <div className="text-muted-foreground">Estimated storage</div>
             <div className="text-lg font-semibold">{usage.estimatedStorageMb} MB</div>
           </div>
-          <form action={updateLanguageAction} className="rounded-md border p-3 text-sm grid gap-2">
+          <form action={updateLanguageAction} className="rounded-md border p-3 text-sm grid gap-2 bg-muted/40 transition hover:shadow-sm">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-muted-foreground">Language</div>
@@ -167,11 +167,11 @@ export default async function HouseholdSettingsPage({
         </CardContent>
       </Card>
 
-      <Card>
+        <Card className="transition hover:shadow-md">
         <CardHeader>
           <SectionHeader title="Invite member" />
         </CardHeader>
-        <CardContent>
+        <CardContent className="bg-muted/40 rounded-md border">
           <form action={inviteAction} className="grid gap-2 md:grid-cols-[1fr_160px_auto]">
             <Input type="email" name="email" placeholder="partner@example.com" required />
             <Select name="role" defaultValue="viewer">
@@ -189,7 +189,7 @@ export default async function HouseholdSettingsPage({
         </CardContent>
       </Card>
 
-      <Card>
+        <Card className="transition hover:shadow-md">
         <CardHeader>
           <SectionHeader title="Members" />
         </CardHeader>
