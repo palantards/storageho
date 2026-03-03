@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { ActionBar } from "@/components/inventory/ActionBar";
 import { ActivityFeed } from "@/components/inventory/ActivityFeed";
 import { PageFrame } from "@/components/inventory/PageFrame";
 import { SectionDivider } from "@/components/inventory/SectionDivider";
@@ -14,7 +13,6 @@ import {
   createHousehold,
   getUsageHints,
   listActivity,
-  listFloors,
   setActiveHousehold,
 } from "@/lib/inventory/service";
 import { createHouseholdSchema } from "@/lib/inventory/validation";
@@ -69,15 +67,10 @@ export default async function DashboardPage({
 
   const householdId = active.household.id;
 
-  const [activity, usage, floors] = await Promise.all([
+  const [activity, usage] = await Promise.all([
     listActivity({ userId: context.user.id, householdId, limit: 12 }),
     getUsageHints({ userId: context.user.id, householdId }),
-    listFloors({ userId: context.user.id, householdId }),
   ]);
-
-  const uniqueFloors = Array.from(
-    new Map(floors.map((f) => [f.id, f])).values(),
-  );
 
   return (
     <PageFrame className="space-y-6">
@@ -100,7 +93,7 @@ export default async function DashboardPage({
           { label: "Containers", value: usage.containers },
           { label: "Items", value: usage.items },
           { label: "Photos", value: usage.photos },
-          { label: "Rooms", value: usage.rooms },
+          { label: "Rooms", value: usage.rooms ?? 0 },
         ].map((metric) => (
           <div
             key={metric.label}
@@ -130,13 +123,13 @@ export default async function DashboardPage({
           <Button asChild variant="outline">
             <Link href={`/${locale}/items`}>Items library</Link>
           </Button>
-          <Button asChild variant="outline">
-            <Link
-              href={`/${locale}/boxes/${active.lastVisitedContainerId || ""}`}
-            >
-              Last opened box
-            </Link>
-          </Button>
+          {active.lastVisitedContainerId ? (
+            <Button asChild variant="outline">
+              <Link href={`/${locale}/boxes/${active.lastVisitedContainerId}`}>
+                Last opened box
+              </Link>
+            </Button>
+          ) : null}
           <Button asChild variant="outline">
             <Link href={`/${locale}/scan`}>Scan mode</Link>
           </Button>

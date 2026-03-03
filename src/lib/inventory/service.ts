@@ -3908,7 +3908,7 @@ export async function updateMemberRole(
 
 export async function getUsageHints(input: Queryable) {
   await assertMembership(input);
-  const [containers, items, photos] = await Promise.all([
+  const [containers, items, photos, rooms] = await Promise.all([
     db
       .select({ value: count() })
       .from(schema.containers)
@@ -3921,6 +3921,10 @@ export async function getUsageHints(input: Queryable) {
       .select({ value: count() })
       .from(schema.photos)
       .where(eq(schema.photos.householdId, input.householdId)),
+    db
+      .select({ value: count() })
+      .from(schema.rooms)
+      .where(eq(schema.rooms.householdId, input.householdId)),
   ]);
 
   const photoCount = Number(photos[0]?.value ?? 0);
@@ -3928,6 +3932,7 @@ export async function getUsageHints(input: Queryable) {
     containers: Number(containers[0]?.value ?? 0),
     items: Number(items[0]?.value ?? 0),
     photos: photoCount,
+    rooms: Number(rooms[0]?.value ?? 0),
     estimatedStorageMb: Number((photoCount * 0.35).toFixed(1)),
   };
 }
