@@ -17,6 +17,8 @@ import {
   FileDown,
   ScanLine,
   Map,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 
 export const icons = {
@@ -38,6 +40,8 @@ export const icons = {
   FileDown,
   ScanLine,
   Map,
+  PanelLeftClose,
+  PanelLeftOpen,
 } as const;
 
 export type IconKey = keyof typeof icons;
