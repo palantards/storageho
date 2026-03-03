@@ -5,11 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { HouseholdMapPreview } from "@/components/inventory/household-canvas/HouseholdMapPreview";
-import { useI18n } from "@/components/i18n/I18nProvider";
 import { PhotoUploader } from "@/components/inventory/PhotoUploader";
-import { SurfaceCard } from "@/components/inventory/SurfaceCard";
+import { SectionDivider } from "@/components/inventory/SectionDivider";
+import { useI18n } from "@/components/i18n/I18nProvider";
 import { Button } from "@/components/ui/button";
-import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -265,9 +264,7 @@ export function HouseholdSetupFlow({
       return;
     }
     if (!containerName.trim()) {
-      setMessage(
-        tt("app.canvasSetup.messages.containerNameRequired", "Container name is required."),
-      );
+      setMessage(tt("app.canvasSetup.messages.containerNameRequired", "Container name is required."));
       return;
     }
 
@@ -277,38 +274,15 @@ export function HouseholdSetupFlow({
       const data = await callJson("/api/household-setup/container", "POST", {
         householdId,
         layerId: selectedFloor.id,
-        roomId: selectedRoomId || null,
+        roomId: selectedRoomId === NONE ? undefined : selectedRoomId,
         name: containerName.trim(),
         code: containerCode.trim() || undefined,
         description: containerDescription.trim() || undefined,
       });
 
-      const container = data.container as {
-        id: string;
-        name: string;
-        code: string | null;
-      };
-      const room = data.room as {
-        id: string;
-        name: string;
-        locationId: string;
-        isSystem?: boolean;
-      };
+      const container = data.container as CreatedContainerSummary;
+      const room = data.room as { id: string; name: string; locationId: string };
       const location = data.location as { id: string; name: string };
-
-      setRooms((prev) => {
-        if (prev.some((entry) => entry.id === room.id)) return prev;
-        return [
-          ...prev,
-          {
-            id: room.id,
-            name: room.name,
-            locationId: room.locationId,
-            locationName: location.name,
-            isSystem: Boolean(room.isSystem),
-          },
-        ];
-      });
 
       setContainers((prev) => [
         ...prev,
@@ -322,8 +296,7 @@ export function HouseholdSetupFlow({
           locationName: location.name,
         },
       ]);
-
-      const created: CreatedContainerSummary = {
+      setCreatedContainer({
         id: container.id,
         name: container.name,
         code: container.code,
@@ -331,15 +304,10 @@ export function HouseholdSetupFlow({
         roomName: room.name,
         locationId: location.id,
         locationName: location.name,
-      };
-      setCreatedContainer(created);
+      });
       setContainerName("");
       setContainerCode("");
       setContainerDescription("");
-      setQuickAddText("");
-      setSuggestions([]);
-      await loadSuggestions(container.id);
-      await syncActivePreference({ roomId: room.id });
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to create container");
     } finally {
@@ -347,41 +315,17 @@ export function HouseholdSetupFlow({
     }
   }
 
-  async function submitQuickAdd() {
-    if (!createdContainer || !quickAddText.trim()) return;
+  async function updateSuggestion(id: string, action: "accept" | "reject") {
     try {
-      setBusyAction("quick-add");
-      setMessage("");
-      const data = await callJson("/api/scan/quick-add", "POST", {
-        householdId,
-        containerId: createdContainer.id,
-        text: quickAddText,
-      });
-      const processed = Number(data?.processed ?? 0);
-      setQuickAddText("");
-      setMessage(
-        tt("app.canvasSetup.messages.quickAddDone", "Added {count} entries to {name}.")
-          .replace("{count}", String(processed))
-          .replace("{name}", createdContainer.name),
-      );
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Quick add failed");
-    } finally {
-      setBusyAction(null);
-    }
-  }
-
-  async function updateSuggestion(suggestionId: string, action: "accept" | "reject") {
-    try {
-      setSuggestionBusyId(suggestionId);
+      setSuggestionBusyId(id);
       await callJson("/api/suggestions", "POST", {
         householdId,
-        suggestionId,
+        suggestionId: id,
         action,
       });
-      if (createdContainer) {
-        await loadSuggestions(createdContainer.id);
-      }
+      setSuggestions((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, status: action === "accept" ? "accepted" : "rejected" } : s)),
+      );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to update suggestion");
     } finally {
@@ -389,325 +333,283 @@ export function HouseholdSetupFlow({
     }
   }
 
-  const mapRooms = rooms.map((room) => ({
-    id: room.id,
-    name: room.name,
-    locationId: room.locationId,
-    isSystem: room.isSystem,
-  }));
-  const mapContainers = containers.map((container) => ({
-    id: container.id,
-    name: container.name,
-    code: container.code,
-    roomId: container.roomId,
-    locationId: container.locationId,
-  }));
+  async function submitQuickAdd() {
+    if (!createdContainer) return;
+    try {
+      setBusyAction("quick-add");
+      await callJson("/api/scan/quick-add", "POST", {
+        householdId,
+        containerId: createdContainer.id,
+        text: quickAddText,
+      });
+      setQuickAddText("");
+      await loadSuggestions(createdContainer.id);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Quick add failed");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  const mapRooms = rooms.filter((room) => room.locationId === selectedLocationId);
+  const mapContainers = containers.filter((container) => container.locationId === selectedLocationId);
 
   return (
-    <div className="space-y-4">
-      <SurfaceCard variant="hero">
-        <CardHeader>
-          <CardTitle>{tt("app.canvasSetup.title", "Setup your storage workflow")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-3 lg:grid-cols-2">
-            <div className="space-y-2">
-              <div className="text-sm font-medium">{tt("app.canvasSetup.step1", "1) Floors")}</div>
-              <Select
-                value={selectedFloorId}
-                onValueChange={async (nextFloorId) => {
-                  setSelectedFloorId(nextFloorId);
-                  const nextFloor =
-                    nextFloorId === NONE ? null : floors.find((floor) => floor.id === nextFloorId);
-                  if (nextFloor?.locationId) {
-                    await syncActivePreference({
-                      locationId: nextFloor.locationId,
-                      roomId: null,
-                    });
-                  }
-                }}
-              >
-                <SelectTrigger className="h-9 w-full">
-                  <SelectValue placeholder={tt("app.canvasSetup.selectFloor", "Select floor")} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>
-                    {tt("app.canvasSetup.selectFloor", "Select floor")}
-                  </SelectItem>
-                  {floors.map((floor) => (
-                    <SelectItem key={floor.id} value={floor.id}>
-                      {floor.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+    <div className="space-y-6">
+      <SectionDivider title="Floors" description="Select or create a floor." />
+      <div className="grid gap-2 md:grid-cols-[2fr_1fr]">
+        <Select value={selectedFloorId} onValueChange={setSelectedFloorId}>
+          <SelectTrigger className="h-9 w-full">
+            <SelectValue placeholder={tt("app.canvasSetup.selectFloor", "Select floor")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NONE}>{tt("app.canvasSetup.selectFloor", "Select floor")}</SelectItem>
+            {floors.map((floor) => (
+              <SelectItem key={floor.id} value={floor.id}>
+                {floor.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-              <div className="flex gap-2">
-                <Input
-                  value={floorName}
-                  onChange={(event) => setFloorName(event.target.value)}
-                  placeholder={tt("app.canvasSetup.newFloorName", "New floor name")}
-                />
-                <Button type="button" disabled={busyAction !== null} onClick={createFloor}>
-                  {busyAction === "floor"
-                    ? tt("app.canvasSetup.adding", "Adding...")
-                    : tt("app.canvasSetup.addFloor", "+ Floor")}
-                </Button>
-              </div>
-            </div>
+        <div className="flex gap-2">
+          <Input
+            value={floorName}
+            onChange={(event) => setFloorName(event.target.value)}
+            placeholder={tt("app.canvasSetup.newFloorName", "New floor name")}
+          />
+          <Button type="button" disabled={busyAction !== null} onClick={createFloor}>
+            {busyAction === "floor" ? tt("app.canvasSetup.adding", "Adding...") : tt("app.canvasSetup.addFloor", "+ Floor")}
+          </Button>
+        </div>
+      </div>
 
-            <div className="space-y-2">
-              <div className="text-sm font-medium">
-                {tt("app.canvasSetup.step2", "2) Rooms (optional)")}
-              </div>
-              <Select
-                value={selectedRoomId}
-                onValueChange={async (nextRoomId) => {
-                  setSelectedRoomId(nextRoomId);
-                  if (nextRoomId !== NONE) {
-                    await syncActivePreference({ roomId: nextRoomId });
-                  } else if (selectedLocationId) {
-                    await syncActivePreference({ locationId: selectedLocationId, roomId: null });
-                  }
-                }}
-                disabled={!selectedFloorId || selectedFloorId === NONE}
-              >
-                <SelectTrigger className="h-9 w-full" disabled={!selectedFloorId || selectedFloorId === NONE}>
-                  <SelectValue
-                    placeholder={tt("app.canvasSetup.noRoomOption", "No room (use Unassigned)")}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>
-                    {tt("app.canvasSetup.noRoomOption", "No room (use Unassigned)")}
-                  </SelectItem>
-                  {selectableRooms.map((room) => (
-                    <SelectItem key={room.id} value={room.id}>
-                      {room.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+      <SectionDivider title="Rooms (optional)" />
+      <div className="space-y-2">
+        <Select
+          value={selectedRoomId}
+          onValueChange={async (nextRoomId) => {
+            setSelectedRoomId(nextRoomId);
+            if (nextRoomId !== NONE) {
+              await syncActivePreference({ roomId: nextRoomId });
+            } else if (selectedLocationId) {
+              await syncActivePreference({ locationId: selectedLocationId, roomId: null });
+            }
+          }}
+          disabled={!selectedFloorId || selectedFloorId === NONE}
+        >
+          <SelectTrigger className="h-9 w-full" disabled={!selectedFloorId || selectedFloorId === NONE}>
+            <SelectValue placeholder={tt("app.canvasSetup.noRoomOption", "No room (use Unassigned)")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NONE}>
+              {tt("app.canvasSetup.noRoomOption", "No room (use Unassigned)")}
+            </SelectItem>
+            {selectableRooms.map((room) => (
+              <SelectItem key={room.id} value={room.id}>
+                {room.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-              <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
-                <Input
-                  value={roomName}
-                  onChange={(event) => setRoomName(event.target.value)}
-                  placeholder={tt("app.canvasSetup.createRoom", "Create room")}
-                  disabled={!selectedFloorId}
-                />
-                <Input
-                  value={roomDescription}
-                  onChange={(event) => setRoomDescription(event.target.value)}
-                  placeholder={tt("app.canvasSetup.descriptionOptional", "Description (optional)")}
-                  disabled={!selectedFloorId}
-                />
-                <Button
-                  type="button"
-                  disabled={!selectedFloorId || busyAction !== null}
-                  onClick={createRoomForFloor}
-                >
-                  {busyAction === "room"
-                    ? tt("app.canvasSetup.adding", "Adding...")
-                    : tt("app.canvasSetup.addRoom", "Add room")}
-                </Button>
-              </div>
-            </div>
+        <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
+          <Input
+            value={roomName}
+            onChange={(event) => setRoomName(event.target.value)}
+            placeholder={tt("app.canvasSetup.createRoom", "Create room")}
+            disabled={!selectedFloorId}
+          />
+          <Input
+            value={roomDescription}
+            onChange={(event) => setRoomDescription(event.target.value)}
+            placeholder={tt("app.canvasSetup.descriptionOptional", "Description (optional)")}
+            disabled={!selectedFloorId}
+          />
+          <Button type="button" disabled={!selectedFloorId || busyAction !== null} onClick={createRoomForFloor}>
+            {busyAction === "room"
+              ? tt("app.canvasSetup.adding", "Adding...")
+              : tt("app.canvasSetup.addRoom", "Add room")}
+          </Button>
+        </div>
+      </div>
+
+      <SectionDivider title="Create container" />
+      <div className="grid gap-2 md:grid-cols-[1fr_130px_1fr_auto]">
+        <Input
+          value={containerName}
+          onChange={(event) => setContainerName(event.target.value)}
+          placeholder={tt("app.canvasSetup.containerName", "Container name")}
+          disabled={!selectedFloorId}
+        />
+        <Input
+          value={containerCode}
+          onChange={(event) => setContainerCode(event.target.value)}
+          placeholder={tt("app.canvasSetup.code", "Code")}
+          disabled={!selectedFloorId}
+        />
+        <Input
+          value={containerDescription}
+          onChange={(event) => setContainerDescription(event.target.value)}
+          placeholder={tt("app.canvasSetup.descriptionOptional", "Description (optional)")}
+          disabled={!selectedFloorId}
+        />
+        <Button
+          type="button"
+          disabled={!selectedFloorId || busyAction !== null}
+          onClick={createContainerFromFlow}
+          data-testid="setup-create-container"
+        >
+          {busyAction === "container"
+            ? tt("app.canvasSetup.creating", "Creating...")
+            : tt("app.canvasSetup.createContainer", "Create container")}
+        </Button>
+      </div>
+
+      {message ? <div className="text-xs text-muted-foreground">{message}</div> : null}
+
+      {createdContainer ? (
+        <div className="space-y-3 rounded-md border p-4" data-testid="setup-post-create-panel">
+          <div className="text-sm font-semibold">
+            {tt("app.canvasSetup.createdTitle", "Container created: {name}").replace(
+              "{name}",
+              createdContainer.name,
+            )}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {createdContainer.locationName} / {createdContainer.roomName}
+            {createdContainer.code ? ` | ${createdContainer.code}` : ""}
           </div>
 
           <div className="space-y-2">
-            <div className="text-sm font-medium">
-              {tt("app.canvasSetup.step3", "3) Create container")}
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {tt("app.canvasSetup.optionalPhotos", "Optional: Add photos for AI capture")}
             </div>
-            <div className="grid gap-2 md:grid-cols-[1fr_130px_1fr_auto]">
-              <Input
-                value={containerName}
-                onChange={(event) => setContainerName(event.target.value)}
-                placeholder={tt("app.canvasSetup.containerName", "Container name")}
-                disabled={!selectedFloorId}
-              />
-              <Input
-                value={containerCode}
-                onChange={(event) => setContainerCode(event.target.value)}
-                placeholder={tt("app.canvasSetup.code", "Code")}
-                disabled={!selectedFloorId}
-              />
-              <Input
-                value={containerDescription}
-                onChange={(event) => setContainerDescription(event.target.value)}
-                placeholder={tt("app.canvasSetup.descriptionOptional", "Description (optional)")}
-                disabled={!selectedFloorId}
-              />
+            <PhotoUploader
+              householdId={householdId}
+              entityType="container"
+              entityId={createdContainer.id}
+              analyzeBatchOnComplete
+              onUploaded={() => {
+                loadSuggestions(createdContainer.id).catch(() => null);
+              }}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {tt("app.canvasSetup.aiSuggestions", "AI suggestions")}
+            </div>
+            {suggestions.length === 0 ? (
+              <div className="text-xs text-muted-foreground">
+                {tt(
+                  "app.canvasSetup.noSuggestions",
+                  "No suggestions yet. Upload photos to trigger analysis.",
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {suggestions.map((suggestion) => (
+                  <div key={suggestion.id} className="rounded-md border p-2">
+                    <div className="flex items-center justify-between gap-2 text-sm">
+                      <div className="font-medium">{suggestion.suggestedName}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {Math.round(Number(suggestion.confidence ?? 0) * 100)}%
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {tt("app.canvasSetup.qty", "Qty")}: {suggestion.suggestedQty ?? 1} |{" "}
+                      {tt("app.canvasSetup.tags", "Tags")}: {(suggestion.suggestedTags || []).join(", ") || "-"} |{" "}
+                      {tt("app.canvasSetup.status", "Status")}: {suggestion.status}
+                    </div>
+                    {suggestion.status === "pending" ? (
+                      <div className="mt-2 flex gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={suggestionBusyId === suggestion.id}
+                          onClick={() => updateSuggestion(suggestion.id, "accept")}
+                        >
+                          {tt("app.canvasSetup.accept", "Accept")}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={suggestionBusyId === suggestion.id}
+                          onClick={() => updateSuggestion(suggestion.id, "reject")}
+                        >
+                          {tt("app.canvasSetup.reject", "Reject")}
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {tt("app.canvasSetup.optionalQuickAdd", "Optional: Quick add items now")}
+            </div>
+            <Textarea
+              value={quickAddText}
+              onChange={(event) => setQuickAddText(event.target.value)}
+              placeholder={tt("app.canvasSetup.quickAddPlaceholder", "2 HDMI cables, 1 powerbank")}
+            />
+            <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
-                disabled={!selectedFloorId || busyAction !== null}
-                onClick={createContainerFromFlow}
-                data-testid="setup-create-container"
+                disabled={busyAction !== null || !quickAddText.trim()}
+                onClick={submitQuickAdd}
               >
-                {busyAction === "container"
-                  ? tt("app.canvasSetup.creating", "Creating...")
-                  : tt("app.canvasSetup.createContainer", "Create container")}
+                {busyAction === "quick-add"
+                  ? tt("app.canvasSetup.adding", "Adding...")
+                  : tt("app.canvasSetup.addItems", "Add items")}
+              </Button>
+              <Button asChild type="button" variant="outline">
+                <Link href={`/${locale}/boxes/${createdContainer.id}`}>
+                  {tt("app.canvasSetup.openBox", "Open box")}
+                </Link>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setCreatedContainer(null);
+                  setSuggestions([]);
+                  setQuickAddText("");
+                }}
+              >
+                {tt("app.canvasSetup.createAnother", "Create another")}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setCreatedContainer(null);
+                  setSuggestions([]);
+                  setQuickAddText("");
+                }}
+              >
+                {tt("app.canvasSetup.doneNow", "Done for now")}
               </Button>
             </div>
           </div>
-
-          {message ? <div className="text-xs text-muted-foreground">{message}</div> : null}
-        </CardContent>
-      </SurfaceCard>
-
-      {createdContainer ? (
-        <SurfaceCard variant="muted" data-testid="setup-post-create-panel">
-          <CardHeader>
-            <CardTitle>
-              {tt("app.canvasSetup.createdTitle", "Container created: {name}").replace(
-                "{name}",
-                createdContainer.name,
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="text-xs text-muted-foreground">
-              {createdContainer.locationName} / {createdContainer.roomName}
-              {createdContainer.code ? ` | ${createdContainer.code}` : ""}
-            </div>
-
-            <div className="space-y-2">
-              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {tt("app.canvasSetup.optionalPhotos", "Optional: Add photos for AI capture")}
-              </div>
-              <PhotoUploader
-                householdId={householdId}
-                entityType="container"
-                entityId={createdContainer.id}
-                analyzeBatchOnComplete
-                onUploaded={() => {
-                  loadSuggestions(createdContainer.id).catch(() => null);
-                }}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {tt("app.canvasSetup.aiSuggestions", "AI suggestions")}
-              </div>
-              {suggestions.length === 0 ? (
-                <div className="text-xs text-muted-foreground">
-                  {tt(
-                    "app.canvasSetup.noSuggestions",
-                    "No suggestions yet. Upload photos to trigger analysis.",
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {suggestions.map((suggestion) => (
-                    <div key={suggestion.id} className="rounded-md border p-2">
-                      <div className="flex items-center justify-between gap-2 text-sm">
-                        <div className="font-medium">{suggestion.suggestedName}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {Math.round(Number(suggestion.confidence ?? 0) * 100)}%
-                        </div>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {tt("app.canvasSetup.qty", "Qty")}: {suggestion.suggestedQty ?? 1} |{" "}
-                        {tt("app.canvasSetup.tags", "Tags")}: {" "}
-                        {(suggestion.suggestedTags || []).join(", ") || "-"} |{" "}
-                        {tt("app.canvasSetup.status", "Status")}: {suggestion.status}
-                      </div>
-                      {suggestion.status === "pending" ? (
-                        <div className="mt-2 flex gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            disabled={suggestionBusyId === suggestion.id}
-                            onClick={() => updateSuggestion(suggestion.id, "accept")}
-                          >
-                            {tt("app.canvasSetup.accept", "Accept")}
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            disabled={suggestionBusyId === suggestion.id}
-                            onClick={() => updateSuggestion(suggestion.id, "reject")}
-                          >
-                            {tt("app.canvasSetup.reject", "Reject")}
-                          </Button>
-                        </div>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {tt("app.canvasSetup.optionalQuickAdd", "Optional: Quick add items now")}
-              </div>
-              <Textarea
-                value={quickAddText}
-                onChange={(event) => setQuickAddText(event.target.value)}
-                placeholder={tt("app.canvasSetup.quickAddPlaceholder", "2 HDMI cables, 1 powerbank")}
-              />
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  disabled={busyAction !== null || !quickAddText.trim()}
-                  onClick={submitQuickAdd}
-                >
-                  {busyAction === "quick-add"
-                    ? tt("app.canvasSetup.adding", "Adding...")
-                    : tt("app.canvasSetup.addItems", "Add items")}
-                </Button>
-                <Button asChild type="button" variant="outline">
-                  <Link href={`/${locale}/boxes/${createdContainer.id}`}>
-                    {tt("app.canvasSetup.openBox", "Open box")}
-                  </Link>
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setCreatedContainer(null);
-                    setSuggestions([]);
-                    setQuickAddText("");
-                  }}
-                >
-                  {tt("app.canvasSetup.createAnother", "Create another")}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => {
-                    setCreatedContainer(null);
-                    setSuggestions([]);
-                    setQuickAddText("");
-                  }}
-                >
-                  {tt("app.canvasSetup.doneNow", "Done for now")}
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </SurfaceCard>
+        </div>
       ) : null}
 
-      <SurfaceCard variant="muted">
-        <CardHeader>
-          <CardTitle>{tt("app.canvasSetup.readOnlyMapTitle", "Read-only map")}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <HouseholdMapPreview
-            floorName={selectedFloor?.name || tt("app.canvasSetup.noFloorSelected", "No floor selected")}
-            locationId={selectedLocationId}
-            rooms={mapRooms}
-            containers={mapContainers}
-            onOpenBox={(containerId) => {
-              router.push(`/${locale}/boxes/${containerId}`);
-            }}
-          />
-        </CardContent>
-      </SurfaceCard>
+      <SectionDivider title={tt("app.canvasSetup.readOnlyMapTitle", "Read-only map")} />
+      <HouseholdMapPreview
+        floorName={selectedFloor?.name || tt("app.canvasSetup.noFloorSelected", "No floor selected")}
+        locationId={selectedLocationId}
+        rooms={mapRooms}
+        containers={mapContainers}
+        onOpenBox={(containerId) => {
+          router.push(`/${locale}/boxes/${containerId}`);
+        }}
+      />
 
       <div className="text-xs text-muted-foreground">
         {tt("app.canvasSetup.householdLabel", "Household")}: {householdName}
@@ -715,4 +617,3 @@ export function HouseholdSetupFlow({
     </div>
   );
 }
-

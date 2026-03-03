@@ -1,7 +1,19 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { SectionDivider } from "@/components/inventory/SectionDivider";
+import { PageFrame } from "@/components/inventory/PageFrame";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import type { Locale } from "@/i18n/config";
 import { getInventoryContext } from "@/lib/inventory/page-context";
 import {
@@ -19,18 +31,6 @@ import {
   createContainerSchema,
   deleteEntitySchema,
 } from "@/lib/inventory/validation";
-import { Button } from "@/components/ui/button";
-import { SurfaceCard } from "@/components/inventory/SurfaceCard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 
 export default async function RoomPage({
   params,
@@ -184,125 +184,113 @@ export default async function RoomPage({
   ]);
 
   return (
-    <div className="space-y-4">
-      <SurfaceCard variant="hero">
-        <CardHeader>
-          <CardTitle>{room.name}</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-center gap-2 text-xs">
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/${locale}/households/${activeHouseholdId}/canvas`}>
-              Back to household canvas
-            </Link>
-          </Button>
+    <PageFrame className="space-y-6">
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <div className="text-base font-semibold">{room.name}</div>
+        <Link
+          href={`/${locale}/households/${activeHouseholdId}/canvas`}
+          className="rounded border px-2 py-1 underline-offset-2 hover:underline"
+        >
+          Household canvas
+        </Link>
+        <Link href={`/${locale}/rooms/${roomId}`} className="underline-offset-2 hover:underline">
+          Active
+        </Link>
+        <Link
+          href={`/${locale}/rooms/${roomId}?archived=1`}
+          className="underline-offset-2 hover:underline"
+        >
+          Include archived
+        </Link>
+        {tags.slice(0, 8).map((tag) => (
           <Link
-            href={`/${locale}/households/${activeHouseholdId}/canvas?focus=room:${roomId}`}
-            className="rounded border px-2 py-1 underline-offset-2 hover:underline"
+            key={tag.id}
+            href={`/${locale}/rooms/${roomId}?tag=${tag.id}`}
+            className="rounded border px-2 py-1"
           >
-            Household canvas
+            {tag.name}
           </Link>
-          <Link href={`/${locale}/rooms/${roomId}`} className="underline-offset-2 hover:underline">
-            Active
-          </Link>
-          <Link href={`/${locale}/rooms/${roomId}?archived=1`} className="underline-offset-2 hover:underline">
-            Include archived
-          </Link>
-          {tags.slice(0, 8).map((tag) => (
-            <Link
-              key={tag.id}
-              href={`/${locale}/rooms/${roomId}?tag=${tag.id}`}
-              className="rounded border px-2 py-1"
-            >
-              {tag.name}
-            </Link>
-          ))}
-          <form action={deleteRoomAction} className="ml-auto">
-            <Button type="submit" variant="destructive" size="sm">
-              Delete room
-            </Button>
-          </form>
-        </CardContent>
-      </SurfaceCard>
+        ))}
+        <form action={deleteRoomAction} className="ml-auto">
+          <Button type="submit" variant="destructive" size="sm">
+            Delete room
+          </Button>
+        </form>
+      </div>
 
-      <Card className="transition hover:shadow-md">
-        <CardHeader>
-          <CardTitle>Quick Add Container</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <form action={createContainerAction} className="grid gap-2 md:grid-cols-5">
-            <Input name="name" placeholder="Box A" required />
-            <Input name="code" placeholder="A-01" />
-            <Input name="description" placeholder="Description" />
-            <Select name="parentContainerId" defaultValue="__root__">
-              <SelectTrigger>
-                <SelectValue placeholder="Parent container" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__root__">Top-level box</SelectItem>
-                {containers.map((entry) => (
-                  <SelectItem key={entry.container.id} value={entry.container.id}>
-                    Nested in: {entry.container.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button type="submit" className="md:col-span-5 w-fit">
-              Add container
-            </Button>
-          </form>
+      <div className="space-y-3">
+        <SectionDivider title="Quick add container" />
+        <form action={createContainerAction} className="grid gap-2 md:grid-cols-5">
+          <Input name="name" placeholder="Box A" required />
+          <Input name="code" placeholder="A-01" />
+          <Input name="description" placeholder="Description" />
+          <Select name="parentContainerId" defaultValue="__root__">
+            <SelectTrigger>
+              <SelectValue placeholder="Parent container" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__root__">Top-level box</SelectItem>
+              {containers.map((entry) => (
+                <SelectItem key={entry.container.id} value={entry.container.id}>
+                  Nested in: {entry.container.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button type="submit" className="md:col-span-5 w-fit">
+            Add container
+          </Button>
+        </form>
+      </div>
 
-          <form action={bulkCreatePathsAction} className="grid gap-2">
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Bulk create paths
-            </div>
-            <Select name="rootParentContainerId" defaultValue="__root__">
-              <SelectTrigger className="md:max-w-sm">
-                <SelectValue placeholder="Top-level root" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__root__">Top-level root</SelectItem>
-                {containers.map((entry) => (
-                  <SelectItem key={`bulk-${entry.container.id}`} value={entry.container.id}>
-                    Under: {entry.container.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Textarea
-              name="paths"
-              className="min-h-28"
-              placeholder={"Shelf A > Box 01\nShelf A > Box 02\nShelf B > Box 10"}
-            />
-            <Button type="submit" variant="outline" className="w-fit">
-              Create paths
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      <div className="space-y-3">
+        <SectionDivider title="Bulk create paths" />
+        <form action={bulkCreatePathsAction} className="grid gap-2">
+          <Select name="rootParentContainerId" defaultValue="__root__">
+            <SelectTrigger className="md:max-w-sm">
+              <SelectValue placeholder="Top-level root" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__root__">Top-level root</SelectItem>
+              {containers.map((entry) => (
+                <SelectItem key={`bulk-${entry.container.id}`} value={entry.container.id}>
+                  Under: {entry.container.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Textarea
+            name="paths"
+            className="min-h-28"
+            placeholder={"Shelf A > Box 01\nShelf A > Box 02\nShelf B > Box 10"}
+          />
+          <Button type="submit" variant="outline" className="w-fit">
+            Create paths
+          </Button>
+        </form>
+      </div>
 
-      <Card className="transition hover:shadow-md">
-        <CardHeader>
-          <CardTitle>Containers</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {containers.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No containers found.</div>
-          ) : (
-            containers.map((entry) => (
+      <div className="space-y-3">
+        <SectionDivider title="Containers" />
+        {containers.length === 0 ? (
+          <div className="text-sm text-muted-foreground">No containers found.</div>
+        ) : (
+          <div className="space-y-2">
+            {containers.map((entry) => (
               <div
                 key={entry.container.id}
-                className="flex items-center justify-between rounded-md border p-3"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3"
               >
                 <div>
                   <div className="font-medium">{entry.container.name}</div>
                   <div className="text-xs text-muted-foreground">
-                    code: {entry.container.code || "-"} · {entry.itemCount} item rows · {entry.photoCount} photos ·{" "}
-                    {entry.container.archivedAt ? "archived" : "active"}
+                    code: {entry.container.code || "-"} · {entry.itemCount} item rows ·{" "}
+                    {entry.photoCount} photos · {entry.container.archivedAt ? "archived" : "active"}
                   </div>
                 </div>
                 <div className="flex flex-wrap justify-end gap-2">
                   <Button asChild size="sm" variant="outline">
-                    <Link href={`/${locale}/boxes/${entry.container.id}`}>Open Box</Link>
+                    <Link href={`/${locale}/boxes/${entry.container.id}`}>Open box</Link>
                   </Button>
                   <Button asChild size="sm" variant="outline">
                     <Link href={`/${locale}/rooms/${roomId}/map?focus=container:${entry.container.id}`}>
@@ -311,11 +299,7 @@ export default async function RoomPage({
                   </Button>
                   <form action={archiveContainerAction}>
                     <input type="hidden" name="containerId" value={entry.container.id} />
-                    <input
-                      type="hidden"
-                      name="archived"
-                      value={entry.container.archivedAt ? "0" : "1"}
-                    />
+                    <input type="hidden" name="archived" value={entry.container.archivedAt ? "0" : "1"} />
                     <Button type="submit" size="sm" variant="secondary">
                       {entry.container.archivedAt ? "Restore" : "Archive"}
                     </Button>
@@ -328,10 +312,10 @@ export default async function RoomPage({
                   </form>
                 </div>
               </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
-    </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </PageFrame>
   );
 }

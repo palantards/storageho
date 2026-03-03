@@ -1,5 +1,9 @@
 import Link from "next/link";
 
+import { HouseholdSetupFlow } from "@/components/inventory/HouseholdSetupFlow";
+import { PageFrame } from "@/components/inventory/PageFrame";
+import { SectionDivider } from "@/components/inventory/SectionDivider";
+import { Button } from "@/components/ui/button";
 import type { Locale } from "@/i18n/config";
 import { getMessages } from "@/i18n/getMessages";
 import { t as tt } from "@/i18n/translate";
@@ -11,10 +15,6 @@ import {
   listHouseholdCanvasLayers,
   listRoomsWithFloor,
 } from "@/lib/inventory/service";
-import { HouseholdSetupFlow } from "@/components/inventory/HouseholdSetupFlow";
-import { SurfaceCard } from "@/components/inventory/SurfaceCard";
-import { Button } from "@/components/ui/button";
-import { CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function HouseholdCanvasPage({
   params,
@@ -63,26 +63,30 @@ export default async function HouseholdCanvasPage({
   ]);
 
   return (
-    <div className="space-y-4">
-      <SurfaceCard variant="hero">
-        <CardHeader>
-          <CardTitle>{t("app.canvasSetup.pageTitle", "Set up your storage workflow")}</CardTitle>
-          <CardDescription>
+    <PageFrame className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="text-2xl font-semibold">
+            {t("app.canvasSetup.pageTitle", "Set up your storage workflow")}
+          </div>
+          <div className="text-sm text-muted-foreground">
             {t(
               "app.canvasSetup.pageDescription",
               "Create floors and rooms, add containers, then review the read-only map preview.",
             )}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-          <div>{household.name}</div>
-          <Button asChild size="sm" variant="outline" className="ml-auto">
-            <Link href={`/${locale}/dashboard`}>
-              {t("app.canvasSetup.backToDashboard", "Back to dashboard")}
-            </Link>
-          </Button>
-        </CardContent>
-      </SurfaceCard>
+          </div>
+        </div>
+        <Button asChild variant="outline" size="sm">
+          <Link href={`/${locale}/dashboard`}>
+            {t("app.canvasSetup.backToDashboard", "Back to dashboard")}
+          </Link>
+        </Button>
+      </div>
+
+      <SectionDivider
+        title={t("app.canvasSetup.householdLabel", "Household")}
+        description={household.name}
+      />
 
       <HouseholdSetupFlow
         locale={locale}
@@ -111,6 +115,6 @@ export default async function HouseholdCanvasPage({
           locationName: row.location.name,
         }))}
       />
-    </div>
+    </PageFrame>
   );
 }

@@ -8,13 +8,14 @@ type Props = React.ComponentProps<typeof Card> & {
 };
 
 const base =
-  "transition hover:shadow-md hover:-translate-y-[1px] border";
+  "rounded-2xl border px-4 py-3 md:px-6 md:py-5 bg-background/90 shadow-[0_1px_0_rgba(0,0,0,0.04)]";
 
 const variantClass: Record<SurfaceVariant, string> = {
-  hero: "border-primary/15 bg-gradient-to-br from-primary/10 via-background to-background hover:shadow-lg",
-  muted: "border-muted bg-muted/40",
-  neutral: "border-border/70 bg-background",
-  danger: "border-destructive/30",
+  hero:
+    "border-primary/25 bg-gradient-to-br from-primary/8 via-background to-background",
+  muted: "border-muted/70 bg-background/80",
+  neutral: "border-border/60 bg-background/90",
+  danger: "border-destructive/30 bg-destructive/5",
 };
 
 export function SurfaceCard({ variant = "neutral", className, ...rest }: Props) {

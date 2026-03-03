@@ -8,6 +8,7 @@ import {
   createItem,
   createTag,
   deleteContainer,
+  deleteContainerItem,
   getContainerById,
   listActivity,
   listContainerItems,
@@ -20,7 +21,6 @@ import {
   setContainerTags,
   updateContainerItemQuantity,
   updateItemName,
-  deleteContainerItem,
   upsertContainerItem,
 } from "@/lib/inventory/service";
 import { ActivityFeed } from "@/components/inventory/ActivityFeed";
@@ -28,14 +28,13 @@ import { BoxSuggestionsPanel } from "@/components/inventory/BoxSuggestionsPanel"
 import { ContainerItemRow } from "@/components/inventory/ContainerItemRow";
 import { ItemAutocomplete } from "@/components/inventory/ItemAutocomplete";
 import { MoveItemDialog } from "@/components/inventory/MoveItemDialog";
+import { PageFrame } from "@/components/inventory/PageFrame";
 import { PhotoUploader } from "@/components/inventory/PhotoUploader";
 import { QRCodeRenderer } from "@/components/inventory/QRCodeRenderer";
+import { SectionDivider } from "@/components/inventory/SectionDivider";
 import { SignedImage } from "@/components/inventory/SignedImage";
-import { SectionHeader } from "@/components/inventory/SectionHeader";
-import { SurfaceCard } from "@/components/inventory/SurfaceCard";
 import { TagChips } from "@/components/inventory/TagChips";
 import { Button } from "@/components/ui/button";
-import { CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -62,9 +61,7 @@ export default async function BoxPage({
   const householdId = context.activeMembership?.household.id;
 
   if (!householdId) {
-    return (
-      <div className="text-sm text-muted-foreground">No active household.</div>
-    );
+    return <div className="text-sm text-muted-foreground">No active household.</div>;
   }
   const activeHouseholdId = householdId;
 
@@ -280,310 +277,246 @@ export default async function BoxPage({
   ]);
 
   return (
-    <div className="space-y-4">
-      <SurfaceCard variant="hero">
-        <CardHeader>
-          <SectionHeader
-            title={row.container.name}
-            description={`${row.location.name} → ${row.room.name}`}
-            actions={
-              <QRCodeRenderer
-                value={absoluteDeepLink}
-              />
-            }
-          />
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          <div className="space-y-2 text-sm text-muted-foreground">
-            <div>Code: {row.container.code || "-"}</div>
-            <div>Deep link: {absoluteDeepLink}</div>
-            <TagChips
-              tags={containerTags.map((tagRow) => ({
-                id: tagRow.tag.id,
-                name: tagRow.tag.name,
-                color: tagRow.tag.color,
-              }))}
-            />
+    <PageFrame className="space-y-5" padded>
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div className="space-y-1">
+          <div className="text-2xl font-semibold">{row.container.name}</div>
+          <div className="text-sm text-muted-foreground">
+            {row.location.name} → {row.room.name}
           </div>
-        </CardContent>
-      </SurfaceCard>
+          <div className="text-sm text-muted-foreground">
+            Code: {row.container.code || "-"} · Deep link: {absoluteDeepLink}
+          </div>
+          <TagChips
+            tags={containerTags.map((tagRow) => ({
+              id: tagRow.tag.id,
+              name: tagRow.tag.name,
+              color: tagRow.tag.color,
+            }))}
+          />
+        </div>
+        <div className="md:pt-1">
+          <QRCodeRenderer value={absoluteDeepLink} />
+        </div>
+      </div>
 
-        <Tabs defaultValue="contents" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
-            <TabsTrigger value="contents">Contents</TabsTrigger>
-            <TabsTrigger value="photos">Photos</TabsTrigger>
-            <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
-            <TabsTrigger value="activity">Activity</TabsTrigger>
+      <Tabs defaultValue="contents" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
+          <TabsTrigger value="contents">Contents</TabsTrigger>
+          <TabsTrigger value="photos">Photos</TabsTrigger>
+          <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="contents" className="space-y-4">
-          <SurfaceCard variant="muted" className="transition hover:shadow-md">
-            <CardHeader>
-              <SectionHeader
-                title="Add item"
-                description="Select an existing item or type a new name to create and add."
-              />
-            </CardHeader>
-            <CardContent>
-              <form action={addItemUnifiedAction} className="grid gap-3">
-                <div className="grid gap-1">
-                  <div className="flex items-center gap-2">
-                    <Label
-                      htmlFor="item-name"
-                      className="text-xs font-medium text-muted-foreground"
-                    >
-                      Name
-                    </Label>
-                    <TooltipProvider delayDuration={200}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            className="inline-flex h-5 w-5 items-center justify-center text-muted-foreground hover:text-foreground"
-                            aria-label="Add item help"
-                          >
-                            <HelpCircle className="h-4 w-4" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-xs text-xs">
-                          Choose from suggestions or type. If the name doesn&apos;t match an
-                          existing item, a new one will be created.
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <ItemAutocomplete
-                    name="item"
-                    items={itemLibrary.map((it) => ({ id: it.id, name: it.name }))}
-                    placeholder="e.g. Power bank"
-                  />
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="grid gap-1">
-                    <Label htmlFor="item-qty" className="text-xs font-medium text-muted-foreground">
-                      Quantity
-                    </Label>
-                    <Input
-                      id="item-qty"
-                      type="number"
-                      min={1}
-                      defaultValue={1}
-                      name="quantity"
-                    />
-                  </div>
-                  <div className="grid gap-1">
-                    <Label htmlFor="item-note" className="text-xs font-medium text-muted-foreground">
-                      Note
-                    </Label>
-                    <Input id="item-note" name="note" placeholder="Optional note" />
-                  </div>
-                </div>
-
-                <Button type="submit" className="w-fit">
-                  Add to box
-                </Button>
-              </form>
-            </CardContent>
-          </SurfaceCard>
-
-          <SurfaceCard variant="muted" className="transition hover:shadow-md">
-            <CardHeader>
-              <SectionHeader
-                title="Items in this box"
-                description="Rename, adjust quantity, move or remove items."
-              />
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {containerItems.length === 0 ? (
-                <div className="text-sm text-muted-foreground">
-                  No items in this box.
-                </div>
-              ) : (
-                containerItems.map((entry) => (
-                  <ContainerItemRow
-                    key={entry.containerItem.id}
-                    itemId={entry.item.id}
-                    containerItemId={entry.containerItem.id}
-                    name={entry.item.name}
-                    quantity={entry.containerItem.quantity}
-                    onRename={updateItemNameAction}
-                    onUpdateQuantity={updateQuantityAction}
-                    rightSlot={
-                      <div className="flex items-center gap-2">
-                        <MoveItemDialog
-                          householdId={householdId}
-                          itemId={entry.item.id}
-                          fromContainerId={boxId}
-                          maxQuantity={entry.containerItem.quantity}
-                          containers={moveTargets.map((container) => ({
-                            id: container.id,
-                            name: container.name,
-                          }))}
-                        />
-                        <form action={removeItemAction}>
-                          <input
-                            type="hidden"
-                            name="containerItemId"
-                            value={entry.containerItem.id}
-                          />
-                          <Button
-                            type="submit"
-                            size="sm"
-                            variant="ghost"
-                            className="text-rose-600 hover:text-rose-700"
-                          >
-                            Remove
-                          </Button>
-                        </form>
-                      </div>
-                    }
-                  />
-                ))
-              )}
-            </CardContent>
-          </SurfaceCard>
-        </TabsContent>
-
-        <TabsContent value="photos">
-          <SurfaceCard variant="muted" className="transition hover:shadow-md">
-            <CardHeader>
-              <SectionHeader title="Photos" description="Upload and manage box photos." />
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <PhotoUploader
-                householdId={householdId}
-                entityType="container"
-                entityId={boxId}
-                refreshOnComplete
-                analyzeBatchOnComplete
-              />
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-                {photos.map((photo) => (
-                  <SignedImage
-                    key={photo.id}
-                    path={photo.storagePathThumb}
-                    alt="Container photo"
-                    className="h-28 w-full rounded-md object-cover"
-                  />
-                ))}
+          <SectionDivider
+            title="Add item"
+            description="Select an existing item or type a new name to create and add."
+          />
+          <form action={addItemUnifiedAction} className="grid gap-3">
+            <div className="grid gap-1">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="item-name" className="text-xs font-medium text-muted-foreground">
+                  Name
+                </Label>
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="inline-flex h-5 w-5 items-center justify-center text-muted-foreground hover:text-foreground"
+                        aria-label="Add item help"
+                      >
+                        <HelpCircle className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs text-xs">
+                      Choose from suggestions or type. If the name doesn&apos;t match an existing item,
+                      a new one will be created.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
-            </CardContent>
-          </SurfaceCard>
+              <ItemAutocomplete
+                name="item"
+                items={itemLibrary.map((it) => ({ id: it.id, name: it.name }))}
+                placeholder="e.g. Power bank"
+              />
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-1">
+                <Label htmlFor="item-qty" className="text-xs font-medium text-muted-foreground">
+                  Quantity
+                </Label>
+                <Input id="item-qty" type="number" min={1} defaultValue={1} name="quantity" />
+              </div>
+              <div className="grid gap-1">
+                <Label htmlFor="item-note" className="text-xs font-medium text-muted-foreground">
+                  Note
+                </Label>
+                <Input id="item-note" name="note" placeholder="Optional note" />
+              </div>
+            </div>
+
+            <Button type="submit" className="w-fit">
+              Add to box
+            </Button>
+          </form>
+
+          <SectionDivider
+            title="Items in this box"
+            description="Rename, adjust quantity, move or remove items."
+          />
+          <div className="space-y-2">
+            {containerItems.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No items in this box.</div>
+            ) : (
+              containerItems.map((entry) => (
+                <ContainerItemRow
+                  key={entry.containerItem.id}
+                  itemId={entry.item.id}
+                  containerItemId={entry.containerItem.id}
+                  name={entry.item.name}
+                  quantity={entry.containerItem.quantity}
+                  onRename={updateItemNameAction}
+                  onUpdateQuantity={updateQuantityAction}
+                  rightSlot={
+                    <div className="flex items-center gap-2">
+                      <MoveItemDialog
+                        householdId={householdId}
+                        itemId={entry.item.id}
+                        fromContainerId={boxId}
+                        maxQuantity={entry.containerItem.quantity}
+                        containers={moveTargets.map((container) => ({
+                          id: container.id,
+                          name: container.name,
+                        }))}
+                      />
+                      <form action={removeItemAction}>
+                        <input type="hidden" name="containerItemId" value={entry.containerItem.id} />
+                        <Button
+                          type="submit"
+                          size="sm"
+                          variant="ghost"
+                          className="text-rose-600 hover:text-rose-700"
+                        >
+                          Remove
+                        </Button>
+                      </form>
+                    </div>
+                  }
+                />
+              ))
+            )}
+          </div>
         </TabsContent>
 
-        <TabsContent value="suggestions">
-          <SurfaceCard variant="muted" className="transition hover:shadow-md">
-            <CardHeader>
-              <SectionHeader
-                title="AI capture suggestions"
-                description="Review and accept/reject AI-detected items."
-              />
-            </CardHeader>
-            <CardContent>
-              <BoxSuggestionsPanel
-                householdId={householdId}
-                containerId={boxId}
-                suggestions={suggestions.map((suggestion) => ({
-                  id: suggestion.id,
-                  suggestedName: suggestion.suggestedName,
-                  suggestedQty: suggestion.suggestedQty,
-                  suggestedTags: suggestion.suggestedTags,
-                  confidence: Number(suggestion.confidence ?? 0),
-                  status: suggestion.status,
-                  resolvedItemId: suggestion.resolvedItemId,
-                  createdAt: suggestion.createdAt.toISOString(),
-                }))}
-              />
-            </CardContent>
-          </SurfaceCard>
+        <TabsContent value="photos" className="space-y-4">
+          <SectionDivider title="Photos" description="Upload and manage box photos." />
+          <div className="space-y-3">
+            <PhotoUploader
+              householdId={householdId}
+              entityType="container"
+              entityId={boxId}
+              refreshOnComplete
+              analyzeBatchOnComplete
+            />
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+              {photos.map((photo) => (
+                <SignedImage
+                  key={photo.id}
+                  path={photo.storagePathThumb}
+                  alt="Container photo"
+                  className="h-28 w-full rounded-md object-cover"
+                />
+              ))}
+            </div>
+          </div>
         </TabsContent>
 
-        <TabsContent value="activity">
-          <SurfaceCard variant="muted" className="transition hover:shadow-md">
-            <CardHeader>
-              <SectionHeader title="History" description="Recent changes related to this box." />
-            </CardHeader>
-            <CardContent>
-              <ActivityFeed
-                locale={locale}
-                items={activity.map((entry) => ({
-                  id: entry.activity.id,
-                  actionType: entry.activity.actionType,
-                  entityType: entry.activity.entityType,
-                  entityId: entry.activity.entityId,
-                  metadata: entry.activity.metadata as Record<string, unknown>,
-                  createdAt: entry.activity.createdAt,
-                  actorName:
-                    entry.profile?.displayName ||
-                    entry.profile?.name ||
-                    context.user.email,
-                }))}
-              />
-            </CardContent>
-          </SurfaceCard>
+        <TabsContent value="suggestions" className="space-y-4">
+          <SectionDivider
+            title="AI capture suggestions"
+            description="Review and accept/reject AI-detected items."
+          />
+          <BoxSuggestionsPanel
+            householdId={householdId}
+            containerId={boxId}
+            suggestions={suggestions.map((suggestion) => ({
+              id: suggestion.id,
+              suggestedName: suggestion.suggestedName,
+              suggestedQty: suggestion.suggestedQty,
+              suggestedTags: suggestion.suggestedTags,
+              confidence: Number(suggestion.confidence ?? 0),
+              status: suggestion.status,
+              resolvedItemId: suggestion.resolvedItemId,
+              createdAt: suggestion.createdAt.toISOString(),
+            }))}
+          />
+        </TabsContent>
+
+        <TabsContent value="activity" className="space-y-4">
+          <SectionDivider title="History" description="Recent changes related to this box." />
+          <ActivityFeed
+            locale={locale}
+            items={activity.map((entry) => ({
+              id: entry.activity.id,
+              actionType: entry.activity.actionType,
+              entityType: entry.activity.entityType,
+              entityId: entry.activity.entityId,
+              metadata: entry.activity.metadata as Record<string, unknown>,
+              createdAt: entry.activity.createdAt,
+              actorName: entry.profile?.displayName || entry.profile?.name || context.user.email,
+            }))}
+          />
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-4">
-          <SurfaceCard variant="muted" className="transition hover:shadow-md">
-            <CardHeader>
-              <SectionHeader title="Tags" description="Set default tags for this box." />
-            </CardHeader>
-            <CardContent>
-              <form action={updateTagsAction} className="flex gap-2">
-                <Input
-                  name="tagNames"
-                  placeholder="winter, kitchen, electronics"
-                  defaultValue={containerTags
-                    .map((entry) => entry.tag.name)
-                    .join(", ")}
-                />
-                <Button type="submit">Save tags</Button>
-              </form>
-            </CardContent>
-          </SurfaceCard>
+          <SectionDivider title="Tags" description="Set default tags for this box." />
+          <form action={updateTagsAction} className="flex flex-wrap gap-2">
+            <Input
+              name="tagNames"
+              placeholder="winter, kitchen, electronics"
+              defaultValue={containerTags.map((entry) => entry.tag.name).join(", ")}
+              className="min-w-[220px]"
+            />
+            <Button type="submit">Save tags</Button>
+          </form>
 
-          <SurfaceCard variant="muted" className="transition hover:shadow-md">
-            <CardHeader>
-              <SectionHeader title="Box metadata" />
-            </CardHeader>
-            <CardContent className="space-y-1 text-sm text-muted-foreground">
-              <div>Room: {row.room.name}</div>
-              <div>Floor: {row.location.name}</div>
-              <div>Code: {row.container.code || "-"}</div>
-              <div>Status: {row.container.status}</div>
-            </CardContent>
-          </SurfaceCard>
+          <SectionDivider title="Box metadata" />
+          <div className="space-y-1 text-sm text-muted-foreground">
+            <div>Room: {row.room.name}</div>
+            <div>Floor: {row.location.name}</div>
+            <div>Code: {row.container.code || "-"}</div>
+            <div>Status: {row.container.status}</div>
+          </div>
 
-          <SurfaceCard variant="danger" className="transition hover:shadow-md">
-            <CardHeader>
-              <SectionHeader title="Danger zone" />
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-2">
-              <form action={archiveBoxAction}>
-                <input
-                  type="hidden"
-                  name="archived"
-                  value={row.container.archivedAt ? "0" : "1"}
-                />
-                <Button type="submit" variant="secondary">
-                  {row.container.archivedAt ? "Restore box" : "Archive box"}
-                </Button>
-              </form>
-              <form action={deleteBoxAction}>
-                <Button type="submit" variant="destructive">
-                  Delete box
-                </Button>
-              </form>
-            </CardContent>
-          </SurfaceCard>
+          <SectionDivider title="Danger zone" />
+          <div className="flex flex-wrap gap-2">
+            <form action={archiveBoxAction}>
+              <input
+                type="hidden"
+                name="archived"
+                value={row.container.archivedAt ? "0" : "1"}
+              />
+              <Button type="submit" variant="secondary">
+                {row.container.archivedAt ? "Restore box" : "Archive box"}
+              </Button>
+            </form>
+            <form action={deleteBoxAction}>
+              <Button type="submit" variant="destructive">
+                Delete box
+              </Button>
+            </form>
+          </div>
         </TabsContent>
       </Tabs>
 
       <Button asChild variant="outline">
         <Link href={`/${locale}/rooms/${row.room.id}`}>Back to room</Link>
       </Button>
-    </div>
+    </PageFrame>
   );
 }

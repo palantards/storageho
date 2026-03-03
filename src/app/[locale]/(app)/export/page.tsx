@@ -1,8 +1,8 @@
 import type { Locale } from "@/i18n/config";
 import { getInventoryContext } from "@/lib/inventory/page-context";
 import { listFloors } from "@/lib/inventory/service";
-import { SurfaceCard } from "@/components/inventory/SurfaceCard";
-import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageFrame } from "@/components/inventory/PageFrame";
+import { SectionDivider } from "@/components/inventory/SectionDivider";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -11,6 +11,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import Link from "next/link";
 
 export default async function ExportPage({
   params,
@@ -22,7 +23,9 @@ export default async function ExportPage({
   const householdId = context.activeMembership?.household.id;
 
   if (!householdId) {
-    return <div className="text-sm text-muted-foreground">No active household.</div>;
+    return (
+      <div className="text-sm text-muted-foreground">No active household.</div>
+    );
   }
 
   const floors = await listFloors({
@@ -33,36 +36,41 @@ export default async function ExportPage({
   const selectedFloor = floors[0]?.location.id;
 
   return (
-    <div className="space-y-4">
-      <SurfaceCard variant="hero">
-        <CardHeader>
-          <CardTitle>Export CSV</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form action="/api/export" method="get" className="space-y-3">
-            <input type="hidden" name="householdId" value={householdId} />
+    <PageFrame className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="text-2xl font-semibold">Export CSV</div>
+          <div className="text-sm text-muted-foreground">
+            Download household data filtered by floor.
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/${locale}/dashboard`}>Back to dashboard</Link>
+          </Button>
+        </div>
+      </div>
 
-            <div className="grid gap-1 text-sm">
-              <span>Floor scope (optional)</span>
-              <Select name="floorId" defaultValue={selectedFloor ?? "all"}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All floors" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All floors</SelectItem>
-                  {floors.map((entry) => (
-                    <SelectItem key={entry.location.id} value={entry.location.id}>
-                      {entry.location.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Button type="submit">Download CSV</Button>
-          </form>
-        </CardContent>
-      </SurfaceCard>
-    </div>
+      <form action="/api/export" method="POST" className="space-y-3">
+        <SectionDivider title="Choose scope" />
+        <input type="hidden" name="householdId" value={householdId} />
+        <Select name="floorId" defaultValue={selectedFloor || "all"}>
+          <SelectTrigger className="w-64">
+            <SelectValue placeholder="All floors" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All floors</SelectItem>
+            {floors.map((entry) => (
+              <SelectItem key={entry.location.id} value={entry.location.id}>
+                {entry.location.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button type="submit" className="w-fit">
+          Export CSV
+        </Button>
+      </form>
+    </PageFrame>
   );
 }

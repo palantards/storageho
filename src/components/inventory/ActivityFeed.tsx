@@ -25,6 +25,13 @@ type Activity = {
   actorName?: string | null;
 };
 
+type ActivityRow =
+  | Activity
+  | {
+      activity: Activity;
+      profile?: { displayName?: string | null; name?: string | null };
+    };
+
 const ACTION_LABELS: Record<string, string> = {
   created: "created",
   updated: "updated",
@@ -62,8 +69,8 @@ function formatActor(actor?: string | null) {
 }
 
 function formatTitle(item: Activity) {
-  const action = ACTION_LABELS[item.actionType] ?? item.actionType;
-  const entity = ENTITY_LABELS[item.entityType] ?? item.entityType;
+  const action = ACTION_LABELS[item.actionType] ?? item.actionType ?? "updated";
+  const entity = ENTITY_LABELS[item.entityType] ?? item.entityType ?? "activity";
   return `${formatActor(item.actorName)} ${action} ${entity}`;
 }
 
@@ -110,9 +117,7 @@ function renderMetadataPills(
             : Array.isArray(value)
               ? value.join(", ")
               : typeof value === "object"
-                ? Object.keys(value as Record<string, unknown>)
-                    .slice(0, 3)
-                    .join(", ")
+                ? Object.keys(value as Record<string, unknown>).slice(0, 3).join(", ")
                 : "";
         if (!valueStr) return null;
 
@@ -185,10 +190,30 @@ export function ActivityFeed({
   items,
   locale = "en",
 }: {
-  items: Activity[];
+  items: ActivityRow[];
   locale?: string;
 }) {
-  if (items.length === 0) {
+  const normalized = (items || []).map((raw) => {
+    const base: Activity = "activity" in raw ? raw.activity : (raw as Activity);
+    const actorFromProfile =
+      "activity" in raw
+        ? raw.profile?.displayName || raw.profile?.name || undefined
+        : undefined;
+
+    const date =
+      base.createdAt instanceof Date
+        ? base.createdAt
+        : new Date(base.createdAt as unknown as string);
+    const validDate = Number.isNaN(date.getTime()) ? null : date;
+
+    return {
+      ...base,
+      actorName: base.actorName || actorFromProfile || "Someone",
+      createdAt: validDate,
+    };
+  });
+
+  if (normalized.length === 0) {
     return (
       <div className="rounded-md border bg-muted/40 p-4 text-sm text-muted-foreground">
         No activity yet.
@@ -198,7 +223,7 @@ export function ActivityFeed({
 
   return (
     <div className="space-y-3">
-      {items.map((item) => (
+      {normalized.map((item) => (
         <div
           key={item.id}
           className="rounded-lg border bg-card p-4 shadow-sm transition hover:border-foreground/20"
@@ -211,10 +236,18 @@ export function ActivityFeed({
               <div>
                 <div className="flex items-center gap-2 text-sm font-semibold leading-tight">
                   <span>{formatTitle(item)}</span>
-                  {renderBadge(item.actionType)}
+                  {item.actionType ? renderBadge(item.actionType) : null}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(item.createdAt, { addSuffix: true })}
+                  {item.createdAt
+                    ? (() => {
+                        try {
+                          return formatDistanceToNow(item.createdAt, { addSuffix: true });
+                        } catch {
+                          return "Time unknown";
+                        }
+                      })()
+                    : "Time unknown"}
                 </div>
               </div>
             </div>

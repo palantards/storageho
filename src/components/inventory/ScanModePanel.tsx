@@ -4,12 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { PhotoUploader } from "@/components/inventory/PhotoUploader";
-import { SurfaceCard } from "@/components/inventory/SurfaceCard";
-import { SectionHeader } from "@/components/inventory/SectionHeader";
+import { SectionDivider } from "@/components/inventory/SectionDivider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { CardContent, CardHeader } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -199,9 +197,7 @@ export function ScanModePanel({
     recognition.interimResults = false;
     recognition.onresult = (event) => {
       const transcript = event.results?.[0]?.[0]?.transcript || "";
-      setQuickText((current) =>
-        [current.trim(), transcript.trim()].filter(Boolean).join(", "),
-      );
+      setQuickText((current) => [current.trim(), transcript.trim()].filter(Boolean).join(", "));
     };
     recognition.onerror = () => {
       setMessage("Voice capture failed.");
@@ -216,134 +212,125 @@ export function ScanModePanel({
   }, []);
 
   return (
-    <div className="space-y-4">
-      <SurfaceCard variant="muted">
-        <CardHeader>
-          <SectionHeader title="Scan box QR" description="Paste QR text, URL, or box id—or use camera." />
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex flex-wrap gap-2">
-            <Input
-              placeholder="Paste QR text, URL, or box id"
-              value={manualInput}
-              onChange={(event) => setManualInput(event.target.value)}
-              className="min-w-[260px] flex-1"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                const boxId = extractBoxId(manualInput);
-                if (!boxId) {
-                  setMessage("Could not parse a box id from input.");
-                  return;
-                }
-                openBox(boxId);
-              }}
-            >
-              Open box
-            </Button>
-            <Button type="button" onClick={startCamera} disabled={cameraActive}>
-              {cameraActive ? "Scanning..." : "Start camera scan"}
-            </Button>
-            {cameraActive ? (
-              <Button type="button" variant="ghost" onClick={() => stopCamera()}>
-                Stop
-              </Button>
-            ) : null}
-          </div>
-          <video
-            ref={videoRef}
-            className={`w-full rounded-md border bg-black ${cameraActive ? "block" : "hidden"}`}
-            playsInline
-            muted
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <SectionDivider
+          title="Scan box QR"
+          description="Paste QR text, URL, or box id—or use camera."
+          className="pt-1"
+        />
+        <div className="flex flex-wrap gap-2">
+          <Input
+            placeholder="Paste QR text, URL, or box id"
+            value={manualInput}
+            onChange={(event) => setManualInput(event.target.value)}
+            className="min-w-[260px] flex-1"
           />
-          {message ? <div className="text-xs text-muted-foreground">{message}</div> : null}
-        </CardContent>
-      </SurfaceCard>
-
-      <SurfaceCard variant="muted">
-        <CardHeader>
-          <SectionHeader title="Switch room" />
-        </CardHeader>
-        <CardContent>
-          <Select
-            defaultValue={activeRoomId || rooms[0]?.id}
-            onValueChange={async (roomId) => {
-              try {
-                await fetch("/api/preferences/active", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    householdId,
-                    roomId,
-                  }),
-                });
-              } catch {
-                // Ignore preference errors and continue navigation.
-              } finally {
-                const params = new URLSearchParams();
-                params.set("roomId", roomId);
-                router.push(`/${locale}/scan?${params.toString()}`);
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              const boxId = extractBoxId(manualInput);
+              if (!boxId) {
+                setMessage("Could not parse a box id from input.");
+                return;
               }
+              openBox(boxId);
             }}
           >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Choose room" />
-            </SelectTrigger>
-            <SelectContent>
-              {rooms.map((room) => (
-                <SelectItem key={room.id} value={room.id}>
-                  {room.locationName} / {room.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </SurfaceCard>
+            Open box
+          </Button>
+          <Button type="button" onClick={startCamera} disabled={cameraActive}>
+            {cameraActive ? "Scanning..." : "Start camera scan"}
+          </Button>
+          {cameraActive ? (
+            <Button type="button" variant="ghost" onClick={() => stopCamera()}>
+              Stop
+            </Button>
+          ) : null}
+        </div>
+        <video
+          ref={videoRef}
+          className={`w-full rounded-md border bg-black ${cameraActive ? "block" : "hidden"}`}
+          playsInline
+          muted
+        />
+        {message ? <div className="text-xs text-muted-foreground">{message}</div> : null}
+      </div>
 
-      <SurfaceCard variant="muted">
-        <CardHeader>
-          <SectionHeader title="Recent boxes" />
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-2">
-            {recentBoxes.length === 0 ? (
-              <div className="text-xs text-muted-foreground">No boxes in this room yet.</div>
-            ) : (
-              recentBoxes.map((box) => (
-                <button
-                  key={box.id}
-                  type="button"
-                  className={`rounded-md border p-2 text-left text-sm transition ${
-                    box.id === activeBox?.id ? "border-primary bg-primary/5" : "hover:border-primary/60"
-                  }`}
-                  onClick={() => openBox(box.id)}
-                >
-                  <div className="font-medium">{box.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {box.locationName} / {box.roomName}
-                    {box.code ? ` · ${box.code}` : ""}
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-        </CardContent>
-      </SurfaceCard>
+      <div className="space-y-2">
+        <SectionDivider title="Switch room" className="pt-1" />
+        <Select
+          defaultValue={activeRoomId || rooms[0]?.id}
+          onValueChange={async (roomId) => {
+            try {
+              await fetch("/api/preferences/active", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  householdId,
+                  roomId,
+                }),
+              });
+            } catch {
+              // Ignore preference errors and continue navigation.
+            } finally {
+              const params = new URLSearchParams();
+              params.set("roomId", roomId);
+              router.push(`/${locale}/scan?${params.toString()}`);
+            }
+          }}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Choose room" />
+          </SelectTrigger>
+          <SelectContent>
+            {rooms.map((room) => (
+              <SelectItem key={room.id} value={room.id}>
+                {room.locationName} / {room.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <SectionDivider title="Recent boxes" className="pt-1" />
+        <div className="grid gap-2">
+          {recentBoxes.length === 0 ? (
+            <div className="text-xs text-muted-foreground">No boxes in this room yet.</div>
+          ) : (
+            recentBoxes.map((box) => (
+              <button
+                key={box.id}
+                type="button"
+                className={`rounded-md border p-2 text-left text-sm transition ${
+                  box.id === activeBox?.id ? "border-primary bg-primary/5" : "hover:border-primary/60"
+                }`}
+                onClick={() => openBox(box.id)}
+              >
+                <div className="font-medium">{box.name}</div>
+                <div className="text-xs text-muted-foreground">
+                  {box.locationName} / {box.roomName}
+                  {box.code ? ` · ${box.code}` : ""}
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      </div>
 
       {activeBox ? (
-        <SurfaceCard variant="muted">
-          <CardHeader>
-            <SectionHeader
-              title={`Box session: ${activeBox.name}`}
-              description={`${activeBox.locationName} / ${activeBox.roomName}${
-                activeBox.code ? ` · ${activeBox.code}` : ""
-              }`}
-            />
-          </CardHeader>
+        <div className="space-y-3">
+          <SectionDivider
+            title={`Box session: ${activeBox.name}`}
+            description={`${activeBox.locationName} / ${activeBox.roomName}${
+              activeBox.code ? ` · ${activeBox.code}` : ""
+            }`}
+            className="pt-1"
+          />
 
-          <CardContent className="space-y-3">
+          <div className="space-y-3">
             <div>
               <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 1) Add photos
@@ -411,10 +398,9 @@ export function ScanModePanel({
                 ) : null}
               </div>
             </div>
-          </CardContent>
-        </SurfaceCard>
+          </div>
+        </div>
       ) : null}
     </div>
   );
 }
-

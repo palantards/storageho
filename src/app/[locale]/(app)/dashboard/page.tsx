@@ -1,32 +1,23 @@
-﻿import Link from "next/link";
-import { revalidatePath } from "next/cache";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { ActionBar } from "@/components/inventory/ActionBar";
+import { ActivityFeed } from "@/components/inventory/ActivityFeed";
+import { PageFrame } from "@/components/inventory/PageFrame";
+import { SectionDivider } from "@/components/inventory/SectionDivider";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import type { Locale } from "@/i18n/config";
 import { getInventoryContext } from "@/lib/inventory/page-context";
 import {
-  createFloor,
   createHousehold,
   getUsageHints,
   listActivity,
   listFloors,
   setActiveHousehold,
 } from "@/lib/inventory/service";
-import { createHouseholdSchema, createLocationSchema } from "@/lib/inventory/validation";
-import { ActivityFeed } from "@/components/inventory/ActivityFeed";
-import { ActionBar } from "@/components/inventory/ActionBar";
-import { SectionHeader } from "@/components/inventory/SectionHeader";
-import { SurfaceCard } from "@/components/inventory/SurfaceCard";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { createHouseholdSchema } from "@/lib/inventory/validation";
 
 export default async function DashboardPage({
   params,
@@ -56,47 +47,27 @@ export default async function DashboardPage({
 
   if (!active) {
     return (
-      <Card className="max-w-xl">
-        <CardHeader>
-          <CardTitle>Create your first household</CardTitle>
-          <CardDescription>
+      <PageFrame className="max-w-xl space-y-4">
+        <div className="space-y-1">
+          <div className="text-2xl font-semibold">
+            Create your first household
+          </div>
+          <div className="text-sm text-muted-foreground">
             Household is your shared workspace for home + storage inventory.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form action={createHouseholdAction} className="grid gap-3">
-            <Label htmlFor="name">Household name</Label>
-            <Input id="name" name="name" placeholder="Home" required />
-            <Button type="submit" className="w-fit">
-              Create household
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+          </div>
+        </div>
+        <form action={createHouseholdAction} className="grid gap-3">
+          <Label htmlFor="name">Household name</Label>
+          <Input id="name" name="name" placeholder="Home" required />
+          <Button type="submit" className="w-fit">
+            Create household
+          </Button>
+        </form>
+      </PageFrame>
     );
   }
 
   const householdId = active.household.id;
-
-  async function quickFloorAction(formData: FormData) {
-    "use server";
-
-    const parsed = createLocationSchema.parse({
-      householdId,
-      name: String(formData.get("name") || ""),
-      description: String(formData.get("description") || ""),
-    });
-
-    await createFloor({
-      userId: context.user.id,
-      householdId: parsed.householdId,
-      name: parsed.name,
-      description: parsed.description,
-    });
-
-    revalidatePath(`/${locale}/dashboard`);
-    revalidatePath(`/${locale}/households/${householdId}/canvas`);
-  }
 
   const [activity, usage, floors] = await Promise.all([
     listActivity({ userId: context.user.id, householdId, limit: 12 }),
@@ -104,140 +75,78 @@ export default async function DashboardPage({
     listFloors({ userId: context.user.id, householdId }),
   ]);
 
+  const uniqueFloors = Array.from(
+    new Map(floors.map((f) => [f.id, f])).values(),
+  );
+
   return (
-    <div className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-4">
-        <SurfaceCard variant="hero" className="shadow-sm">
-          <CardHeader className="pb-2">
-            <SectionHeader title={`${usage.containers}`} description="Containers" />
-          </CardHeader>
-        </SurfaceCard>
-        <SurfaceCard variant="hero" className="shadow-sm">
-          <CardHeader className="pb-2">
-            <SectionHeader title={`${usage.items}`} description="Items" />
-          </CardHeader>
-        </SurfaceCard>
-        <SurfaceCard variant="hero" className="shadow-sm">
-          <CardHeader className="pb-2">
-            <SectionHeader title={`${usage.photos}`} description="Photos" />
-          </CardHeader>
-        </SurfaceCard>
-        <SurfaceCard variant="hero" className="shadow-sm">
-          <CardHeader className="pb-2">
-            <SectionHeader title={`${usage.estimatedStorageMb} MB`} description="Estimated storage" />
-          </CardHeader>
-        </SurfaceCard>
+    <PageFrame className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="text-2xl font-semibold">Dashboard</div>
+          <div className="text-sm text-muted-foreground">
+            Track your household inventory at a glance.
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="secondary">
+            <Link href={`/${locale}/onboarding`}>New household</Link>
+          </Button>
+        </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-        <SurfaceCard variant="muted" className="transition hover:shadow-md">
-          <CardHeader>
-            <SectionHeader
-              title="Quick Add Floor"
-              description="Create floors like Basement, Floor 1, Floor 2, Attic."
-            />
-          </CardHeader>
-          <CardContent>
-            <form action={quickFloorAction} className="grid gap-3">
-              <Input name="name" placeholder="Floor 1" required />
-              <Input name="description" placeholder="Optional description" />
-              <Button type="submit" className="w-fit">
-                Add floor
-              </Button>
-            </form>
-          </CardContent>
-        </SurfaceCard>
-
-        <SurfaceCard variant="muted" className="transition hover:shadow-md">
-          <CardHeader>
-            <SectionHeader
-              title="Open Inventory"
-              description="Fastest flow on mobile: Scan Mode. For setup, use Onboarding + map."
-            />
-          </CardHeader>
-          <CardContent>
-            <ActionBar>
-              <Button asChild>
-                <Link href={`/${locale}/canvas`}>Household Canvas</Link>
-              </Button>
-              <Button asChild>
-                <Link href={`/${locale}/scan`}>Scan Mode</Link>
-              </Button>
-              <Button asChild variant="outline">
-                <Link href={`/${locale}/onboarding`}>Onboarding</Link>
-              </Button>
-              <Button asChild variant="outline">
-                <Link href={`/${locale}/items`}>Item Library</Link>
-              </Button>
-              <Button asChild variant="outline">
-                <Link href={`/${locale}/import`}>Import CSV</Link>
-              </Button>
-              <Button asChild variant="outline">
-                <Link href={`/${locale}/export`}>Export CSV</Link>
-              </Button>
-              <Button asChild variant="outline">
-                <Link href={`/${locale}/households/${householdId}/settings`}>
-                  Household Settings
-                </Link>
-              </Button>
-            </ActionBar>
-          </CardContent>
-        </SurfaceCard>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          { label: "Containers", value: usage.containers },
+          { label: "Items", value: usage.items },
+          { label: "Photos", value: usage.photos },
+          { label: "Rooms", value: usage.rooms },
+        ].map((metric) => (
+          <div
+            key={metric.label}
+            className="rounded-xl border bg-gradient-to-br from-muted/40 to-muted p-4 shadow-sm"
+          >
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">
+              {metric.label}
+            </div>
+            <div className="text-2xl font-semibold">{metric.value}</div>
+          </div>
+        ))}
       </div>
 
-      <SurfaceCard variant="muted" className="transition hover:shadow-md">
-        <CardHeader>
-          <SectionHeader
-            title="Recent activity"
-            description="Latest create/move/photo/invite events in this household."
-          />
-        </CardHeader>
-        <CardContent>
-          <ActivityFeed
-            items={activity.map((entry) => ({
-              id: entry.activity.id,
-              actionType: entry.activity.actionType,
-              entityType: entry.activity.entityType,
-              entityId: entry.activity.entityId,
-              metadata: entry.activity.metadata as Record<string, unknown>,
-              createdAt: entry.activity.createdAt,
-              actorName:
-                entry.profile?.displayName ||
-                entry.profile?.name ||
-                context.user.email,
-            }))}
-            locale={locale}
-          />
-        </CardContent>
-      </SurfaceCard>
+      <div className="space-y-2">
+        <SectionDivider title="Household" />
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <Link href={`/${locale}/households/${householdId}/canvas`}>
+              Household canvas
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href={`/${locale}/households/${householdId}/settings`}>
+              Household settings
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href={`/${locale}/items`}>Items library</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link
+              href={`/${locale}/boxes/${active.lastVisitedContainerId || ""}`}
+            >
+              Last opened box
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href={`/${locale}/scan`}>Scan mode</Link>
+          </Button>
+        </div>
+      </div>
 
-      <SurfaceCard variant="muted" className="transition hover:shadow-md">
-        <CardHeader>
-          <SectionHeader title="Floors in this household" />
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {floors.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No floors yet.</div>
-          ) : (
-            floors.map((row) => (
-              <div
-                key={row.location.id}
-                className="flex items-center justify-between rounded-md border p-3"
-              >
-                <div>
-                  <div className="font-medium">{row.location.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {row.roomCount} rooms
-                  </div>
-                </div>
-                <Button asChild size="sm" variant="outline">
-                  <Link href={`/${locale}/households/${householdId}/canvas`}>Open</Link>
-                </Button>
-              </div>
-            ))
-          )}
-        </CardContent>
-      </SurfaceCard>
-    </div>
+      <div className="space-y-2">
+        <SectionDivider title="Recent activity" />
+        <ActivityFeed items={activity} locale={locale} />
+      </div>
+    </PageFrame>
   );
 }

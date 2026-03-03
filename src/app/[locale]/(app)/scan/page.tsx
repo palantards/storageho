@@ -13,10 +13,9 @@ import {
 import { BoxSuggestionsPanel } from "@/components/inventory/BoxSuggestionsPanel";
 import { MoveItemDialog } from "@/components/inventory/MoveItemDialog";
 import { ScanModePanel } from "@/components/inventory/ScanModePanel";
-import { SurfaceCard } from "@/components/inventory/SurfaceCard";
+import { PageFrame } from "@/components/inventory/PageFrame";
+import { SectionDivider } from "@/components/inventory/SectionDivider";
 import { Button } from "@/components/ui/button";
-import { CardContent, CardHeader } from "@/components/ui/card";
-import { SectionHeader } from "@/components/inventory/SectionHeader";
 
 export default async function ScanModePage({
   params,
@@ -31,7 +30,9 @@ export default async function ScanModePage({
   const householdId = context.activeMembership?.household.id;
 
   if (!householdId) {
-    return <div className="text-sm text-muted-foreground">No active household.</div>;
+    return (
+      <div className="text-sm text-muted-foreground">No active household.</div>
+    );
   }
 
   const rooms = await listRoomsWithFloor({
@@ -43,7 +44,9 @@ export default async function ScanModePage({
     (search.roomId && rooms.some((entry) => entry.room.id === search.roomId)
       ? search.roomId
       : context.preferences?.activeRoomId &&
-          rooms.some((entry) => entry.room.id === context.preferences?.activeRoomId)
+          rooms.some(
+            (entry) => entry.room.id === context.preferences?.activeRoomId,
+          )
         ? context.preferences.activeRoomId
         : rooms[0]?.room.id) || undefined;
 
@@ -68,41 +71,46 @@ export default async function ScanModePage({
       })
     : null;
 
-  const [itemsInBox, moveTargets, suggestions] =
-    activeBox?.container.id
-      ? await Promise.all([
-          listContainerItems({
-            userId: context.user.id,
-            householdId,
-            containerId: activeBox.container.id,
-          }),
-          listContainersForHousehold({
-            userId: context.user.id,
-            householdId,
-            excludeContainerId: activeBox.container.id,
-          }),
-          listPhotoSuggestions({
-            userId: context.user.id,
-            householdId,
-            containerId: activeBox.container.id,
-            status: "pending",
-            limit: 25,
-          }),
-        ])
-      : [[], [], []];
+  const [itemsInBox, moveTargets, suggestions] = activeBox?.container.id
+    ? await Promise.all([
+        listContainerItems({
+          userId: context.user.id,
+          householdId,
+          containerId: activeBox.container.id,
+        }),
+        listContainersForHousehold({
+          userId: context.user.id,
+          householdId,
+          excludeContainerId: activeBox.container.id,
+        }),
+        listPhotoSuggestions({
+          userId: context.user.id,
+          householdId,
+          containerId: activeBox.container.id,
+          status: "pending",
+          limit: 25,
+        }),
+      ])
+    : [[], [], []];
 
   return (
-    <div className="space-y-4">
-      <SurfaceCard variant="hero">
-        <CardHeader>
-          <SectionHeader
-            title="Scan Mode"
-            description="Scan a box QR to open its session, capture photos, quick add, move items, and move on."
-          />
-        </CardHeader>
-      </SurfaceCard>
+    <PageFrame className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="text-2xl font-semibold">Scan Mode</div>
+          <div className="text-sm text-muted-foreground">
+            Scan a box QR to open its session, capture photos, quick add, move
+            items, and move on.
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/${locale}/dashboard`}>Back to dashboard</Link>
+          </Button>
+        </div>
+      </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <ScanModePanel
           locale={locale}
           householdId={householdId}
@@ -132,89 +140,83 @@ export default async function ScanModePage({
           }
         />
 
-        <div className="space-y-4">
-          <SurfaceCard variant="muted" className="transition hover:shadow-md">
-            <CardHeader>
-              <SectionHeader
-                title="AI suggestions"
-                description="Review AI capture output before anything is committed."
+        <div className="space-y-6">
+          <section className="space-y-3">
+            <SectionDivider
+              title="AI suggestions"
+              description="Review AI capture output before anything is committed."
+            />
+            {!activeBox ? (
+              <div className="text-sm text-muted-foreground">
+                Select a box to view suggestions.
+              </div>
+            ) : (
+              <BoxSuggestionsPanel
+                householdId={householdId}
+                containerId={activeBox.container.id}
+                suggestions={suggestions.map((suggestion) => ({
+                  id: suggestion.id,
+                  suggestedName: suggestion.suggestedName,
+                  suggestedQty: suggestion.suggestedQty,
+                  suggestedTags: suggestion.suggestedTags,
+                  confidence: Number(suggestion.confidence ?? 0),
+                  status: suggestion.status,
+                  resolvedItemId: suggestion.resolvedItemId,
+                  createdAt: suggestion.createdAt.toISOString(),
+                }))}
               />
-            </CardHeader>
-            <CardContent>
-              {!activeBox ? (
-                <div className="text-sm text-muted-foreground">
-                  Select a box to view suggestions.
-                </div>
-              ) : (
-                <BoxSuggestionsPanel
-                  householdId={householdId}
-                  containerId={activeBox.container.id}
-                  suggestions={suggestions.map((suggestion) => ({
-                    id: suggestion.id,
-                    suggestedName: suggestion.suggestedName,
-                    suggestedQty: suggestion.suggestedQty,
-                    suggestedTags: suggestion.suggestedTags,
-                    confidence: Number(suggestion.confidence ?? 0),
-                    status: suggestion.status,
-                    resolvedItemId: suggestion.resolvedItemId,
-                    createdAt: suggestion.createdAt.toISOString(),
-                  }))}
-                />
-              )}
-            </CardContent>
-          </SurfaceCard>
+            )}
+          </section>
 
-          <SurfaceCard variant="muted" className="transition hover:shadow-md">
-            <CardHeader>
-              <SectionHeader
-                title="3) Move items"
-                description="Split quantities by scanning/selecting destination box."
-              />
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {!activeBox ? (
-                <div className="text-sm text-muted-foreground">
-                  Select a box in Scan Mode to move items.
-                </div>
-              ) : itemsInBox.length === 0 ? (
-                <div className="text-sm text-muted-foreground">This box has no items yet.</div>
-              ) : (
-                itemsInBox.map((entry) => (
-                  <div
-                    key={entry.containerItem.id}
-                    className="flex items-center justify-between rounded-md border p-3"
-                  >
-                    <div>
-                      <div className="font-medium">{entry.item.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        Qty: {entry.containerItem.quantity}
-                      </div>
+          <section className="space-y-3">
+            <SectionDivider
+              title="3) Move items"
+              description="Split quantities by scanning/selecting destination box."
+            />
+            {!activeBox ? (
+              <div className="text-sm text-muted-foreground">
+                Select a box in Scan Mode to move items.
+              </div>
+            ) : itemsInBox.length === 0 ? (
+              <div className="text-sm text-muted-foreground">
+                This box has no items yet.
+              </div>
+            ) : (
+              itemsInBox.map((entry) => (
+                <div
+                  key={entry.containerItem.id}
+                  className="flex items-center justify-between rounded-md border p-3"
+                >
+                  <div>
+                    <div className="font-medium">{entry.item.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      Qty: {entry.containerItem.quantity}
                     </div>
-                    <MoveItemDialog
-                      householdId={householdId}
-                      itemId={entry.item.id}
-                      fromContainerId={activeBox.container.id}
-                      maxQuantity={entry.containerItem.quantity}
-                      containers={moveTargets.map((container) => ({
-                        id: container.id,
-                        name: container.name,
-                      }))}
-                    />
                   </div>
-                ))
-              )}
+                  <MoveItemDialog
+                    householdId={householdId}
+                    itemId={entry.item.id}
+                    fromContainerId={activeBox.container.id}
+                    maxQuantity={entry.containerItem.quantity}
+                    containers={moveTargets.map((container) => ({
+                      id: container.id,
+                      name: container.name,
+                    }))}
+                  />
+                </div>
+              ))
+            )}
 
-              {activeBox ? (
-                <Button asChild variant="outline" className="mt-2">
-                  <Link href={`/${locale}/boxes/${activeBox.container.id}`}>
-                    Open full box page
-                  </Link>
-                </Button>
-              ) : null}
-            </CardContent>
-          </SurfaceCard>
+            {activeBox ? (
+              <Button asChild variant="outline" className="mt-2">
+                <Link href={`/${locale}/boxes/${activeBox.container.id}`}>
+                  Open full box page
+                </Link>
+              </Button>
+            ) : null}
+          </section>
         </div>
       </div>
-    </div>
+    </PageFrame>
   );
 }
