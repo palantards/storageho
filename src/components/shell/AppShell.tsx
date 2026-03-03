@@ -75,8 +75,8 @@ export function AppShell({
   }, []);
 
   return (
-    <div className="min-h-dvh bg-background">
-      <div className="flex min-h-dvh w-full">
+    <div className="h-screen bg-background">
+      <div className="flex h-screen w-full overflow-hidden">
         {/* Desktop sidebar */}
         <aside
           className={cn(
@@ -109,7 +109,7 @@ export function AppShell({
               {sidebarCollapsed ? <ExpandIcon className="h-4 w-4" /> : <CollapseIcon className="h-4 w-4" />}
             </Button>
           </div>
-          <div className="flex-1 overflow-y-auto px-2 pb-3">
+          <div className="flex-1 px-2 pb-3">
             <SidebarNav locale={locale} isAdmin={user.isAdmin} collapsed={sidebarCollapsed} />
           </div>
           <div className="mt-auto space-y-2 border-t border-border px-2 pb-3 pt-2">
@@ -132,7 +132,7 @@ export function AppShell({
         </aside>
 
         {/* Main area */}
-        <main className="flex min-w-0 flex-1 flex-col min-h-0">
+        <main className="flex min-w-0 flex-1 flex-col min-h-0 overflow-hidden">
           <header className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur">
             <div className="flex items-center justify-between gap-2 px-4 py-3">
               <div className="flex min-w-0 items-center gap-2">
