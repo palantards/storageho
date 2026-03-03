@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -23,7 +22,6 @@ type ResetPasswordLabels = {
 };
 
 export function ResetPasswordForm({ labels }: { labels: ResetPasswordLabels }) {
-  const searchParams = useSearchParams();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [status, setStatus] = useState<
@@ -40,7 +38,7 @@ export function ResetPasswordForm({ labels }: { labels: ResetPasswordLabels }) {
     const accessToken = params.get("access_token");
     const type = params.get("type");
     return { accessToken, type };
-  }, [searchParams]);
+  }, []);
 
   useEffect(() => {
     if (!tokens?.accessToken || tokens.type !== "recovery") {
@@ -70,7 +68,7 @@ export function ResetPasswordForm({ labels }: { labels: ResetPasswordLabels }) {
       });
       if (!res.ok) throw new Error("Reset failed");
       setStatus("success");
-    } catch (err) {
+    } catch {
       setStatus("error");
     } finally {
       setLoading(false);

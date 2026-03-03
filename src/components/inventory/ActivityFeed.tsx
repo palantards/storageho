@@ -14,6 +14,7 @@ import {
   Trash2,
   Users,
 } from "lucide-react";
+import { JSX } from "react";
 
 type Activity = {
   id: string;
@@ -25,11 +26,11 @@ type Activity = {
   actorName?: string | null;
 };
 
-type ActivityRow =
+export type ActivityRow =
   | Activity
   | {
       activity: Activity;
-      profile?: { displayName?: string | null; name?: string | null };
+      profile?: { displayName?: string | null; name?: string | null } | null;
     };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -70,7 +71,8 @@ function formatActor(actor?: string | null) {
 
 function formatTitle(item: Activity) {
   const action = ACTION_LABELS[item.actionType] ?? item.actionType ?? "updated";
-  const entity = ENTITY_LABELS[item.entityType] ?? item.entityType ?? "activity";
+  const entity =
+    ENTITY_LABELS[item.entityType] ?? item.entityType ?? "activity";
   return `${formatActor(item.actorName)} ${action} ${entity}`;
 }
 
@@ -92,8 +94,10 @@ function linkFor(params: {
   const key = metadataKey?.toLowerCase();
   if (entityType === "container") return `/${locale}/boxes/${candidateId}`;
   if (entityType === "room") return `/${locale}/rooms/${candidateId}`;
-  if (key === "containerid" || key === "container_id") return `/${locale}/boxes/${candidateId}`;
-  if (key === "roomid" || key === "room_id") return `/${locale}/rooms/${candidateId}`;
+  if (key === "containerid" || key === "container_id")
+    return `/${locale}/boxes/${candidateId}`;
+  if (key === "roomid" || key === "room_id")
+    return `/${locale}/rooms/${candidateId}`;
   return undefined;
 }
 
@@ -112,12 +116,16 @@ function renderMetadataPills(
     <div className="mt-3 flex flex-wrap gap-2">
       {entries.slice(0, 10).map(([key, value]) => {
         const valueStr =
-          typeof value === "string" || typeof value === "number" || typeof value === "boolean"
+          typeof value === "string" ||
+          typeof value === "number" ||
+          typeof value === "boolean"
             ? String(value)
             : Array.isArray(value)
               ? value.join(", ")
               : typeof value === "object"
-                ? Object.keys(value as Record<string, unknown>).slice(0, 3).join(", ")
+                ? Object.keys(value as Record<string, unknown>)
+                    .slice(0, 3)
+                    .join(", ")
                 : "";
         if (!valueStr) return null;
 
@@ -140,7 +148,11 @@ function renderMetadataPills(
         );
 
         return href ? (
-          <Link key={key} href={href} className="transition hover:-translate-y-0.5 hover:shadow-sm">
+          <Link
+            key={key}
+            href={href}
+            className="transition hover:-translate-y-0.5 hover:shadow-sm"
+          >
             {pill}
           </Link>
         ) : (
@@ -210,7 +222,7 @@ export function ActivityFeed({
       ...base,
       actorName: base.actorName || actorFromProfile || "Someone",
       createdAt: validDate,
-    };
+    } as Activity;
   });
 
   if (normalized.length === 0) {
@@ -242,7 +254,9 @@ export function ActivityFeed({
                   {item.createdAt
                     ? (() => {
                         try {
-                          return formatDistanceToNow(item.createdAt, { addSuffix: true });
+                          return formatDistanceToNow(item.createdAt, {
+                            addSuffix: true,
+                          });
                         } catch {
                           return "Time unknown";
                         }
@@ -253,7 +267,12 @@ export function ActivityFeed({
             </div>
           </div>
 
-          {renderMetadataPills(item.metadata, locale, item.entityType, item.entityId)}
+          {renderMetadataPills(
+            item.metadata,
+            locale,
+            item.entityType,
+            item.entityId,
+          )}
         </div>
       ))}
     </div>

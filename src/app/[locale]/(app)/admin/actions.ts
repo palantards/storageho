@@ -9,7 +9,7 @@ import {
   profiles,
   supportRequests,
 } from "@/server/db/schema";
-import { and, desc, eq, ilike, or, sql, gte, ne } from "drizzle-orm";
+import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { requireAdmin } from "@/lib/admin/requireAdmin";
 
 const LoadSchema = z.object({
@@ -93,13 +93,13 @@ export async function updateTicketAction(input: z.infer<typeof UpdateSchema>) {
   const patch: Partial<typeof tickets.$inferInsert> = {};
 
   if (typeof status === "string") {
-    if (!ALLOWED_STATUS.includes(status as any))
+    if (!ALLOWED_STATUS.includes(status as (typeof ALLOWED_STATUS)[number]))
       throw new Error("Invalid status");
     patch.status = status;
   }
 
   if (typeof category === "string") {
-    if (!ALLOWED_CATEGORY.includes(category as any))
+    if (!ALLOWED_CATEGORY.includes(category as (typeof ALLOWED_CATEGORY)[number]))
       throw new Error("Invalid category");
     patch.category = category;
   }

@@ -50,7 +50,7 @@ export function TicketCard({
           {session?.user ? (
             <form
               action={voteAction}
-              onSubmit={(e) => {
+              onSubmit={() => {
                 // Optional UX: show spinner during action submit
                 startVote(async () => {});
               }}

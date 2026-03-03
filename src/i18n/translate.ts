@@ -1,11 +1,12 @@
 export type Vars = Record<string, string | number>;
-// TODO FIX THE TYPING?
 export function getByPath(obj: unknown, path: string): unknown {
   const parts = path.split(".");
-  let cur: any = obj;
+  let cur: unknown = obj;
   for (const p of parts) {
     if (cur == null || typeof cur !== "object") return undefined;
-    cur = cur[p];
+    const record = cur as Record<string, unknown>;
+    if (!(p in record)) return undefined;
+    cur = record[p];
   }
   return cur;
 }

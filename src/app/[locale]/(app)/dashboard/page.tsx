@@ -123,13 +123,6 @@ export default async function DashboardPage({
           <Button asChild variant="outline">
             <Link href={`/${locale}/items`}>Items library</Link>
           </Button>
-          {active.lastVisitedContainerId ? (
-            <Button asChild variant="outline">
-              <Link href={`/${locale}/boxes/${active.lastVisitedContainerId}`}>
-                Last opened box
-              </Link>
-            </Button>
-          ) : null}
           <Button asChild variant="outline">
             <Link href={`/${locale}/scan`}>Scan mode</Link>
           </Button>
@@ -138,7 +131,19 @@ export default async function DashboardPage({
 
       <div className="space-y-2">
         <SectionDivider title="Recent activity" />
-        <ActivityFeed items={activity} locale={locale} />
+        <ActivityFeed
+          items={activity.map((row) => ({
+            activity: {
+              ...row.activity,
+              metadata: (row.activity.metadata ?? {}) as Record<
+                string,
+                unknown
+              >,
+            },
+            profile: row.profile,
+          }))}
+          locale={locale}
+        />
       </div>
     </PageFrame>
   );

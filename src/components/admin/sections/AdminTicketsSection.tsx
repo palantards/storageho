@@ -19,46 +19,55 @@ import {
 import { AdminTicketRow } from "@/lib/admin/tickets";
 
 const LIMIT = 30;
-// TODO FIX THIS,.
-export function AdminTicketsSection({}: {}) {
-  const [rows, setRows] = React.useState([] as AdminTicketRow[]);
+type Props = {
+  initialStatus?: string;
+  initialCategory?: string;
+};
+
+export function AdminTicketsSection({ initialStatus = "all", initialCategory = "all" }: Props) {
+  const [rows, setRows] = React.useState<AdminTicketRow[]>([]);
   const [offset, setOffset] = React.useState(LIMIT);
   const [hasMore, setHasMore] = React.useState(false);
 
-  const [status, setStatus] = React.useState("all");
-  const [category, setCategory] = React.useState("all");
+  const [status, setStatus] = React.useState(initialStatus);
+  const [category, setCategory] = React.useState(initialCategory);
   const [q, setQ] = React.useState("");
 
   const [isPending, startTransition] = React.useTransition();
+
+  const load = React.useCallback(
+    (nextOffset: number, reset = false) => {
+      startTransition(async () => {
+        const data = await loadTicketsAction({
+          offset: nextOffset,
+          limit: LIMIT,
+          status: status === "all" ? undefined : status,
+          category: category === "all" ? undefined : category,
+          q: q.trim() ? q.trim() : undefined,
+        });
+
+        if (reset) {
+          setRows(data);
+          setOffset(LIMIT);
+        } else {
+          setRows((prev) => [...prev, ...data]);
+          setOffset((prev) => prev + LIMIT);
+        }
+
+        setHasMore(data.length === LIMIT);
+      });
+    },
+    [category, q, status],
+  );
+
   React.useEffect(() => {
     load(0, true);
-  }, []);
-
-  const load = (nextOffset: number, reset = false) => {
-    startTransition(async () => {
-      const data = await loadTicketsAction({
-        offset: nextOffset,
-        limit: LIMIT,
-        status: status === "all" ? undefined : status,
-        category: category === "all" ? undefined : category,
-        q: q.trim() ? q.trim() : undefined,
-      });
-
-      if (reset) {
-        setRows(data);
-        setOffset(LIMIT);
-      } else {
-        setRows((prev) => [...prev, ...data]);
-        setOffset((prev) => prev + LIMIT);
-      }
-
-      setHasMore(data.length === LIMIT);
-    });
-  };
+  }, [load]);
 
   const refresh = () => load(0, true);
 
-  const update = (ticketId: string, patch: any) => {
+  type Ticket = AdminTicketRow["ticket"];
+  const update = (ticketId: string, patch: Partial<Ticket>) => {
     // optimistic
     setRows((prev) =>
       prev.map((r) =>

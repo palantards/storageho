@@ -14,16 +14,13 @@ export function SignedImage({
   className?: string;
 }) {
   const cachedEntry = cache.get(path);
-  const cachedUrl =
-    cachedEntry && cachedEntry.expiresAt > Date.now() ? cachedEntry.url : null;
-  const [fetchedUrl, setFetchedUrl] = useState<string | null>(null);
-  const url = cachedUrl || fetchedUrl;
+  const [fetchedUrl, setFetchedUrl] = useState<string | null>(() =>
+    cachedEntry && cachedEntry.expiresAt > Date.now() ? cachedEntry.url : null,
+  );
+  const url = fetchedUrl || cachedEntry?.url || null;
 
   useEffect(() => {
-    if (cachedUrl) {
-      return;
-    }
-
+    if (cachedEntry && cachedEntry.expiresAt > Date.now()) return undefined;
     let active = true;
     fetch(`/api/storage/signed-url?path=${encodeURIComponent(path)}`)
       .then((response) => response.json())
@@ -41,12 +38,13 @@ export function SignedImage({
     return () => {
       active = false;
     };
-  }, [path, cachedUrl]);
+  }, [path, cachedEntry]);
 
   if (!url) {
     return <div className={`animate-pulse bg-muted ${className || ""}`} />;
   }
 
+  // eslint-disable-next-line @next/next/no-img-element
   return <img src={url} alt={alt} className={className} loading="lazy" />;
 }
 

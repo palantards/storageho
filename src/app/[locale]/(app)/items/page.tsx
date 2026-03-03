@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 
-import { ActionBar } from "@/components/inventory/ActionBar";
 import { EmptyState } from "@/components/inventory/EmptyState";
 import {
   ItemsVirtualizedList,
@@ -115,19 +114,23 @@ export default async function ItemsPage({
     revalidatePath(`/${locale}/items`);
   }
 
-  const duplicates = items
-    .filter((row) => row.duplicateGroupId)
-    .reduce<Record<string, ItemsVirtualizedRow[]>>((acc, row) => {
-      const group = row.duplicateGroupId || row.item.name;
-      acc[group] = acc[group] || [];
-      acc[group].push({
+  const duplicates = items.reduce<Record<string, ItemsVirtualizedRow[]>>(
+    (acc, row) => {
+      const key = row.item.name.trim().toLowerCase();
+      acc[key] = acc[key] || [];
+      acc[key].push({
         id: row.item.id,
         name: row.item.name,
         quantityTotal: Number(row.quantityTotal ?? 0),
         placements: Number(row.placements ?? 0),
       });
       return acc;
-    }, {});
+    },
+    {},
+  );
+  const duplicateGroups = Object.values(duplicates).filter(
+    (group) => group.length > 1,
+  );
 
   return (
     <PageFrame className="space-y-6">
@@ -184,7 +187,12 @@ export default async function ItemsPage({
             description="Add items to see them listed here."
           />
         ) : (
-          <ItemsVirtualizedList rows={itemRows} q={search.q} tag={search.tag} />
+          <ItemsVirtualizedList
+            rows={itemRows}
+            q={search.q}
+            tag={search.tag}
+            locale={locale}
+          />
         )}
       </div>
 
@@ -208,14 +216,14 @@ export default async function ItemsPage({
             title="Merge duplicates"
             description="Combine items with the same name to keep counts accurate."
           />
-          {Object.keys(duplicates).length === 0 ? (
+          {duplicateGroups.length === 0 ? (
             <EmptyState
               title="No likely duplicates found."
               description="Duplicate names will appear here automatically."
             />
           ) : (
             <div className="space-y-3">
-              {Object.values(duplicates).map((group) => (
+              {duplicateGroups.map((group) => (
                 <form
                   key={group.map((row) => row.id).join("-")}
                   action={mergeItemsAction}

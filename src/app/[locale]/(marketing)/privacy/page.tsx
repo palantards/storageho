@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { brand } from "@/config/brand";
-import { CheckCircle2, DotIcon } from "lucide-react";
+import { DotIcon } from "lucide-react";
 
 export default function PrivacyPage() {
   return (

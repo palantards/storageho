@@ -1,4 +1,3 @@
-import SupportForm from "@/components/support/SupportForm";
 import { getMessages } from "@/i18n/getMessages";
 import { t as tt } from "@/i18n/translate";
 import { getSession } from "@/lib/auth";

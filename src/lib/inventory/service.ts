@@ -2250,7 +2250,7 @@ export async function deleteContainerItem(
   await logActivity({
     householdId: input.householdId,
     actorUserId: input.userId,
-    actionType: "deleted",
+    actionType: "updated",
     entityType: "container_item",
     entityId: row.id,
     metadata: { containerId: row.containerId, itemId: row.itemId, quantity: row.quantity },

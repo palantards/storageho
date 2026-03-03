@@ -4,7 +4,7 @@ import { useI18n } from "../i18n/I18nProvider";
 import SupportForm from "./SupportForm";
 
 export default function Support() {
-  const { t, m } = useI18n();
+  const { t } = useI18n();
   return (
     <>
       <h1 className="text-3xl font-semibold tracking-tight">

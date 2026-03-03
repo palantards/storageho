@@ -25,7 +25,7 @@ export async function POST(req: Request) {
       .execute();
 
     return NextResponse.json({ ok: true }, { status: 200 });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error(e);
     return NextResponse.json(
       { error: "Could not create support request." },
