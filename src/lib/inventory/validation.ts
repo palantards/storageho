@@ -55,89 +55,29 @@ export const deleteEntitySchema = z.object({
   id: z.string().uuid(),
 });
 
-export const householdCanvasLayoutSchema = z.object({
-  householdId: z.string().uuid(),
-  width: z.number().min(8).max(500),
-  height: z.number().min(8).max(500),
-});
-
-export const householdCanvasLayerSchema = z.object({
+export const householdFloorSchema = z.object({
   householdId: z.string().uuid(),
   name: z.string().trim().min(1).max(120),
   sortOrder: z.number().int().min(0).max(10000).optional(),
 });
 
-export const householdCanvasLayerUpdateSchema = z.object({
+export const householdFloorUpdateSchema = z.object({
   householdId: z.string().uuid(),
-  layerId: z.string().uuid(),
+  floorId: z.string().uuid(),
   name: z.string().trim().min(1).max(120).optional(),
   sortOrder: z.number().int().min(0).max(10000).optional(),
 });
 
-export const householdCanvasPlacementSchema = z
-  .object({
-    householdId: z.string().uuid(),
-    layerId: z.string().uuid(),
-    entityType: z.enum(["room", "container"]),
-    entityId: z.string().uuid(),
-    x: z.number().min(0).max(100000),
-    y: z.number().min(0).max(100000),
-    width: z.number().min(0.5).max(1000).default(3),
-    height: z.number().min(0.5).max(1000).default(2),
-    rotation: z.number().min(-360).max(360).optional(),
-    shapeType: z.enum(["rectangle", "square", "triangle"]).optional(),
-    label: z.string().trim().max(120).optional(),
-  })
-  .superRefine((value, ctx) => {
-    if (value.entityType === "container" && value.shapeType && value.shapeType !== "rectangle") {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Containers support rectangle shape only",
-        path: ["shapeType"],
-      });
-    }
-  });
-
-export const householdCanvasCreateRoomSchema = z.object({
-  householdId: z.string().uuid(),
-  layerId: z.string().uuid(),
-  name: z.string().trim().min(1).max(120),
-  description: z.string().trim().max(1000).optional(),
-  x: z.number().min(0).max(100000),
-  y: z.number().min(0).max(100000),
-  width: z.number().min(0.5).max(1000).default(4),
-  height: z.number().min(0.5).max(1000).default(3),
-  rotation: z.number().min(-360).max(360).optional(),
-  shapeType: z.enum(["rectangle", "square", "triangle"]).optional(),
-  label: z.string().trim().max(120).optional(),
-});
-
-export const householdCanvasCreateContainerSchema = z.object({
-  householdId: z.string().uuid(),
-  layerId: z.string().uuid(),
-  roomId: z.string().uuid(),
-  parentContainerId: z.string().uuid().nullable().optional(),
-  name: z.string().trim().min(1).max(150),
-  code: z.string().trim().max(80).optional(),
-  description: z.string().trim().max(2000).optional(),
-  x: z.number().min(0).max(100000),
-  y: z.number().min(0).max(100000),
-  width: z.number().min(0.5).max(1000).default(3),
-  height: z.number().min(0.5).max(1000).default(2),
-  rotation: z.number().min(-360).max(360).optional(),
-  label: z.string().trim().max(120).optional(),
-});
-
 export const createRoomFromSetupSchema = z.object({
   householdId: z.string().uuid(),
-  layerId: z.string().uuid(),
+  floorId: z.string().uuid(),
   name: z.string().trim().min(1).max(120),
   description: z.string().trim().max(1000).optional(),
 });
 
 export const createContainerFromSetupSchema = z.object({
   householdId: z.string().uuid(),
-  layerId: z.string().uuid(),
+  floorId: z.string().uuid(),
   roomId: z.string().uuid().nullable().optional(),
   name: z.string().trim().min(1).max(150),
   code: z.string().trim().max(80).optional(),
@@ -208,4 +148,5 @@ export const searchSchema = z.object({
   limit: z.number().int().min(1).max(100).default(30),
   offset: z.number().int().min(0).default(0),
 });
+
 

@@ -33,10 +33,10 @@ export async function commitInventoryCsv(input: {
   for (const row of input.rows) {
     let locationId = locationCache.get(row.location);
     if (!locationId) {
-      const existing = await db.query.householdCanvasLayers.findFirst({
+      const existing = await db.query.householdFloors.findFirst({
         where: and(
-          eq(schema.householdCanvasLayers.householdId, input.householdId),
-          eq(schema.householdCanvasLayers.name, row.location),
+          eq(schema.householdFloors.householdId, input.householdId),
+          eq(schema.householdFloors.name, row.location),
         ),
       });
       if (existing) {
@@ -44,7 +44,7 @@ export async function commitInventoryCsv(input: {
       } else {
         const floorId = crypto.randomUUID();
         const [created] = await db
-          .insert(schema.householdCanvasLayers)
+          .insert(schema.householdFloors)
           .values({
             id: floorId,
             householdId: input.householdId,
@@ -52,7 +52,7 @@ export async function commitInventoryCsv(input: {
             locationId: floorId,
             createdBy: input.userId,
           })
-          .returning({ id: schema.householdCanvasLayers.id });
+          .returning({ id: schema.householdFloors.id });
         locationId = created.id;
       }
       locationCache.set(row.location, locationId);
@@ -300,5 +300,6 @@ export async function commitInventoryCsv(input: {
     importedRows: input.rows.length,
   };
 }
+
 
 

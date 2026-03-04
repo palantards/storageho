@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 import { getSession } from "@/lib/auth";
+import { assertSameOriginForCookieAuth } from "@/lib/http/origin";
 import {
   ALLOWED_IMAGE_MIME_TYPES,
   MAX_IMAGES_PER_CONTAINER,
@@ -11,15 +13,26 @@ import {
   enqueueAiJob,
   insertPhotoRecord,
   listContainerPhotos,
-  listMembershipsForUser,
 } from "@/lib/inventory/service";
+import { requireHouseholdWriteAccess } from "@/lib/inventory/guards";
 import { runAiJobNow } from "@/lib/inventory/ai-jobs";
-import { canWriteInventory } from "@/lib/inventory/roles";
 import { createSupabaseAdminClient } from "@/lib/supabaseServer";
 
 const uploadRateLimit = new Map<string, { count: number; resetAt: number }>();
 const WINDOW_MS = 60_000;
 const MAX_UPLOADS_PER_WINDOW = 40;
+
+const uploadSchema = z.object({
+  householdId: z.string().uuid(),
+  entityType: z.enum(["container", "item", "room_layout"]),
+  entityId: z.string().uuid(),
+});
+
+const extensionByMime: Record<(typeof ALLOWED_IMAGE_MIME_TYPES)[number], string> = {
+  "image/webp": "webp",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+};
 
 function checkRateLimit(userId: string) {
   const now = Date.now();
@@ -40,6 +53,9 @@ function checkRateLimit(userId: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const originCheck = assertSameOriginForCookieAuth(request);
+  if (originCheck) return originCheck;
+
   const session = await getSession();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -54,12 +70,15 @@ export async function POST(request: NextRequest) {
 
   try {
     const formData = await request.formData();
-    const householdId = String(formData.get("householdId") || "");
-    const entityType = String(formData.get("entityType") || "") as
-      | "container"
-      | "item"
-      | "room_layout";
-    const entityId = String(formData.get("entityId") || "");
+    const parseResult = uploadSchema.safeParse({
+      householdId: formData.get("householdId"),
+      entityType: formData.get("entityType"),
+      entityId: formData.get("entityId"),
+    });
+    if (!parseResult.success) {
+      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    }
+    const { householdId, entityType, entityId } = parseResult.data;
     const original = formData.get("original");
     const thumb = formData.get("thumb");
 
@@ -89,12 +108,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unsupported file type" }, { status: 400 });
     }
 
-    const memberships = await listMembershipsForUser(session.user.id);
-    const membership = memberships.find(
-      (m) => m.household.id === householdId,
-    )?.membership;
-
-    if (!membership || !canWriteInventory(membership.role)) {
+    try {
+      await requireHouseholdWriteAccess(session.user.id, householdId);
+    } catch {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -115,36 +131,49 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const originalExt = extensionByMime[original.type as keyof typeof extensionByMime];
+    const thumbExt = extensionByMime[thumb.type as keyof typeof extensionByMime];
+
+    if (!originalExt || !thumbExt) {
+      return NextResponse.json({ error: "Unsupported file type" }, { status: 400 });
+    }
+
     const base = `household/${householdId}/${entityType}/${entityId}/${Date.now()}-${crypto.randomUUID()}`;
-    const originalPath = `${base}-original.webp`;
-    const thumbPath = `${base}-thumb.webp`;
+    const originalPath = `${base}-original.${originalExt}`;
+    const thumbPath = `${base}-thumb.${thumbExt}`;
 
     const supabase = createSupabaseAdminClient();
-    const [originalResult, thumbResult] = await Promise.all([
-      supabase.storage
-        .from(STORAGE_BUCKET)
-        .upload(originalPath, Buffer.from(await original.arrayBuffer()), {
-          contentType: original.type,
-          upsert: false,
-          cacheControl: "3600",
-        }),
-      supabase.storage
-        .from(STORAGE_BUCKET)
-        .upload(thumbPath, Buffer.from(await thumb.arrayBuffer()), {
-          contentType: thumb.type,
-          upsert: false,
-          cacheControl: "3600",
-        }),
-    ]);
+    const buffers = await Promise.all([original.arrayBuffer(), thumb.arrayBuffer()]);
 
-    if (originalResult.error || thumbResult.error) {
+    const originalResult = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .upload(originalPath, Buffer.from(buffers[0]), {
+        contentType: original.type,
+        upsert: false,
+        cacheControl: "3600",
+      });
+
+    if (originalResult.error) {
+      console.error(originalResult.error);
       return NextResponse.json(
-        {
-          error:
-            originalResult.error?.message ||
-            thumbResult.error?.message ||
-            "Failed to upload to storage",
-        },
+        { error: "Failed to upload original image" },
+        { status: 400 },
+      );
+    }
+
+    const thumbResult = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .upload(thumbPath, Buffer.from(buffers[1]), {
+        contentType: thumb.type,
+        upsert: false,
+        cacheControl: "3600",
+      });
+
+    if (thumbResult.error) {
+      console.error(thumbResult.error);
+      await supabase.storage.from(STORAGE_BUCKET).remove([originalPath]);
+      return NextResponse.json(
+        { error: "Failed to upload thumbnail" },
         { status: 400 },
       );
     }
@@ -158,27 +187,32 @@ export async function POST(request: NextRequest) {
       thumbPath,
     });
 
-    const aiJob = await enqueueAiJob({
-      userId: session.user.id,
-      householdId,
-      jobType: "photo_analyze",
-      payload: {
-        photoId: photo.id,
-        householdId,
-        entityType,
-        entityId,
-        originalPath,
-        thumbPath,
-      },
-    });
-
-    let aiResult: Awaited<ReturnType<typeof runAiJobNow>> | null = null;
     const runNow = process.env.AI_RUN_ON_UPLOAD !== "0";
-    if (runNow) {
-      aiResult = await runAiJobNow({
-        jobId: aiJob.id,
-        workerId: `upload-${session.user.id}-${crypto.randomUUID()}`,
+    let aiResult: Awaited<ReturnType<typeof runAiJobNow>> | null = null;
+
+    try {
+      const aiJob = await enqueueAiJob({
+        userId: session.user.id,
+        householdId,
+        jobType: "photo_analyze",
+        payload: {
+          photoId: photo.id,
+          householdId,
+          entityType,
+          entityId,
+          originalPath,
+          thumbPath,
+        },
       });
+
+      if (runNow) {
+        aiResult = await runAiJobNow({
+          jobId: aiJob.id,
+          workerId: `upload-${session.user.id}-${crypto.randomUUID()}`,
+        });
+      }
+    } catch (error) {
+      console.error("AI enqueue failed", error);
     }
 
     return NextResponse.json({ photo, ai: aiResult });

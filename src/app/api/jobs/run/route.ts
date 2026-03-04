@@ -8,13 +8,13 @@ function isAllowed(request: NextRequest) {
     return process.env.NODE_ENV !== "production";
   }
 
-  const queryToken = request.nextUrl.searchParams.get("token");
   const authHeader = request.headers.get("authorization");
   const bearerToken = authHeader?.startsWith("Bearer ")
     ? authHeader.slice("Bearer ".length)
     : null;
+  const runnerHeader = request.headers.get("x-ai-job-runner-token");
 
-  return queryToken === token || bearerToken === token;
+  return bearerToken === token || runnerHeader === token;
 }
 
 async function runJobs(request: NextRequest) {

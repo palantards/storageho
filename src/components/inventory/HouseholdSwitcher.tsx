@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { setActiveHouseholdAction } from "@/lib/actions/households";
 
 type MembershipOption = {
   householdId: string;
@@ -36,11 +37,10 @@ export function HouseholdSwitcher({
       defaultValue={activeHouseholdId || memberships[0]?.householdId}
       onValueChange={(nextHouseholdId) => {
         startTransition(async () => {
-          await fetch("/api/households/active", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ householdId: nextHouseholdId }),
-          });
+          const result = await setActiveHouseholdAction({ householdId: nextHouseholdId });
+          if (!result.ok) {
+            console.error(result.error);
+          }
           router.refresh();
         });
       }}

@@ -22,13 +22,19 @@ export function SignedImage({
   useEffect(() => {
     if (cachedEntry && cachedEntry.expiresAt > Date.now()) return undefined;
     let active = true;
-    fetch(`/api/storage/signed-url?path=${encodeURIComponent(path)}`)
+    fetch(`/api/storage/signed-url`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path }),
+    })
       .then((response) => response.json())
       .then((data) => {
         if (!active) return;
         if (data?.url) {
           cache.set(path, { url: data.url, expiresAt: Date.now() + 14 * 60 * 1000 });
           setFetchedUrl(data.url);
+        } else if (data?.error) {
+          console.error(data.error);
         }
       })
       .catch((error) => {

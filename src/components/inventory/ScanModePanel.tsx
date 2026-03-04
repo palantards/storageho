@@ -15,6 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { setActivePreferenceAction } from "@/lib/actions/preferences";
+import { quickAddAction } from "@/lib/actions/scan";
 
 type RoomOption = {
   id: string;
@@ -114,20 +116,28 @@ export function ScanModePanel({
 
   async function startCamera() {
     setMessage("");
-    if (!("mediaDevices" in navigator) || !navigator.mediaDevices.getUserMedia) {
+    if (
+      !("mediaDevices" in navigator) ||
+      !navigator.mediaDevices.getUserMedia
+    ) {
       setMessage("Camera not available in this browser.");
       return;
     }
 
-    const BarcodeDetectorCtor = (window as unknown as { BarcodeDetector?: unknown })
-      .BarcodeDetector as
+    const BarcodeDetectorCtor = (
+      window as unknown as { BarcodeDetector?: unknown }
+    ).BarcodeDetector as
       | (new (config?: { formats?: string[] }) => {
-          detect: (input: ImageBitmapSource) => Promise<Array<{ rawValue?: string }>>;
+          detect: (
+            input: ImageBitmapSource,
+          ) => Promise<Array<{ rawValue?: string }>>;
         })
       | undefined;
 
     if (!BarcodeDetectorCtor) {
-      setMessage("QR detection is unsupported here. Paste QR/deeplink manually.");
+      setMessage(
+        "QR detection is unsupported here. Paste QR/deeplink manually.",
+      );
       return;
     }
 
@@ -173,14 +183,18 @@ export function ScanModePanel({
       SpeechRecognition?: new () => {
         lang: string;
         interimResults: boolean;
-        onresult?: (event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void;
+        onresult?: (event: {
+          results: ArrayLike<ArrayLike<{ transcript: string }>>;
+        }) => void;
         onerror?: () => void;
         start: () => void;
       };
       webkitSpeechRecognition?: new () => {
         lang: string;
         interimResults: boolean;
-        onresult?: (event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void;
+        onresult?: (event: {
+          results: ArrayLike<ArrayLike<{ transcript: string }>>;
+        }) => void;
         onerror?: () => void;
         start: () => void;
       };
@@ -197,7 +211,9 @@ export function ScanModePanel({
     recognition.interimResults = false;
     recognition.onresult = (event) => {
       const transcript = event.results?.[0]?.[0]?.transcript || "";
-      setQuickText((current) => [current.trim(), transcript.trim()].filter(Boolean).join(", "));
+      setQuickText((current) =>
+        [current.trim(), transcript.trim()].filter(Boolean).join(", "),
+      );
     };
     recognition.onerror = () => {
       setMessage("Voice capture failed.");
@@ -255,7 +271,9 @@ export function ScanModePanel({
           playsInline
           muted
         />
-        {message ? <div className="text-xs text-muted-foreground">{message}</div> : null}
+        {message ? (
+          <div className="text-xs text-muted-foreground">{message}</div>
+        ) : null}
       </div>
 
       <div className="space-y-2">
@@ -264,14 +282,13 @@ export function ScanModePanel({
           defaultValue={activeRoomId || rooms[0]?.id}
           onValueChange={async (roomId) => {
             try {
-              await fetch("/api/preferences/active", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  householdId,
-                  roomId,
-                }),
+              const result = await setActivePreferenceAction({
+                householdId,
+                roomId,
               });
+              if (!result.ok) {
+                console.error(result.error);
+              }
             } catch {
               // Ignore preference errors and continue navigation.
             } finally {
@@ -298,14 +315,18 @@ export function ScanModePanel({
         <SectionDivider title="Recent boxes" className="pt-1" />
         <div className="grid gap-2">
           {recentBoxes.length === 0 ? (
-            <div className="text-xs text-muted-foreground">No boxes in this room yet.</div>
+            <div className="text-xs text-muted-foreground">
+              No boxes in this room yet.
+            </div>
           ) : (
             recentBoxes.map((box) => (
               <button
                 key={box.id}
                 type="button"
                 className={`rounded-md border p-2 text-left text-sm transition ${
-                  box.id === activeBox?.id ? "border-primary bg-primary/5" : "hover:border-primary/60"
+                  box.id === activeBox?.id
+                    ? "border-primary bg-primary/5"
+                    : "hover:border-primary/60"
                 }`}
                 onClick={() => openBox(box.id)}
               >
@@ -349,7 +370,12 @@ export function ScanModePanel({
                 <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   2) Quick add by text/voice
                 </div>
-                <Button type="button" variant="ghost" size="sm" onClick={startVoiceCapture}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={startVoiceCapture}
+                >
                   Voice
                 </Button>
               </div>
@@ -366,24 +392,23 @@ export function ScanModePanel({
                     try {
                       setPendingQuickAdd(true);
                       setMessage("");
-                      const response = await fetch("/api/scan/quick-add", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          householdId,
-                          containerId: activeBox.id,
-                          text: quickText,
-                        }),
+                      const result = await quickAddAction({
+                        householdId,
+                        containerId: activeBox.id,
+                        text: quickText,
                       });
-                      const data = await response.json().catch(() => null);
-                      if (!response.ok) {
-                        throw new Error(data?.error || "Quick add failed");
+                      if (!result.ok) {
+                        throw new Error(result.error);
                       }
-                      setMessage(`Added ${data?.processed || 0} entries.`);
+                      setMessage(`Added ${result.processed || 0} entries.`);
                       setQuickText("");
                       router.refresh();
                     } catch (error) {
-                      setMessage(error instanceof Error ? error.message : "Quick add failed");
+                      setMessage(
+                        error instanceof Error
+                          ? error.message
+                          : "Quick add failed",
+                      );
                     } finally {
                       setPendingQuickAdd(false);
                     }
@@ -392,7 +417,11 @@ export function ScanModePanel({
                   {pendingQuickAdd ? "Adding..." : "Add to box"}
                 </Button>
                 {nextBox ? (
-                  <Button type="button" variant="outline" onClick={() => openBox(nextBox.id)}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => openBox(nextBox.id)}
+                  >
                     Accept + next box
                   </Button>
                 ) : null}

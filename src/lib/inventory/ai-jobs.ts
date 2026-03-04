@@ -56,12 +56,13 @@ export function dispatchAiRunner(input?: { reason?: string; limit?: number }) {
   if (!config) return;
 
   const limit = Math.min(30, Math.max(1, input?.limit ?? 6));
-  const url = `${config.base}/api/jobs/run?limit=${limit}&token=${encodeURIComponent(config.token)}`;
+  const url = `${config.base}/api/jobs/run?limit=${limit}`;
 
   void fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      Authorization: `Bearer ${config.token}`,
       "x-storageho-dispatch-reason": input?.reason || "enqueue",
     },
     cache: "no-store",
@@ -261,7 +262,7 @@ async function buildSearchDocumentContent(input: {
           from ${schema.containerItems} ci
           inner join ${schema.containers} c on c.id = ci.container_id
           inner join ${schema.rooms} r on r.id = c.room_id
-          inner join ${schema.householdCanvasLayers} l on l.id = r.location_id
+          inner join ${schema.householdFloors} l on l.id = r.location_id
           where ci.item_id = i.id
         ) as paths
       from ${schema.items} i
@@ -309,7 +310,7 @@ async function buildSearchDocumentContent(input: {
         ) as tags
       from ${schema.containers} c
       inner join ${schema.rooms} r on r.id = c.room_id
-      inner join ${schema.householdCanvasLayers} l on l.id = r.location_id
+      inner join ${schema.householdFloors} l on l.id = r.location_id
       left join ${schema.containers} pc on pc.id = c.parent_container_id
       where c.household_id = ${input.householdId}
         and c.id = ${input.entityId}
@@ -334,12 +335,12 @@ async function buildSearchDocumentContent(input: {
     const room = await db
       .select({
         room: schema.rooms,
-        location: schema.householdCanvasLayers,
+        location: schema.householdFloors,
       })
       .from(schema.rooms)
       .innerJoin(
-        schema.householdCanvasLayers,
-        eq(schema.householdCanvasLayers.id, schema.rooms.locationId),
+        schema.householdFloors,
+        eq(schema.householdFloors.id, schema.rooms.locationId),
       )
       .where(
         and(
@@ -357,10 +358,10 @@ async function buildSearchDocumentContent(input: {
   }
 
   if (input.entityType === "location") {
-    const location = await db.query.householdCanvasLayers.findFirst({
+    const location = await db.query.householdFloors.findFirst({
       where: and(
-        eq(schema.householdCanvasLayers.householdId, input.householdId),
-        eq(schema.householdCanvasLayers.id, input.entityId),
+        eq(schema.householdFloors.householdId, input.householdId),
+        eq(schema.householdFloors.id, input.entityId),
       ),
     });
     if (!location) return null;
@@ -544,5 +545,6 @@ export async function runEmbeddingUpsertNow(input: {
   });
   return { deleted: false };
 }
+
 
 

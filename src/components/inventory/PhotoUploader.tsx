@@ -128,22 +128,17 @@ export function PhotoUploader({
 
               let batchSuggestionsCount = 0;
               if (analyzeBatchOnComplete && entityType === "container") {
-                const batchResponse = await fetch("/api/suggestions/analyze-container", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    householdId,
-                    containerId: entityId,
-                    maxPhotos: maxAnalyzePhotos,
-                    maxSuggestions: 12,
-                    replacePending: true,
-                  }),
+                const result = await analyzeContainerPhotosAction({
+                  householdId,
+                  containerId: entityId,
+                  maxPhotos: maxAnalyzePhotos,
+                  maxSuggestions: 12,
+                  replacePending: true,
                 });
-                const batchData = await batchResponse.json().catch(() => null);
-                if (batchResponse.ok) {
-                  batchSuggestionsCount = Number(batchData?.suggestionsCount ?? 0);
+                if (result.ok) {
+                  batchSuggestionsCount = Number(result.suggestionsCount ?? 0);
                 } else {
-                  console.error("Batch suggestion analyze failed", batchData);
+                  console.error("Batch suggestion analyze failed", result.error);
                 }
               }
 

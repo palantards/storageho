@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getSession } from "@/lib/auth";
 import { commitInventoryCsv } from "@/lib/inventory/csv";
 import { getActiveMembershipContext } from "@/lib/inventory/service";
+import { requireHouseholdWriteAccess } from "@/lib/inventory/guards";
 
 const csvRowSchema = z.object({
   location: z.string().min(1),
@@ -41,6 +42,12 @@ export async function POST(request: NextRequest) {
       (entry) => entry.household.id === householdId,
     );
     if (!canAccessHousehold) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    try {
+      await requireHouseholdWriteAccess(session.user.id, householdId);
+    } catch {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

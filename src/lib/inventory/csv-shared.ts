@@ -47,8 +47,29 @@ export function parsePipeList(value: string) {
     .filter(Boolean);
 }
 
+function sanitizeCsvCellForSpreadsheet(value: string) {
+  const trimmedStart = value.trimStart();
+  const first = trimmedStart.charAt(0);
+  if (first === "=" || first === "+" || first === "-" || first === "@") {
+    return `'${value}`;
+  }
+  return value;
+}
+
 export function exportRowsToCsv(rows: InventoryCsvRow[]) {
-  return Papa.unparse(rows, {
+  const safeRows = rows.map((row) => ({
+    ...row,
+    location: sanitizeCsvCellForSpreadsheet(row.location),
+    room: sanitizeCsvCellForSpreadsheet(row.room),
+    containerPath: sanitizeCsvCellForSpreadsheet(row.containerPath),
+    containerCode: sanitizeCsvCellForSpreadsheet(row.containerCode),
+    itemName: sanitizeCsvCellForSpreadsheet(row.itemName),
+    itemAliases: sanitizeCsvCellForSpreadsheet(row.itemAliases),
+    tags: sanitizeCsvCellForSpreadsheet(row.tags),
+    note: sanitizeCsvCellForSpreadsheet(row.note),
+  }));
+
+  return Papa.unparse(safeRows, {
     columns: [...REQUIRED_COLUMNS],
     skipEmptyLines: true,
   });

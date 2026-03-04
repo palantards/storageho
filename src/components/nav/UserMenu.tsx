@@ -65,7 +65,11 @@ export function UserMenu({
           );
           return item.href === "/logout" ? (
             <DropdownMenuItem key={idx} asChild>
-              <Link href={`${href}?locale=${locale}`}>{content}</Link>
+              <form action={href} method="post" className="w-full">
+                <button type="submit" className="flex w-full items-center">
+                  {content}
+                </button>
+              </form>
             </DropdownMenuItem>
           ) : (
             <DropdownMenuItem key={idx} asChild>

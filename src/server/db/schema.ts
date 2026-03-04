@@ -105,21 +105,6 @@ export const searchEntityTypeEnum = pgEnum("search_entity_type", [
   "tag",
 ]);
 
-export const placementEntityTypeEnum = pgEnum("placement_entity_type", [
-  "container",
-  "item",
-]);
-
-export const householdCanvasEntityTypeEnum = pgEnum(
-  "household_canvas_entity_type",
-  ["room", "container"],
-);
-
-export const householdCanvasShapeTypeEnum = pgEnum(
-  "household_canvas_shape_type",
-  ["rectangle", "square", "triangle"],
-);
-
 export const timestampColumns = () => ({
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -195,7 +180,7 @@ export const userPreferences = pgTable(
       onDelete: "set null",
     }),
     activeLocationId: uuid("active_location_id").references(
-      () => householdCanvasLayers.id,
+      () => householdFloors.id,
       {
         onDelete: "set null",
       },
@@ -250,7 +235,7 @@ export const rooms = pgTable(
       .references(() => households.id, { onDelete: "cascade" }),
     locationId: uuid("location_id")
       .notNull()
-      .references(() => householdCanvasLayers.id, { onDelete: "cascade" }),
+      .references(() => householdFloors.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     isSystem: boolean("is_system").notNull().default(false),
     description: text("description"),
@@ -479,44 +464,8 @@ export const photos = pgTable(
   }),
 );
 
-export const roomLayouts = pgTable(
-  "room_layouts",
-  {
-    roomId: uuid("room_id")
-      .primaryKey()
-      .references(() => rooms.id, { onDelete: "cascade" }),
-    householdId: uuid("household_id")
-      .notNull()
-      .references(() => households.id, { onDelete: "cascade" }),
-    width: real("width").notNull().default(12),
-    height: real("height").notNull().default(8),
-    backgroundPhotoId: uuid("background_photo_id").references(() => photos.id, {
-      onDelete: "set null",
-    }),
-    ...timestampColumns(),
-  },
-  (table) => ({
-    householdIdx: index("room_layouts_household_idx").on(table.householdId),
-  }),
-);
-
-export const householdCanvasLayouts = pgTable(
-  "household_canvas_layouts",
-  {
-    householdId: uuid("household_id")
-      .primaryKey()
-      .references(() => households.id, { onDelete: "cascade" }),
-    width: real("width").notNull().default(30),
-    height: real("height").notNull().default(20),
-    ...timestampColumns(),
-  },
-  (table) => ({
-    widthIdx: index("household_canvas_layouts_width_idx").on(table.width),
-  }),
-);
-
-export const householdCanvasLayers = pgTable(
-  "household_canvas_layers",
+export const householdFloors = pgTable(
+  "household_floors",
   {
     id: uuid("id").defaultRandom().primaryKey(),
     householdId: uuid("household_id")
@@ -529,91 +478,19 @@ export const householdCanvasLayers = pgTable(
     ...timestampColumns(),
   },
   (table) => ({
-    householdSortIdx: index("household_canvas_layers_household_sort_idx").on(
+    householdSortIdx: index("household_floors_household_sort_idx").on(
       table.householdId,
       table.sortOrder,
       table.createdAt,
     ),
-    locationIdx: index("household_canvas_layers_location_idx").on(table.locationId),
-    householdNameIdx: uniqueIndex("household_canvas_layers_household_name_idx").on(
+    locationIdx: index("household_floors_location_idx").on(table.locationId),
+    householdNameIdx: uniqueIndex("household_floors_household_name_idx").on(
       table.householdId,
       table.name,
     ),
-    householdLocationIdx: uniqueIndex(
-      "household_canvas_layers_household_location_unique_idx",
-    ).on(table.householdId, table.locationId),
-  }),
-);
-
-export const householdCanvasPlacements = pgTable(
-  "household_canvas_placements",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    householdId: uuid("household_id")
-      .notNull()
-      .references(() => households.id, { onDelete: "cascade" }),
-    layerId: uuid("layer_id")
-      .notNull()
-      .references(() => householdCanvasLayers.id, { onDelete: "cascade" }),
-    entityType: householdCanvasEntityTypeEnum("entity_type").notNull(),
-    entityId: uuid("entity_id").notNull(),
-    x: real("x").notNull().default(0),
-    y: real("y").notNull().default(0),
-    width: real("width").notNull().default(3),
-    height: real("height").notNull().default(2),
-    rotation: real("rotation").notNull().default(0),
-    shapeType: householdCanvasShapeTypeEnum("shape_type")
-      .notNull()
-      .default("rectangle"),
-    label: text("label"),
-    createdBy: uuid("created_by").notNull(),
-    ...timestampColumns(),
-  },
-  (table) => ({
-    householdIdx: index("household_canvas_placements_household_idx").on(
+    householdLocationIdx: uniqueIndex("household_floors_household_location_unique_idx").on(
       table.householdId,
-    ),
-    layerIdx: index("household_canvas_placements_layer_idx").on(
-      table.layerId,
-      table.entityType,
-    ),
-    layerShapeIdx: index("household_canvas_placements_layer_shape_idx").on(
-      table.layerId,
-      table.entityType,
-      table.shapeType,
-    ),
-    uniqueLayerEntityIdx: uniqueIndex(
-      "household_canvas_placements_layer_entity_unique_idx",
-    ).on(table.layerId, table.entityType, table.entityId),
-  }),
-);
-
-export const placements = pgTable(
-  "placements",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    householdId: uuid("household_id")
-      .notNull()
-      .references(() => households.id, { onDelete: "cascade" }),
-    roomId: uuid("room_id")
-      .notNull()
-      .references(() => rooms.id, { onDelete: "cascade" }),
-    entityType: placementEntityTypeEnum("entity_type").notNull(),
-    entityId: uuid("entity_id").notNull(),
-    x: real("x").notNull().default(0),
-    y: real("y").notNull().default(0),
-    rotation: real("rotation").notNull().default(0),
-    label: text("label"),
-    createdBy: uuid("created_by").notNull(),
-    ...timestampColumns(),
-  },
-  (table) => ({
-    householdIdx: index("placements_household_idx").on(table.householdId),
-    roomIdx: index("placements_room_idx").on(table.roomId),
-    uniqueRoomEntityIdx: uniqueIndex("placements_room_entity_unique_idx").on(
-      table.roomId,
-      table.entityType,
-      table.entityId,
+      table.locationId,
     ),
   }),
 );

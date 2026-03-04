@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { resetPasswordAction } from "@/lib/actions/auth";
 
 type ResetPasswordLabels = {
   title: string;
@@ -61,13 +62,11 @@ export function ResetPasswordForm({ labels }: { labels: ResetPasswordLabels }) {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accessToken: tokens.accessToken, password }),
+      const result = await resetPasswordAction({
+        accessToken: tokens.accessToken,
+        password,
       });
-      if (!res.ok) throw new Error("Reset failed");
-      setStatus("success");
+      setStatus(result.ok ? "success" : "error");
     } catch {
       setStatus("error");
     } finally {

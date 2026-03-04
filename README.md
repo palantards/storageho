@@ -69,7 +69,8 @@ Migrations are in `supabase/migrations` and now include:
 - `20260301093000_household_canvas.sql` (multi-floor household canvas tables + RLS)
 - `20260301120000_household_canvas_shapes.sql` (shape types + floor/location 1:1 backfill)
 - `20260301143000_rooms_system_flag.sql` (`rooms.is_system` + single `Unassigned` room per floor)
-- `20260301190000_remove_locations_table.sql` (drops `locations`; floors are now `household_canvas_layers`)
+- `20260301190000_remove_locations_table.sql` (drops `locations`; floors are now first-class)
+- `20260304110000_household_floors_and_remove_dead_map_tables.sql` (renames `household_canvas_layers` to `household_floors` and drops unused map tables)
 
 ## 4) Run locally
 

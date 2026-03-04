@@ -39,12 +39,12 @@ async function supabaseRequest<T>(
   init: RequestInit & { accessToken?: string } = {},
 ): Promise<T> {
   const { url, anonKey } = getSupabaseEnv();
-  const headers: HeadersInit = {
-    apikey: anonKey,
-    "Content-Type": "application/json",
-    ...(init.headers || {}),
-  };
-  if (init.accessToken) headers.Authorization = `Bearer ${init.accessToken}`;
+  const headers = new Headers(init.headers);
+  headers.set("apikey", anonKey);
+  headers.set("Content-Type", "application/json");
+  if (init.accessToken) {
+    headers.set("Authorization", `Bearer ${init.accessToken}`);
+  }
 
   const response = await fetch(`${url}${path}`, {
     ...init,
@@ -143,23 +143,31 @@ export async function persistSession(
 ) {
   const rememberMe = options?.rememberMe ?? true;
   const expiry = session.expires_at || calculateExpiryEpoch(session.expires_in);
+  const isSecure =
+    process.env.NODE_ENV === "production" ||
+    process.env.NEXT_PUBLIC_SITE_URL?.startsWith("https://") ||
+    process.env.NEXT_PUBLIC_APP_URL?.startsWith("https://") ||
+    process.env.APP_URL?.startsWith("https://");
   const cookieStore = await cookies();
   cookieStore.set(ACCESS_COOKIE, session.access_token, {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
+    secure: isSecure,
     maxAge: rememberMe ? session.expires_in : undefined,
   });
   cookieStore.set(REFRESH_COOKIE, session.refresh_token, {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
+    secure: isSecure,
     maxAge: rememberMe ? 60 * 60 * 24 * 30 : undefined,
   });
   cookieStore.set(EXPIRES_COOKIE, String(expiry), {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
+    secure: isSecure,
     maxAge: rememberMe ? 60 * 60 * 24 * 30 : undefined,
   });
 }

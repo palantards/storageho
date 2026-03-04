@@ -9,10 +9,10 @@ import { getMessages } from "@/i18n/getMessages";
 import { t as tt } from "@/i18n/translate";
 import { getInventoryContext } from "@/lib/inventory/page-context";
 import {
-  ensureHouseholdCanvasInitialized,
+  ensureHouseholdFloorsInitialized,
   getHouseholdById,
   listContainersWithRoomFloor,
-  listHouseholdCanvasLayers,
+  listHouseholdFloors,
   listRoomsWithFloor,
 } from "@/lib/inventory/service";
 
@@ -38,13 +38,13 @@ export default async function HouseholdCanvasPage({
     return <div className="text-sm text-muted-foreground">Household not found.</div>;
   }
 
-  await ensureHouseholdCanvasInitialized({
+  await ensureHouseholdFloorsInitialized({
     userId: context.user.id,
     householdId,
   });
 
-  const [layers, rooms, containers] = await Promise.all([
-    listHouseholdCanvasLayers({
+  const [floors, rooms, containers] = await Promise.all([
+    listHouseholdFloors({
       userId: context.user.id,
       householdId,
     }),
@@ -92,11 +92,11 @@ export default async function HouseholdCanvasPage({
         locale={locale}
         householdId={householdId}
         householdName={household.name}
-        floors={layers.map((layer) => ({
-          id: layer.id,
-          name: layer.name,
-          locationId: layer.id,
-          sortOrder: Number(layer.sortOrder ?? 0),
+        floors={floors.map((floor) => ({
+          id: floor.id,
+          name: floor.name,
+          locationId: floor.id,
+          sortOrder: Number(floor.sortOrder ?? 0),
         }))}
         rooms={rooms.map((row) => ({
           id: row.room.id,
@@ -118,3 +118,4 @@ export default async function HouseholdCanvasPage({
     </PageFrame>
   );
 }
+

@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { moveItemAction } from "@/lib/actions/items";
 
 export function MoveItemDialog({
   householdId,
@@ -107,23 +108,15 @@ export function MoveItemDialog({
             onClick={async () => {
               try {
                 setPending(true);
-                const response = await fetch("/api/items/move", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    householdId,
-                    itemId,
-                    fromContainerId,
-                    toContainerId,
-                    quantity,
-                  }),
+                const result = await moveItemAction({
+                  householdId,
+                  itemId,
+                  fromContainerId,
+                  toContainerId,
+                  quantity,
                 });
-
-                if (!response.ok) {
-                  const payload = await response
-                    .json()
-                    .catch(() => ({ error: "Move failed" }));
-                  throw new Error(payload.error || "Move failed");
+                if (!result.ok) {
+                  throw new Error(result.error);
                 }
 
                 onMoved?.();

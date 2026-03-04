@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  analyzeContainerPhotosAction,
+  updateSuggestionAction,
+} from "@/lib/actions/suggestions";
 
 export type BoxSuggestionRow = {
   id: string;
@@ -49,23 +53,18 @@ export function BoxSuggestionsPanel({
       setPendingId(input.suggestionId);
       setMessage("");
 
-      const response = await fetch("/api/suggestions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          householdId,
-          suggestionId: input.suggestionId,
-          action: input.action,
-          name: draftNames[input.suggestionId] || undefined,
-          quantity: draftQty[input.suggestionId]
-            ? Number(draftQty[input.suggestionId])
-            : undefined,
-        }),
+      const result = await updateSuggestionAction({
+        householdId,
+        suggestionId: input.suggestionId,
+        action: input.action,
+        name: draftNames[input.suggestionId] || undefined,
+        quantity: draftQty[input.suggestionId]
+          ? Number(draftQty[input.suggestionId])
+          : undefined,
       });
 
-      const data = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(data?.error || "Suggestion action failed");
+      if (!result.ok) {
+        throw new Error(result.error);
       }
 
       setMessage(
@@ -88,12 +87,17 @@ export function BoxSuggestionsPanel({
   return (
     <div className="space-y-3">
       <div className="text-xs text-muted-foreground">
-        Suggestions are generated automatically after upload (single-photo + batch pass).
-        If they still do not appear, use Refresh or run the AI job runner endpoint.
+        Suggestions are generated automatically after upload (single-photo +
+        batch pass). If they still do not appear, use Refresh or run the AI job
+        runner endpoint.
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" onClick={() => router.refresh()}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => router.refresh()}
+        >
           Refresh suggestions
         </Button>
         <Button
@@ -109,26 +113,25 @@ export function BoxSuggestionsPanel({
             try {
               setPendingAnalyze(true);
               setMessage("");
-              const response = await fetch("/api/suggestions/analyze-container", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  householdId,
-                  containerId,
-                  maxPhotos: 4,
-                  maxSuggestions: 12,
-                  replacePending: true,
-                }),
+              const result = await analyzeContainerPhotosAction({
+                householdId,
+                containerId,
+                maxPhotos: 4,
+                maxSuggestions: 12,
+                replacePending: true,
               });
-              const data = await response.json().catch(() => null);
-              if (!response.ok) {
-                throw new Error(data?.error || "Re-analyze failed");
+              if (!result.ok) {
+                throw new Error(result.error);
               }
-              const count = Number(data?.suggestionsCount ?? 0);
-              setMessage(`Re-analyzed latest photos. ${count} suggestion(s) generated.`);
+              const count = Number(result.suggestionsCount ?? 0);
+              setMessage(
+                `Re-analyzed latest photos. ${count} suggestion(s) generated.`,
+              );
               router.refresh();
             } catch (error) {
-              setMessage(error instanceof Error ? error.message : "Re-analyze failed");
+              setMessage(
+                error instanceof Error ? error.message : "Re-analyze failed",
+              );
             } finally {
               setPendingAnalyze(false);
             }
@@ -161,7 +164,9 @@ export function BoxSuggestionsPanel({
               }
 
               router.refresh();
-              setMessage(`Accepted ${highConfidence.length} high-confidence suggestions.`);
+              setMessage(
+                `Accepted ${highConfidence.length} high-confidence suggestions.`,
+              );
             }}
           >
             Accept all high confidence
@@ -169,7 +174,9 @@ export function BoxSuggestionsPanel({
         ) : null}
       </div>
 
-      {message ? <div className="text-xs text-muted-foreground">{message}</div> : null}
+      {message ? (
+        <div className="text-xs text-muted-foreground">{message}</div>
+      ) : null}
 
       {suggestions.length === 0 ? (
         <div className="text-sm text-muted-foreground">
@@ -185,8 +192,8 @@ export function BoxSuggestionsPanel({
               </div>
             </div>
             <div className="mt-1 text-xs text-muted-foreground">
-              Qty: {suggestion.suggestedQty ?? 1} | Tags: {" "}
-              {(suggestion.suggestedTags || []).join(", ") || "-"} | Status: {" "}
+              Qty: {suggestion.suggestedQty ?? 1} | Tags:{" "}
+              {(suggestion.suggestedTags || []).join(", ") || "-"} | Status:{" "}
               {suggestion.status}
             </div>
 
@@ -204,7 +211,10 @@ export function BoxSuggestionsPanel({
                 <Input
                   type="number"
                   min={1}
-                  value={draftQty[suggestion.id] ?? String(suggestion.suggestedQty ?? 1)}
+                  value={
+                    draftQty[suggestion.id] ??
+                    String(suggestion.suggestedQty ?? 1)
+                  }
                   onChange={(event) =>
                     setDraftQty((prev) => ({
                       ...prev,
@@ -216,7 +226,10 @@ export function BoxSuggestionsPanel({
                   type="button"
                   disabled={pendingId === suggestion.id}
                   onClick={() =>
-                    submitAction({ suggestionId: suggestion.id, action: "accept" })
+                    submitAction({
+                      suggestionId: suggestion.id,
+                      action: "accept",
+                    })
                   }
                 >
                   Accept
@@ -226,7 +239,10 @@ export function BoxSuggestionsPanel({
                   variant="outline"
                   disabled={pendingId === suggestion.id}
                   onClick={() =>
-                    submitAction({ suggestionId: suggestion.id, action: "reject" })
+                    submitAction({
+                      suggestionId: suggestion.id,
+                      action: "reject",
+                    })
                   }
                 >
                   Reject
@@ -239,4 +255,3 @@ export function BoxSuggestionsPanel({
     </div>
   );
 }
-

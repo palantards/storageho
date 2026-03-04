@@ -3,38 +3,44 @@ import { getSession } from "@/lib/auth";
 import { getPublicTicketsPage, PublicTicketCategory } from "@/lib/support";
 import { db, schema } from "@/server/db";
 import { ticketVotes } from "@/server/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import z from "zod";
 
 async function voteAction(formData: FormData) {
-  const ticketId = formData.get("ticketId") as string;
+  const ticketIdRaw = formData.get("ticketId");
+  const ticketId = z.string().uuid().safeParse(ticketIdRaw);
   const session = await getSession();
-  if (!session?.user || !ticketId) {
+  if (!session?.user || !ticketId.success) {
     redirect(`/`);
   }
+
+  const ticketIdValue = ticketId.data;
   const dbUser = await db.query.users.findFirst({
     where: eq(schema.users.supabaseUserId, session.user.id),
   });
   if (!dbUser) redirect(`/`);
 
   const existingVote = await db.query.ticketVotes.findFirst({
-    where:
-      eq(schema.ticketVotes.userId, dbUser.id) &&
-      eq(schema.ticketVotes.ticketId, ticketId),
+    where: and(
+      eq(schema.ticketVotes.userId, dbUser.id),
+      eq(schema.ticketVotes.ticketId, ticketIdValue),
+    ),
   });
   if (existingVote) {
     await db
       .delete(ticketVotes)
       .where(
-        eq(schema.ticketVotes.userId, dbUser.id) &&
-          eq(schema.ticketVotes.ticketId, ticketId),
+        and(
+          eq(schema.ticketVotes.userId, dbUser.id),
+          eq(schema.ticketVotes.ticketId, ticketIdValue),
+        ),
       );
   } else {
     // Not voted yet, insert a new vote
     await db.insert(ticketVotes).values({
       userId: dbUser.id,
-      ticketId: ticketId,
+      ticketId: ticketIdValue,
     });
   }
   // After updating, the page will reload and show updated counts

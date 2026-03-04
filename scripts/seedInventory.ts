@@ -22,7 +22,7 @@ async function run() {
   `);
 
   const floorResult = await db.execute(sql`
-    insert into household_canvas_layers (household_id, location_id, name, sort_order, created_by)
+    insert into household_floors (household_id, location_id, name, sort_order, created_by)
     values (
       ${householdId}::uuid,
       gen_random_uuid(),
@@ -35,7 +35,7 @@ async function run() {
   const floorId = String(floorResult.rows[0]?.id || "");
 
   await db.execute(sql`
-    update household_canvas_layers
+    update household_floors
     set location_id = id
     where id = ${floorId}::uuid
   `);

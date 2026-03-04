@@ -2,63 +2,46 @@ import { describe, expect, it } from "vitest";
 
 import {
   createContainerFromSetupSchema,
-  householdCanvasCreateRoomSchema,
-  householdCanvasPlacementSchema,
+  createRoomFromSetupSchema,
+  householdFloorSchema,
+  householdFloorUpdateSchema,
 } from "@/lib/inventory/validation";
 
-describe("household canvas validation", () => {
+describe("household floor validation", () => {
   const householdId = "11111111-1111-4111-8111-111111111111";
-  const layerId = "22222222-2222-4222-8222-222222222222";
-  const entityId = "33333333-3333-4333-8333-333333333333";
+  const floorId = "22222222-2222-4222-8222-222222222222";
 
-  it("allows room placement shapes", () => {
-    const parsed = householdCanvasPlacementSchema.parse({
+  it("accepts new floor payload", () => {
+    const parsed = householdFloorSchema.parse({
       householdId,
-      layerId,
-      entityType: "room",
-      entityId,
-      x: 1,
-      y: 1,
-      width: 4,
-      height: 3,
-      shapeType: "triangle",
+      name: "Main floor",
+      sortOrder: 0,
     });
-    expect(parsed.shapeType).toBe("triangle");
+    expect(parsed.name).toBe("Main floor");
   });
 
-  it("rejects non-rectangle container shape", () => {
-    const result = householdCanvasPlacementSchema.safeParse({
+  it("accepts floor update payload", () => {
+    const parsed = householdFloorUpdateSchema.parse({
       householdId,
-      layerId,
-      entityType: "container",
-      entityId,
-      x: 1,
-      y: 1,
-      width: 4,
-      height: 3,
-      shapeType: "triangle",
+      floorId,
+      name: "Renamed floor",
     });
-    expect(result.success).toBe(false);
+    expect(parsed.floorId).toBe(floorId);
   });
 
-  it("accepts new room payload with square shape type", () => {
-    const parsed = householdCanvasCreateRoomSchema.parse({
+  it("accepts setup room payload", () => {
+    const parsed = createRoomFromSetupSchema.parse({
       householdId,
-      layerId,
+      floorId,
       name: "Storage zone",
-      x: 2,
-      y: 2,
-      width: 5,
-      height: 5,
-      shapeType: "square",
     });
-    expect(parsed.shapeType).toBe("square");
+    expect(parsed.floorId).toBe(floorId);
   });
 
   it("accepts setup container payload with optional room", () => {
     const parsed = createContainerFromSetupSchema.parse({
       householdId,
-      layerId,
+      floorId,
       roomId: null,
       name: "Box 12",
       code: "B-12",

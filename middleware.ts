@@ -7,6 +7,7 @@ const ACCESS_COOKIE = "supabase_access_token";
 const REFRESH_COOKIE = "supabase_refresh_token";
 const EXPIRES_COOKIE = "supabase_expires_at";
 const REFRESH_LEEWAY_SECONDS = 60;
+const CSRF_EXEMPT_API_PATHS = ["/api/stripe/webhook"];
 
 type SupabaseRefreshResponse = {
   access_token: string;
@@ -123,10 +124,67 @@ async function refreshSessionIfNeeded(
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  const isApi = pathname.startsWith("/api");
+  const hasSessionCookie = Boolean(request.cookies.get(ACCESS_COOKIE));
+  const unsafeMethod = !["GET", "HEAD", "OPTIONS"].includes(request.method);
+
+  // CSRF / same-origin protection for cookie-authenticated API mutations
+  if (
+    isApi &&
+    unsafeMethod &&
+    hasSessionCookie &&
+    !CSRF_EXEMPT_API_PATHS.some((p) => pathname.startsWith(p))
+  ) {
+    // Strong browser signal. If present and same-site/origin, allow.
+    const secFetchSite = request.headers.get("sec-fetch-site");
+    if (secFetchSite !== "same-origin" && secFetchSite !== "same-site") {
+      const allowedOriginsRaw = [
+        request.nextUrl.origin,
+        process.env.NEXT_PUBLIC_SITE_URL,
+        process.env.NEXT_PUBLIC_APP_URL,
+      ].filter(Boolean) as string[];
+
+      // Normalize env values to origins (strip paths)
+      const allowedOrigins = allowedOriginsRaw.map((o) => {
+        try {
+          return new URL(o).origin;
+        } catch {
+          // If it's not a valid URL, keep as-is (better than crashing)
+          return o;
+        }
+      });
+
+      const originHeader = request.headers.get("origin");
+      const refererHeader = request.headers.get("referer");
+
+      let candidateOrigin: string | null = null;
+
+      if (originHeader) {
+        try {
+          candidateOrigin = new URL(originHeader).origin;
+        } catch {
+          candidateOrigin = null;
+        }
+      } else if (refererHeader) {
+        try {
+          candidateOrigin = new URL(refererHeader).origin;
+        } catch {
+          candidateOrigin = null;
+        }
+      }
+
+      if (!candidateOrigin || !allowedOrigins.includes(candidateOrigin)) {
+        return NextResponse.json(
+          { error: "CSRF check failed" },
+          { status: 403 },
+        );
+      }
+    }
+  }
+
   // Skip next internals and public files
   if (
     pathname.startsWith("/_next") ||
-    pathname.startsWith("/api") ||
     pathname.startsWith("/favicon") ||
     PUBLIC_FILE.test(pathname)
   ) {
@@ -134,18 +192,21 @@ export async function middleware(request: NextRequest) {
   }
 
   const hasLocalePrefix = locales.some(
-    (loc) => pathname === `/${loc}` || pathname.startsWith(`/${loc}/`)
+    (loc) => pathname === `/${loc}` || pathname.startsWith(`/${loc}/`),
   );
 
-  const response = hasLocalePrefix
+  // API routes: never locale-redirect
+  const response = isApi
     ? NextResponse.next()
-    : NextResponse.redirect(
-        (() => {
-          const url = request.nextUrl.clone();
-          url.pathname = `/${defaultLocale}${pathname}`;
-          return url;
-        })(),
-      );
+    : hasLocalePrefix
+      ? NextResponse.next()
+      : NextResponse.redirect(
+          (() => {
+            const url = request.nextUrl.clone();
+            url.pathname = `/${defaultLocale}${pathname}`;
+            return url;
+          })(),
+        );
 
   await refreshSessionIfNeeded(request, response);
 

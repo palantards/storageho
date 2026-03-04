@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
 
+import { getStripe } from "@/lib/stripe/server";
 import {
   findUserByStripeCustomerId,
   getWebhookEventStatus,
@@ -10,19 +11,11 @@ import {
   type WebhookStatus,
 } from "@/server/stripe/webhookHandlers";
 
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-if (!stripeSecretKey) {
-  throw new Error("STRIPE_SECRET_KEY is not set");
-}
 if (!webhookSecret) {
   throw new Error("STRIPE_WEBHOOK_SECRET is not set");
 }
-
-const stripe = new Stripe(stripeSecretKey, {
-  apiVersion: "2025-12-15.clover",
-});
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,7 +25,7 @@ export async function POST(req: NextRequest) {
   if (!signature) {
     return NextResponse.json(
       { error: "Missing Stripe signature" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -40,7 +33,7 @@ export async function POST(req: NextRequest) {
 
   let event: Stripe.Event;
   try {
-    if (!webhookSecret) throw new Error("Webhook secret is not set");
+    const stripe = getStripe();
     event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
   } catch (err) {
     const errorMessage =
@@ -77,7 +70,7 @@ export async function POST(req: NextRequest) {
   if (status === "failed") {
     return NextResponse.json(
       { error: errorMessage || "Webhook handler failure" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -88,7 +81,7 @@ async function handleStripeEvent(event: Stripe.Event): Promise<WebhookStatus> {
   switch (event.type) {
     case "checkout.session.completed":
       return handleCheckoutSessionCompleted(
-        event.data.object as Stripe.Checkout.Session
+        event.data.object as Stripe.Checkout.Session,
       );
     case "customer.subscription.created":
     case "customer.subscription.updated":
@@ -103,8 +96,9 @@ async function handleStripeEvent(event: Stripe.Event): Promise<WebhookStatus> {
 }
 
 async function handleCheckoutSessionCompleted(
-  session: Stripe.Checkout.Session
+  session: Stripe.Checkout.Session,
 ): Promise<WebhookStatus> {
+  const stripe = getStripe();
   const customerId = getCustomerId(session.customer);
   const subscriptionId = getSubscriptionId(session.subscription);
 
@@ -131,7 +125,7 @@ async function handleCheckoutSessionCompleted(
 }
 
 async function handleSubscriptionEvent(
-  subscription: Stripe.Subscription
+  subscription: Stripe.Subscription,
 ): Promise<WebhookStatus> {
   const customerId = getCustomerId(subscription.customer);
   if (!customerId) {
@@ -152,12 +146,13 @@ async function handleSubscriptionEvent(
   return "processed";
 }
 async function handleInvoiceEvent(
-  invoice: Stripe.Invoice
+  invoice: Stripe.Invoice,
 ): Promise<WebhookStatus> {
+  const stripe = getStripe();
   const customerId =
     typeof invoice.customer === "string"
       ? invoice.customer
-      : invoice.customer?.id ?? null;
+      : (invoice.customer?.id ?? null);
 
   const subscriptionId = getSubscriptionId(
     (invoice as unknown as { subscription?: unknown }).subscription,
@@ -182,7 +177,12 @@ async function handleInvoiceEvent(
 }
 
 function getCustomerId(
-  customer: string | Stripe.Customer | Stripe.DeletedCustomer | null | undefined
+  customer:
+    | string
+    | Stripe.Customer
+    | Stripe.DeletedCustomer
+    | null
+    | undefined,
 ): string | null {
   if (!customer) return null;
   if (typeof customer === "string") return customer;
@@ -202,4 +202,3 @@ function getSubscriptionId(subscription: unknown): string | null {
   }
   return null;
 }
-

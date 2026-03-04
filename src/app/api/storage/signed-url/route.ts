@@ -1,30 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 import { getSession } from "@/lib/auth";
 import { STORAGE_BUCKET } from "@/lib/inventory/constants";
-import { listMembershipsForUser } from "@/lib/inventory/service";
 import { createSupabaseAdminClient } from "@/lib/supabaseServer";
+import { requireHouseholdMembership } from "@/lib/inventory/guards";
 
-export async function GET(request: NextRequest) {
+const pathSchema = z
+  .string()
+  .min(10)
+  .max(500)
+  .regex(/^household\/[0-9a-fA-F-]{36}\/[\w\-./]+$/);
+
+export async function POST(request: NextRequest) {
   const session = await getSession();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const path = request.nextUrl.searchParams.get("path") || "";
-  if (!path) {
-    return NextResponse.json({ error: "path is required" }, { status: 400 });
+  const body = await request.json().catch(() => null);
+  const parsedPath = pathSchema.safeParse(body?.path);
+  if (!parsedPath.success) {
+    return NextResponse.json(
+      { error: "Invalid storage path" },
+      { status: 400 },
+    );
   }
+  const path = parsedPath.data;
+  const householdId = path.split("/")[1];
 
-  const parts = path.split("/");
-  const householdId = parts[0] === "household" ? parts[1] : "";
-  if (!householdId) {
-    return NextResponse.json({ error: "Invalid storage path" }, { status: 400 });
-  }
-
-  const memberships = await listMembershipsForUser(session.user.id);
-  const isMember = memberships.some((m) => m.household.id === householdId);
-  if (!isMember) {
+  try {
+    await requireHouseholdMembership(session.user.id, householdId);
+  } catch {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -40,5 +47,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  return NextResponse.json({ url: data.signedUrl });
+  const res = NextResponse.json({ url: data.signedUrl });
+  res.headers.set("Cache-Control", "no-store");
+  return res;
 }

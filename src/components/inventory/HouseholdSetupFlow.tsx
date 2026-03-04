@@ -18,6 +18,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { setActivePreferenceAction } from "@/lib/actions/preferences";
+import { quickAddAction } from "@/lib/actions/scan";
+import { updateSuggestionAction } from "@/lib/actions/suggestions";
+import {
+  createFloorAction,
+  createSetupContainerAction,
+  createSetupRoomAction,
+} from "@/lib/actions/householdSetup";
 
 type Floor = {
   id: string;
@@ -92,7 +100,9 @@ export function HouseholdSetupFlow({
   const [rooms, setRooms] = useState(initialRooms);
   const [containers, setContainers] = useState(initialContainers);
   const NONE = "__none__";
-  const [selectedFloorId, setSelectedFloorId] = useState<string>(initialFloors[0]?.id || NONE);
+  const [selectedFloorId, setSelectedFloorId] = useState<string>(
+    initialFloors[0]?.id || NONE,
+  );
   const [selectedRoomId, setSelectedRoomId] = useState<string>(NONE);
   const [floorName, setFloorName] = useState("");
   const [roomName, setRoomName] = useState("");
@@ -101,11 +111,12 @@ export function HouseholdSetupFlow({
   const [containerCode, setContainerCode] = useState("");
   const [containerDescription, setContainerDescription] = useState("");
   const [quickAddText, setQuickAddText] = useState("");
-  const [busyAction, setBusyAction] = useState<null | "floor" | "room" | "container" | "quick-add">(
-    null,
-  );
+  const [busyAction, setBusyAction] = useState<
+    null | "floor" | "room" | "container" | "quick-add"
+  >(null);
   const [message, setMessage] = useState("");
-  const [createdContainer, setCreatedContainer] = useState<CreatedContainerSummary | null>(null);
+  const [createdContainer, setCreatedContainer] =
+    useState<CreatedContainerSummary | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [suggestionBusyId, setSuggestionBusyId] = useState<string | null>(null);
 
@@ -123,7 +134,9 @@ export function HouseholdSetupFlow({
   const selectableRooms = useMemo(
     () =>
       rooms
-        .filter((room) => room.locationId === selectedLocationId && !room.isSystem)
+        .filter(
+          (room) => room.locationId === selectedLocationId && !room.isSystem,
+        )
         .sort((left, right) => left.name.localeCompare(right.name)),
     [rooms, selectedLocationId],
   );
@@ -138,25 +151,15 @@ export function HouseholdSetupFlow({
     setSelectedRoomId(NONE);
   }, [selectedFloorId, NONE]);
 
-  async function callJson(path: string, method: string, body?: Record<string, unknown>) {
-    const response = await fetch(path, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    const data = await response.json().catch(() => null);
-    if (!response.ok) {
-      throw new Error(data?.error || "Request failed");
-    }
-    return data;
-  }
-
-  async function syncActivePreference(input: { locationId?: string | null; roomId?: string | null }) {
+  async function syncActivePreference(input: {
+    locationId?: string | null;
+    roomId?: string | null;
+  }) {
     try {
-      await callJson("/api/preferences/active", "POST", {
-        householdId,
-        ...input,
-      });
+      const result = await setActivePreferenceAction({ householdId, ...input });
+      if (!result.ok) {
+        console.error(result.error);
+      }
     } catch {
       // Non-blocking preference updates.
     }
@@ -188,19 +191,26 @@ export function HouseholdSetupFlow({
     try {
       setBusyAction("floor");
       setMessage("");
-      const data = await callJson("/api/household-canvas/layers", "POST", {
+      const result = await createFloorAction({
         householdId,
         name: floorName.trim(),
+        sortOrder: floors.length,
       });
-      const nextFloor = data.layer as Floor;
+      if (!result.ok) throw new Error(result.error);
+      const nextFloor = result.floor as Floor;
       setFloors((prev) => sortFloors([...prev, nextFloor]));
       setSelectedFloorId(nextFloor.id);
       setFloorName("");
       if (nextFloor.locationId) {
-        await syncActivePreference({ locationId: nextFloor.locationId, roomId: null });
+        await syncActivePreference({
+          locationId: nextFloor.locationId,
+          roomId: null,
+        });
       }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to create floor");
+      setMessage(
+        error instanceof Error ? error.message : "Unable to create floor",
+      );
     } finally {
       setBusyAction(null);
     }
@@ -208,31 +218,43 @@ export function HouseholdSetupFlow({
 
   async function createRoomForFloor() {
     if (!selectedFloor) {
-      setMessage(tt("app.canvasSetup.messages.selectFloorFirst", "Select a floor first."));
+      setMessage(
+        tt(
+          "app.canvasSetup.messages.selectFloorFirst",
+          "Select a floor first.",
+        ),
+      );
       return;
     }
     if (!roomName.trim()) {
-      setMessage(tt("app.canvasSetup.messages.roomNameRequired", "Room name is required."));
+      setMessage(
+        tt(
+          "app.canvasSetup.messages.roomNameRequired",
+          "Room name is required.",
+        ),
+      );
       return;
     }
 
     try {
       setBusyAction("room");
       setMessage("");
-      const data = await callJson("/api/household-setup/room", "POST", {
+      const result = await createSetupRoomAction({
         householdId,
-        layerId: selectedFloor.id,
+        floorId: selectedFloor.id,
         name: roomName.trim(),
         description: roomDescription.trim() || undefined,
       });
+      if (!result.ok) throw new Error(result.error);
+      const { room: rawRoom, location: rawLocation } = result;
 
-      const room = data.room as {
+      const room = rawRoom as {
         id: string;
         name: string;
         locationId: string;
         isSystem?: boolean;
       };
-      const location = data.location as { id: string; name: string };
+      const location = rawLocation as { id: string; name: string };
 
       setRooms((prev) => {
         if (prev.some((entry) => entry.id === room.id)) return prev;
@@ -252,7 +274,9 @@ export function HouseholdSetupFlow({
       setRoomDescription("");
       await syncActivePreference({ roomId: room.id });
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to create room");
+      setMessage(
+        error instanceof Error ? error.message : "Unable to create room",
+      );
     } finally {
       setBusyAction(null);
     }
@@ -260,29 +284,37 @@ export function HouseholdSetupFlow({
 
   async function createContainerFromFlow() {
     if (!selectedFloor) {
-      setMessage(tt("app.canvasSetup.messages.selectFloorFirst", "Select a floor first."));
+      setMessage(
+        tt(
+          "app.canvasSetup.messages.selectFloorFirst",
+          "Select a floor first.",
+        ),
+      );
       return;
     }
     if (!containerName.trim()) {
-      setMessage(tt("app.canvasSetup.messages.containerNameRequired", "Container name is required."));
+      setMessage(
+        tt(
+          "app.canvasSetup.messages.containerNameRequired",
+          "Container name is required.",
+        ),
+      );
       return;
     }
 
     try {
       setBusyAction("container");
       setMessage("");
-      const data = await callJson("/api/household-setup/container", "POST", {
+      const result = await createSetupContainerAction({
         householdId,
-        layerId: selectedFloor.id,
+        floorId: selectedFloor.id,
         roomId: selectedRoomId === NONE ? undefined : selectedRoomId,
         name: containerName.trim(),
         code: containerCode.trim() || undefined,
         description: containerDescription.trim() || undefined,
       });
-
-      const container = data.container as CreatedContainerSummary;
-      const room = data.room as { id: string; name: string; locationId: string };
-      const location = data.location as { id: string; name: string };
+      if (!result.ok) throw new Error(result.error);
+      const { container, room, location } = result;
 
       setContainers((prev) => [
         ...prev,
@@ -309,7 +341,9 @@ export function HouseholdSetupFlow({
       setContainerCode("");
       setContainerDescription("");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to create container");
+      setMessage(
+        error instanceof Error ? error.message : "Unable to create container",
+      );
     } finally {
       setBusyAction(null);
     }
@@ -318,16 +352,25 @@ export function HouseholdSetupFlow({
   async function updateSuggestion(id: string, action: "accept" | "reject") {
     try {
       setSuggestionBusyId(id);
-      await callJson("/api/suggestions", "POST", {
+      const res = await updateSuggestionAction({
         householdId,
         suggestionId: id,
         action,
       });
+      if (!res.ok) {
+        throw new Error(res.error);
+      }
       setSuggestions((prev) =>
-        prev.map((s) => (s.id === id ? { ...s, status: action === "accept" ? "accepted" : "rejected" } : s)),
+        prev.map((s) =>
+          s.id === id
+            ? { ...s, status: action === "accept" ? "accepted" : "rejected" }
+            : s,
+        ),
       );
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to update suggestion");
+      setMessage(
+        error instanceof Error ? error.message : "Unable to update suggestion",
+      );
     } finally {
       setSuggestionBusyId(null);
     }
@@ -337,11 +380,14 @@ export function HouseholdSetupFlow({
     if (!createdContainer) return;
     try {
       setBusyAction("quick-add");
-      await callJson("/api/scan/quick-add", "POST", {
+      const res = await quickAddAction({
         householdId,
         containerId: createdContainer.id,
         text: quickAddText,
       });
+      if (!res.ok) {
+        throw new Error(res.error);
+      }
       setQuickAddText("");
       await loadSuggestions(createdContainer.id);
     } catch (error) {
@@ -351,8 +397,12 @@ export function HouseholdSetupFlow({
     }
   }
 
-  const mapRooms = rooms.filter((room) => room.locationId === selectedLocationId);
-  const mapContainers = containers.filter((container) => container.locationId === selectedLocationId);
+  const mapRooms = rooms.filter(
+    (room) => room.locationId === selectedLocationId,
+  );
+  const mapContainers = containers.filter(
+    (container) => container.locationId === selectedLocationId,
+  );
 
   return (
     <div className="space-y-6">
@@ -360,10 +410,14 @@ export function HouseholdSetupFlow({
       <div className="grid gap-2 md:grid-cols-[2fr_1fr]">
         <Select value={selectedFloorId} onValueChange={setSelectedFloorId}>
           <SelectTrigger className="h-9 w-full">
-            <SelectValue placeholder={tt("app.canvasSetup.selectFloor", "Select floor")} />
+            <SelectValue
+              placeholder={tt("app.canvasSetup.selectFloor", "Select floor")}
+            />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={NONE}>{tt("app.canvasSetup.selectFloor", "Select floor")}</SelectItem>
+            <SelectItem value={NONE}>
+              {tt("app.canvasSetup.selectFloor", "Select floor")}
+            </SelectItem>
             {floors.map((floor) => (
               <SelectItem key={floor.id} value={floor.id}>
                 {floor.name}
@@ -378,8 +432,14 @@ export function HouseholdSetupFlow({
             onChange={(event) => setFloorName(event.target.value)}
             placeholder={tt("app.canvasSetup.newFloorName", "New floor name")}
           />
-          <Button type="button" disabled={busyAction !== null} onClick={createFloor}>
-            {busyAction === "floor" ? tt("app.canvasSetup.adding", "Adding...") : tt("app.canvasSetup.addFloor", "+ Floor")}
+          <Button
+            type="button"
+            disabled={busyAction !== null}
+            onClick={createFloor}
+          >
+            {busyAction === "floor"
+              ? tt("app.canvasSetup.adding", "Adding...")
+              : tt("app.canvasSetup.addFloor", "+ Floor")}
           </Button>
         </div>
       </div>
@@ -393,13 +453,24 @@ export function HouseholdSetupFlow({
             if (nextRoomId !== NONE) {
               await syncActivePreference({ roomId: nextRoomId });
             } else if (selectedLocationId) {
-              await syncActivePreference({ locationId: selectedLocationId, roomId: null });
+              await syncActivePreference({
+                locationId: selectedLocationId,
+                roomId: null,
+              });
             }
           }}
           disabled={!selectedFloorId || selectedFloorId === NONE}
         >
-          <SelectTrigger className="h-9 w-full" disabled={!selectedFloorId || selectedFloorId === NONE}>
-            <SelectValue placeholder={tt("app.canvasSetup.noRoomOption", "No room (use Unassigned)")} />
+          <SelectTrigger
+            className="h-9 w-full"
+            disabled={!selectedFloorId || selectedFloorId === NONE}
+          >
+            <SelectValue
+              placeholder={tt(
+                "app.canvasSetup.noRoomOption",
+                "No room (use Unassigned)",
+              )}
+            />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={NONE}>
@@ -423,10 +494,17 @@ export function HouseholdSetupFlow({
           <Input
             value={roomDescription}
             onChange={(event) => setRoomDescription(event.target.value)}
-            placeholder={tt("app.canvasSetup.descriptionOptional", "Description (optional)")}
+            placeholder={tt(
+              "app.canvasSetup.descriptionOptional",
+              "Description (optional)",
+            )}
             disabled={!selectedFloorId}
           />
-          <Button type="button" disabled={!selectedFloorId || busyAction !== null} onClick={createRoomForFloor}>
+          <Button
+            type="button"
+            disabled={!selectedFloorId || busyAction !== null}
+            onClick={createRoomForFloor}
+          >
             {busyAction === "room"
               ? tt("app.canvasSetup.adding", "Adding...")
               : tt("app.canvasSetup.addRoom", "Add room")}
@@ -451,7 +529,10 @@ export function HouseholdSetupFlow({
         <Input
           value={containerDescription}
           onChange={(event) => setContainerDescription(event.target.value)}
-          placeholder={tt("app.canvasSetup.descriptionOptional", "Description (optional)")}
+          placeholder={tt(
+            "app.canvasSetup.descriptionOptional",
+            "Description (optional)",
+          )}
           disabled={!selectedFloorId}
         />
         <Button
@@ -466,15 +547,20 @@ export function HouseholdSetupFlow({
         </Button>
       </div>
 
-      {message ? <div className="text-xs text-muted-foreground">{message}</div> : null}
+      {message ? (
+        <div className="text-xs text-muted-foreground">{message}</div>
+      ) : null}
 
       {createdContainer ? (
-        <div className="space-y-3 rounded-md border p-4" data-testid="setup-post-create-panel">
+        <div
+          className="space-y-3 rounded-md border p-4"
+          data-testid="setup-post-create-panel"
+        >
           <div className="text-sm font-semibold">
-            {tt("app.canvasSetup.createdTitle", "Container created: {name}").replace(
-              "{name}",
-              createdContainer.name,
-            )}
+            {tt(
+              "app.canvasSetup.createdTitle",
+              "Container created: {name}",
+            ).replace("{name}", createdContainer.name)}
           </div>
           <div className="text-xs text-muted-foreground">
             {createdContainer.locationName} / {createdContainer.roomName}
@@ -483,7 +569,10 @@ export function HouseholdSetupFlow({
 
           <div className="space-y-2">
             <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {tt("app.canvasSetup.optionalPhotos", "Optional: Add photos for AI capture")}
+              {tt(
+                "app.canvasSetup.optionalPhotos",
+                "Optional: Add photos for AI capture",
+              )}
             </div>
             <PhotoUploader
               householdId={householdId}
@@ -512,15 +601,20 @@ export function HouseholdSetupFlow({
                 {suggestions.map((suggestion) => (
                   <div key={suggestion.id} className="rounded-md border p-2">
                     <div className="flex items-center justify-between gap-2 text-sm">
-                      <div className="font-medium">{suggestion.suggestedName}</div>
+                      <div className="font-medium">
+                        {suggestion.suggestedName}
+                      </div>
                       <div className="text-xs text-muted-foreground">
                         {Math.round(Number(suggestion.confidence ?? 0) * 100)}%
                       </div>
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {tt("app.canvasSetup.qty", "Qty")}: {suggestion.suggestedQty ?? 1} |{" "}
-                      {tt("app.canvasSetup.tags", "Tags")}: {(suggestion.suggestedTags || []).join(", ") || "-"} |{" "}
-                      {tt("app.canvasSetup.status", "Status")}: {suggestion.status}
+                      {tt("app.canvasSetup.qty", "Qty")}:{" "}
+                      {suggestion.suggestedQty ?? 1} |{" "}
+                      {tt("app.canvasSetup.tags", "Tags")}:{" "}
+                      {(suggestion.suggestedTags || []).join(", ") || "-"} |{" "}
+                      {tt("app.canvasSetup.status", "Status")}:{" "}
+                      {suggestion.status}
                     </div>
                     {suggestion.status === "pending" ? (
                       <div className="mt-2 flex gap-2">
@@ -528,7 +622,9 @@ export function HouseholdSetupFlow({
                           type="button"
                           size="sm"
                           disabled={suggestionBusyId === suggestion.id}
-                          onClick={() => updateSuggestion(suggestion.id, "accept")}
+                          onClick={() =>
+                            updateSuggestion(suggestion.id, "accept")
+                          }
                         >
                           {tt("app.canvasSetup.accept", "Accept")}
                         </Button>
@@ -537,7 +633,9 @@ export function HouseholdSetupFlow({
                           size="sm"
                           variant="outline"
                           disabled={suggestionBusyId === suggestion.id}
-                          onClick={() => updateSuggestion(suggestion.id, "reject")}
+                          onClick={() =>
+                            updateSuggestion(suggestion.id, "reject")
+                          }
                         >
                           {tt("app.canvasSetup.reject", "Reject")}
                         </Button>
@@ -551,12 +649,18 @@ export function HouseholdSetupFlow({
 
           <div className="space-y-2">
             <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {tt("app.canvasSetup.optionalQuickAdd", "Optional: Quick add items now")}
+              {tt(
+                "app.canvasSetup.optionalQuickAdd",
+                "Optional: Quick add items now",
+              )}
             </div>
             <Textarea
               value={quickAddText}
               onChange={(event) => setQuickAddText(event.target.value)}
-              placeholder={tt("app.canvasSetup.quickAddPlaceholder", "2 HDMI cables, 1 powerbank")}
+              placeholder={tt(
+                "app.canvasSetup.quickAddPlaceholder",
+                "2 HDMI cables, 1 powerbank",
+              )}
             />
             <div className="flex flex-wrap gap-2">
               <Button
@@ -600,9 +704,14 @@ export function HouseholdSetupFlow({
         </div>
       ) : null}
 
-      <SectionDivider title={tt("app.canvasSetup.readOnlyMapTitle", "Read-only map")} />
+      <SectionDivider
+        title={tt("app.canvasSetup.readOnlyMapTitle", "Read-only map")}
+      />
       <HouseholdMapPreview
-        floorName={selectedFloor?.name || tt("app.canvasSetup.noFloorSelected", "No floor selected")}
+        floorName={
+          selectedFloor?.name ||
+          tt("app.canvasSetup.noFloorSelected", "No floor selected")
+        }
         locationId={selectedLocationId}
         rooms={mapRooms}
         containers={mapContainers}
