@@ -1,7 +1,17 @@
 import "server-only";
 
 import { cookies } from "next/headers";
-import { and, count, desc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  or,
+  sql,
+} from "drizzle-orm";
 
 import { embedTextForSearch } from "@/lib/inventory/ai";
 import { db, schema } from "@/server/db";
@@ -90,16 +100,16 @@ export async function upsertUserPreferences(input: {
 
     const nextHouseholdId =
       "activeHouseholdId" in input
-        ? input.activeHouseholdId ?? null
-        : existing?.activeHouseholdId ?? null;
+        ? (input.activeHouseholdId ?? null)
+        : (existing?.activeHouseholdId ?? null);
     const nextLocationId =
       "activeLocationId" in input
-        ? input.activeLocationId ?? null
-        : existing?.activeLocationId ?? null;
+        ? (input.activeLocationId ?? null)
+        : (existing?.activeLocationId ?? null);
     const nextRoomId =
       "activeRoomId" in input
-        ? input.activeRoomId ?? null
-        : existing?.activeRoomId ?? null;
+        ? (input.activeRoomId ?? null)
+        : (existing?.activeRoomId ?? null);
 
     const [preferences] = await db
       .insert(schema.userPreferences)
@@ -154,6 +164,114 @@ async function assertRole(
     throw new Error("Forbidden");
   }
   return membership;
+}
+
+async function assertFloorBelongsToHousehold(
+  householdId: string,
+  floorId: string,
+) {
+  const floor = await db.query.householdFloors.findFirst({
+    where: and(
+      eq(schema.householdFloors.id, floorId),
+      eq(schema.householdFloors.householdId, householdId),
+    ),
+    columns: { id: true, householdId: true },
+  });
+  if (!floor) {
+    throw new Error("Floor not found");
+  }
+  return floor;
+}
+
+async function assertRoomBelongsToHousehold(
+  householdId: string,
+  roomId: string,
+) {
+  const room = await db.query.rooms.findFirst({
+    where: and(
+      eq(schema.rooms.id, roomId),
+      eq(schema.rooms.householdId, householdId),
+    ),
+    columns: { id: true, householdId: true, locationId: true },
+  });
+  if (!room) {
+    throw new Error("Room not found");
+  }
+  return room;
+}
+
+async function assertContainerBelongsToHousehold(
+  householdId: string,
+  containerId: string,
+) {
+  const container = await db.query.containers.findFirst({
+    where: and(
+      eq(schema.containers.id, containerId),
+      eq(schema.containers.householdId, householdId),
+    ),
+    columns: { id: true, householdId: true, roomId: true },
+  });
+  if (!container) {
+    throw new Error("Container not found");
+  }
+  return container;
+}
+
+async function assertItemBelongsToHousehold(
+  householdId: string,
+  itemId: string,
+) {
+  const item = await db.query.items.findFirst({
+    where: and(
+      eq(schema.items.id, itemId),
+      eq(schema.items.householdId, householdId),
+    ),
+    columns: { id: true, householdId: true },
+  });
+  if (!item) {
+    throw new Error("Item not found");
+  }
+  return item;
+}
+
+async function assertTagIdsBelongToHousehold(
+  householdId: string,
+  tagIds: string[],
+) {
+  const uniqueTagIds = [...new Set(tagIds)];
+  if (uniqueTagIds.length === 0) {
+    return uniqueTagIds;
+  }
+
+  const rows = await db
+    .select({ id: schema.tags.id })
+    .from(schema.tags)
+    .where(
+      and(
+        eq(schema.tags.householdId, householdId),
+        inArray(schema.tags.id, uniqueTagIds),
+      ),
+    );
+  if (rows.length !== uniqueTagIds.length) {
+    throw new Error("Tag not found");
+  }
+  return uniqueTagIds;
+}
+
+async function assertPhotoEntityBelongsToHousehold(input: {
+  householdId: string;
+  entityType: "container" | "item" | "room_layout";
+  entityId: string;
+}) {
+  if (input.entityType === "container") {
+    await assertContainerBelongsToHousehold(input.householdId, input.entityId);
+    return;
+  }
+  if (input.entityType === "item") {
+    await assertItemBelongsToHousehold(input.householdId, input.entityId);
+    return;
+  }
+  await assertRoomBelongsToHousehold(input.householdId, input.entityId);
 }
 
 export async function listMembershipsForUser(userId: string) {
@@ -385,7 +503,10 @@ export async function listFloors(
       roomCount: count(schema.rooms.id),
     })
     .from(schema.householdFloors)
-    .leftJoin(schema.rooms, eq(schema.rooms.locationId, schema.householdFloors.id))
+    .leftJoin(
+      schema.rooms,
+      eq(schema.rooms.locationId, schema.householdFloors.id),
+    )
     .where(where)
     .groupBy(schema.householdFloors.id)
     .orderBy(schema.householdFloors.name);
@@ -468,7 +589,11 @@ export async function listRoomsForLocation(
 }
 
 export async function listRooms(
-  input: Queryable & { locationId?: string; includeSystem?: boolean; limit?: number },
+  input: Queryable & {
+    locationId?: string;
+    includeSystem?: boolean;
+    limit?: number;
+  },
 ) {
   await assertMembership(input);
   const limit = Math.min(200, Math.max(1, input.limit ?? 100));
@@ -476,7 +601,9 @@ export async function listRooms(
   return db.query.rooms.findMany({
     where: and(
       eq(schema.rooms.householdId, input.householdId),
-      input.locationId ? eq(schema.rooms.locationId, input.locationId) : undefined,
+      input.locationId
+        ? eq(schema.rooms.locationId, input.locationId)
+        : undefined,
       input.includeSystem ? undefined : eq(schema.rooms.isSystem, false),
     ),
     orderBy: [schema.rooms.name],
@@ -511,15 +638,25 @@ export async function listRoomsWithFloor(
 }
 
 export async function createRoom(
-  input: Queryable & { locationId: string; name: string; description?: string },
+  input: Queryable & {
+    floorId?: string;
+    locationId?: string;
+    name: string;
+    description?: string;
+  },
 ) {
   await assertRole(input, canWriteInventory);
+  const floorId = input.floorId ?? input.locationId;
+  if (!floorId) {
+    throw new Error("Floor id required");
+  }
+  await assertFloorBelongsToHousehold(input.householdId, floorId);
 
   const [room] = await db
     .insert(schema.rooms)
     .values({
       householdId: input.householdId,
-      locationId: input.locationId,
+      locationId: floorId,
       name: input.name.trim(),
       description: clean(input.description),
       createdBy: input.userId,
@@ -652,7 +789,7 @@ export async function createRoomFromSetupFlow(
   const room = await createRoom({
     userId: input.userId,
     householdId: input.householdId,
-    locationId: floor.id,
+    floorId: floor.id,
     name: input.name,
     description: input.description,
   });
@@ -809,7 +946,9 @@ export async function quickCreatePathInLocation(
 
   const segments = parsePathSegments(input.path);
   if (segments.length < 2) {
-    throw new Error("Path must include room and box, e.g. Basement > Shelf A > Box 12");
+    throw new Error(
+      "Path must include room and box, e.g. Basement > Shelf A > Box 12",
+    );
   }
 
   const [roomName, ...containerSegments] = segments;
@@ -830,7 +969,7 @@ export async function quickCreatePathInLocation(
     room = await createRoom({
       userId: input.userId,
       householdId: input.householdId,
-      locationId: input.locationId,
+      floorId: input.locationId,
       name: roomName,
     });
     createdRoom = true;
@@ -901,7 +1040,11 @@ export async function applyRoomTemplate(
       actionType: "created",
       entityType: "room",
       entityId: room.id,
-      metadata: { name: room.name, locationId: room.locationId, template: input.template },
+      metadata: {
+        name: room.name,
+        locationId: room.locationId,
+        template: input.template,
+      },
     });
   }
 
@@ -1038,9 +1181,7 @@ export async function deleteLocation(
   };
 }
 
-export async function deleteRoom(
-  input: Queryable & { roomId: string },
-) {
+export async function deleteRoom(input: Queryable & { roomId: string }) {
   await assertRole(input, canWriteInventory);
 
   const room = await db.query.rooms.findFirst({
@@ -1264,8 +1405,10 @@ export async function updateHouseholdFloor(
     throw new Error("Floor not found");
   }
 
-  const explicitName = typeof input.name === "string" ? input.name.trim() : undefined;
-  const nextName = explicitName && explicitName.length ? explicitName : floor.name;
+  const explicitName =
+    typeof input.name === "string" ? input.name.trim() : undefined;
+  const nextName =
+    explicitName && explicitName.length ? explicitName : floor.name;
 
   const [updated] = await db
     .update(schema.householdFloors)
@@ -1344,7 +1487,11 @@ export async function deleteHouseholdFloor(
 }
 
 export async function listContainersForRoom(
-  input: Queryable & { roomId: string; includeArchived?: boolean; tagId?: string },
+  input: Queryable & {
+    roomId: string;
+    includeArchived?: boolean;
+    tagId?: string;
+  },
 ) {
   await assertMembership(input);
 
@@ -1392,12 +1539,26 @@ export async function createContainer(
   },
 ) {
   await assertRole(input, canWriteInventory);
+  const room = await assertRoomBelongsToHousehold(
+    input.householdId,
+    input.roomId,
+  );
+
+  if (input.parentContainerId) {
+    const parent = await assertContainerBelongsToHousehold(
+      input.householdId,
+      input.parentContainerId,
+    );
+    if (parent.roomId !== room.id) {
+      throw new Error("Parent container must be in the same room");
+    }
+  }
 
   const [container] = await db
     .insert(schema.containers)
     .values({
       householdId: input.householdId,
-      roomId: input.roomId,
+      roomId: room.id,
       parentContainerId: input.parentContainerId ?? null,
       name: input.name.trim(),
       code: clean(input.code),
@@ -1508,7 +1669,11 @@ export async function updateContainerItemQuantity(input: {
     actionType: "updated",
     entityType: "container_item",
     entityId: row.id,
-    metadata: { containerId: row.containerId, itemId: row.itemId, quantity: qty },
+    metadata: {
+      containerId: row.containerId,
+      itemId: row.itemId,
+      quantity: qty,
+    },
   });
 
   await enqueueEmbeddingJob({
@@ -1591,7 +1756,11 @@ export async function deleteContainerItem(
     actionType: "updated",
     entityType: "container_item",
     entityId: row.id,
-    metadata: { containerId: row.containerId, itemId: row.itemId, quantity: row.quantity },
+    metadata: {
+      containerId: row.containerId,
+      itemId: row.itemId,
+      quantity: row.quantity,
+    },
   });
 
   await enqueueEmbeddingJob({
@@ -1728,6 +1897,10 @@ export async function createItem(
   },
 ) {
   await assertRole(input, canWriteInventory);
+  const validatedTagIds = await assertTagIdsBelongToHousehold(
+    input.householdId,
+    input.tagIds ?? [],
+  );
 
   const item = await db.transaction(async (tx) => {
     const [item] = await tx
@@ -1743,7 +1916,10 @@ export async function createItem(
       .returning();
 
     const aliases =
-      input.aliases?.map((a) => a.trim()).filter(Boolean).slice(0, 30) ?? [];
+      input.aliases
+        ?.map((a) => a.trim())
+        .filter(Boolean)
+        .slice(0, 30) ?? [];
     if (aliases.length) {
       await tx.insert(schema.itemAliases).values(
         aliases.map((aliasText) => ({
@@ -1754,9 +1930,9 @@ export async function createItem(
       );
     }
 
-    if (input.tagIds?.length) {
+    if (validatedTagIds.length) {
       await tx.insert(schema.itemTags).values(
-        input.tagIds.map((tagId) => ({
+        validatedTagIds.map((tagId) => ({
           householdId: input.householdId,
           itemId: item.id,
           tagId,
@@ -1866,7 +2042,10 @@ export async function mergeItems(
           note: row.note ? String(row.note) : null,
         })
         .onConflictDoUpdate({
-          target: [schema.containerItems.containerId, schema.containerItems.itemId],
+          target: [
+            schema.containerItems.containerId,
+            schema.containerItems.itemId,
+          ],
           set: {
             quantity: sql`${schema.containerItems.quantity} + ${quantity}`,
             updatedAt: new Date(),
@@ -1948,7 +2127,9 @@ export async function mergeItems(
   });
 }
 
-export async function listItems(input: Queryable & { q?: string; tagId?: string }) {
+export async function listItems(
+  input: Queryable & { q?: string; tagId?: string },
+) {
   await assertMembership(input);
 
   const q = clean(input.q);
@@ -2009,7 +2190,11 @@ export async function listItemPlacements(
         eq(schema.containerItems.householdId, input.householdId),
       ),
     )
-    .orderBy(schema.householdFloors.name, schema.rooms.name, schema.containers.name);
+    .orderBy(
+      schema.householdFloors.name,
+      schema.rooms.name,
+      schema.containers.name,
+    );
 }
 
 export async function listItemsForHousehold(input: Queryable) {
@@ -2030,6 +2215,13 @@ export async function upsertContainerItem(
   },
 ) {
   await assertRole(input, canWriteInventory);
+  if (!Number.isInteger(input.quantity) || input.quantity < 1) {
+    throw new Error("Quantity must be at least 1");
+  }
+  await Promise.all([
+    assertContainerBelongsToHousehold(input.householdId, input.containerId),
+    assertItemBelongsToHousehold(input.householdId, input.itemId),
+  ]);
 
   const [row] = await db
     .insert(schema.containerItems)
@@ -2090,6 +2282,10 @@ export async function addItemQuantityToContainer(
   if (!Number.isFinite(input.quantityDelta) || input.quantityDelta <= 0) {
     throw new Error("quantityDelta must be positive");
   }
+  await Promise.all([
+    assertContainerBelongsToHousehold(input.householdId, input.containerId),
+    assertItemBelongsToHousehold(input.householdId, input.itemId),
+  ]);
 
   const [row] = await db
     .insert(schema.containerItems)
@@ -2103,8 +2299,7 @@ export async function addItemQuantityToContainer(
     .onConflictDoUpdate({
       target: [schema.containerItems.containerId, schema.containerItems.itemId],
       set: {
-        quantity:
-          sql`${schema.containerItems.quantity} + ${Math.max(1, input.quantityDelta)}`,
+        quantity: sql`${schema.containerItems.quantity} + ${Math.max(1, input.quantityDelta)}`,
         note: clean(input.note),
         updatedAt: new Date(),
       },
@@ -2151,6 +2346,14 @@ export async function moveItemBetweenContainers(
   if (input.fromContainerId === input.toContainerId) {
     throw new Error("Containers must be different");
   }
+  if (!Number.isInteger(input.quantity) || input.quantity < 1) {
+    throw new Error("Quantity must be at least 1");
+  }
+  await Promise.all([
+    assertContainerBelongsToHousehold(input.householdId, input.fromContainerId),
+    assertContainerBelongsToHousehold(input.householdId, input.toContainerId),
+    assertItemBelongsToHousehold(input.householdId, input.itemId),
+  ]);
 
   await db.transaction(async (tx) => {
     const source = await tx.query.containerItems.findFirst({
@@ -2188,10 +2391,12 @@ export async function moveItemBetweenContainers(
         quantity: input.quantity,
       })
       .onConflictDoUpdate({
-        target: [schema.containerItems.containerId, schema.containerItems.itemId],
+        target: [
+          schema.containerItems.containerId,
+          schema.containerItems.itemId,
+        ],
         set: {
-          quantity:
-            sql`${schema.containerItems.quantity} + ${Math.max(1, input.quantity)}`,
+          quantity: sql`${schema.containerItems.quantity} + ${Math.max(1, input.quantity)}`,
           updatedAt: new Date(),
         },
       });
@@ -2276,6 +2481,12 @@ export async function setContainerTags(
   input: Queryable & { containerId: string; tagIds: string[] },
 ) {
   await assertRole(input, canWriteInventory);
+  const tagIds = await assertTagIdsBelongToHousehold(
+    input.householdId,
+    input.tagIds,
+  );
+  await assertContainerBelongsToHousehold(input.householdId, input.containerId);
+
   await db.transaction(async (tx) => {
     await tx
       .delete(schema.containerTags)
@@ -2286,9 +2497,9 @@ export async function setContainerTags(
         ),
       );
 
-    if (input.tagIds.length) {
+    if (tagIds.length) {
       await tx.insert(schema.containerTags).values(
-        input.tagIds.map((tagId) => ({
+        tagIds.map((tagId) => ({
           householdId: input.householdId,
           containerId: input.containerId,
           tagId,
@@ -2303,7 +2514,7 @@ export async function setContainerTags(
     entityId: input.containerId,
   });
 
-  for (const tagId of input.tagIds) {
+  for (const tagId of tagIds) {
     await enqueueEmbeddingJob({
       householdId: input.householdId,
       entityType: "tag",
@@ -2366,6 +2577,11 @@ export async function insertPhotoRecord(
   },
 ) {
   await assertRole(input, canWriteInventory);
+  await assertPhotoEntityBelongsToHousehold({
+    householdId: input.householdId,
+    entityType: input.entityType,
+    entityId: input.entityId,
+  });
 
   const [photo] = await db
     .insert(schema.photos)
@@ -2394,7 +2610,9 @@ export async function insertPhotoRecord(
   return photo;
 }
 
-export async function deletePhotoRecord(input: Queryable & { photoId: string }) {
+export async function deletePhotoRecord(
+  input: Queryable & { photoId: string },
+) {
   await assertRole(input, canWriteInventory);
 
   const [photo] = await db
@@ -2465,7 +2683,9 @@ export async function listPhotoSuggestions(
       input.containerId
         ? eq(schema.photoSuggestions.containerId, input.containerId)
         : undefined,
-      input.status ? eq(schema.photoSuggestions.status, input.status) : undefined,
+      input.status
+        ? eq(schema.photoSuggestions.status, input.status)
+        : undefined,
     ),
     orderBy: [desc(schema.photoSuggestions.createdAt)],
     limit,
@@ -2515,10 +2735,16 @@ export async function acceptPhotoSuggestion(
       limit 1
     `);
 
-    const bestRow = bestMatch.rows[0] as { id?: string; score?: number } | undefined;
+    const bestRow = bestMatch.rows[0] as
+      | { id?: string; score?: number }
+      | undefined;
     const topScore = Number(bestRow?.score ?? 0);
-    let resolvedItemId: string | null = shouldMergeSuggestionWithExisting(topScore)
-      ? (bestRow?.id ? String(bestRow.id) : null)
+    let resolvedItemId: string | null = shouldMergeSuggestionWithExisting(
+      topScore,
+    )
+      ? bestRow?.id
+        ? String(bestRow.id)
+        : null
       : null;
 
     if (!resolvedItemId) {
@@ -2546,7 +2772,10 @@ export async function acceptPhotoSuggestion(
         quantity,
       })
       .onConflictDoUpdate({
-        target: [schema.containerItems.containerId, schema.containerItems.itemId],
+        target: [
+          schema.containerItems.containerId,
+          schema.containerItems.itemId,
+        ],
         set: {
           quantity: sql`${schema.containerItems.quantity} + ${quantity}`,
           updatedAt: new Date(),
@@ -2697,7 +2926,9 @@ export async function listActivity(
         input.entityType
           ? eq(schema.activityLog.entityType, input.entityType)
           : undefined,
-        input.entityId ? eq(schema.activityLog.entityId, input.entityId) : undefined,
+        input.entityId
+          ? eq(schema.activityLog.entityId, input.entityId)
+          : undefined,
       ),
     )
     .orderBy(desc(schema.activityLog.createdAt))
@@ -3388,10 +3619,16 @@ export async function listContainersWithRoomFloor(
     .where(
       and(
         eq(schema.containers.householdId, input.householdId),
-        input.includeArchived ? undefined : isNull(schema.containers.archivedAt),
+        input.includeArchived
+          ? undefined
+          : isNull(schema.containers.archivedAt),
       ),
     )
-    .orderBy(schema.householdFloors.name, schema.rooms.name, schema.containers.name)
+    .orderBy(
+      schema.householdFloors.name,
+      schema.rooms.name,
+      schema.containers.name,
+    )
     .limit(limit);
 }
 
@@ -3429,7 +3666,3 @@ export async function updateHouseholdLanguage(input: {
 
   return row;
 }
-
-
-
-

@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { localizedHref } from "@/i18n/routing";
-import { clearSupabaseCookies, getStoredTokens, supabaseSignOut } from "@/lib/supabase";
-import { assertSameOriginForCookieAuth } from "@/lib/http/origin";
+import {
+  clearSupabaseCookies,
+  getStoredTokens,
+  supabaseSignOut,
+} from "@/lib/supabase";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { locale: string } },
+  { params }: { params: Promise<{ locale: string }> },
 ) {
-  const originCheck = assertSameOriginForCookieAuth(req);
-  if (originCheck) return originCheck;
-
-  const locale = params?.locale === "sv" ? "sv" : "en";
+  const { locale: rawLocale } = await params;
+  const locale = rawLocale === "sv" ? "sv" : "en";
   const tokens = await getStoredTokens();
   if (tokens?.accessToken) {
     try {

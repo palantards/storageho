@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { analyzeContainerPhotosAction } from "@/lib/actions/suggestions";
 
 const MAX_ORIGINAL_DIMENSION = 1600;
 const MAX_THUMB_DIMENSION = 400;

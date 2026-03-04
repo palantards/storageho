@@ -11,16 +11,18 @@ import {
   type WebhookStatus,
 } from "@/server/stripe/webhookHandlers";
 
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-if (!webhookSecret) {
-  throw new Error("STRIPE_WEBHOOK_SECRET is not set");
-}
-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!stripeWebhookSecret) {
+    return NextResponse.json(
+      { error: "Webhook is not configured" },
+      { status: 503 },
+    );
+  }
+
   const signature = req.headers.get("stripe-signature");
   if (!signature) {
     return NextResponse.json(
@@ -34,7 +36,7 @@ export async function POST(req: NextRequest) {
   let event: Stripe.Event;
   try {
     const stripe = getStripe();
-    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
+    event = stripe.webhooks.constructEvent(rawBody, signature, stripeWebhookSecret);
   } catch (err) {
     const errorMessage =
       err instanceof Error ? err.message : "Invalid Stripe signature";

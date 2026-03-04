@@ -67,12 +67,16 @@ export function AdminTicketsSection({ initialStatus = "all", initialCategory = "
   const refresh = () => load(0, true);
 
   type Ticket = AdminTicketRow["ticket"];
-  const update = (ticketId: string, patch: Partial<Ticket>) => {
+  const update = (
+    ticketId: string,
+    patch: Partial<Ticket> & { action?: "convert_to_bug" },
+  ) => {
+    const { action, ...optimisticPatch } = patch;
     // optimistic
     setRows((prev) =>
       prev.map((r) =>
         r.ticket.id === ticketId
-          ? { ...r, ticket: { ...r.ticket, ...patch } }
+          ? { ...r, ticket: { ...r.ticket, ...optimisticPatch } }
           : r,
       ),
     );

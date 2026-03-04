@@ -31,13 +31,14 @@ export async function upsertSubscriptionFromStripe({
   userId: string;
   stripeCustomerId: string;
 }) {
-  const price = subscription.items.data[0]?.price;
+  const firstItem = subscription.items.data[0];
+  const price = firstItem?.price;
 
-  const currentPeriodStart = subscription.current_period_start
-    ? new Date(subscription.current_period_start * 1000)
+  const currentPeriodStart = firstItem?.current_period_start
+    ? new Date(firstItem.current_period_start * 1000)
     : null;
-  const currentPeriodEnd = subscription.current_period_end
-    ? new Date(subscription.current_period_end * 1000)
+  const currentPeriodEnd = firstItem?.current_period_end
+    ? new Date(firstItem.current_period_end * 1000)
     : null;
   const canceledAt = subscription.canceled_at
     ? new Date(subscription.canceled_at * 1000)
@@ -133,4 +134,3 @@ export async function getWebhookEventStatus(eventId: string) {
     where: eq(webhookEvents.stripeEventId, eventId),
   });
 }
-

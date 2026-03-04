@@ -27,12 +27,6 @@ import {
   updateHouseholdLanguageSchema,
   updateMemberRoleSchema,
 } from "@/lib/inventory/validation";
-import { createSupabaseAdminClient } from "@/lib/supabaseServer";
-
-const APP_URL =
-  process.env.NEXT_PUBLIC_APP_URL ||
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  "http://localhost:3000";
 
 export default async function HouseholdSettingsPage({
   params,
@@ -80,8 +74,6 @@ export default async function HouseholdSettingsPage({
       householdId: parsed.householdId,
       email: parsed.email,
       role: parsed.role as "viewer" | "member" | "admin" | "owner",
-      appUrl: APP_URL,
-      supabaseAdmin: createSupabaseAdminClient(),
     });
     revalidatePath(`/${locale}/households/${householdId}/settings`);
   }
@@ -175,7 +167,12 @@ export default async function HouseholdSettingsPage({
                 className="flex flex-wrap items-center gap-2 rounded-md border p-3"
               >
                 <div className="min-w-[200px]">
-                  <div className="font-medium">{row.user?.email || row.membership.invitedEmail}</div>
+                  <div className="font-medium">
+                    {row.membership.invitedEmail ||
+                      row.profile?.displayName ||
+                      row.profile?.name ||
+                      row.membership.userId}
+                  </div>
                   <div className="text-xs text-muted-foreground">{row.membership.status}</div>
                 </div>
                 <input type="hidden" name="memberId" value={row.membership.id} />

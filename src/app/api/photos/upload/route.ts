@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getSession } from "@/lib/auth";
-import { assertSameOriginForCookieAuth } from "@/lib/http/origin";
 import {
   ALLOWED_IMAGE_MIME_TYPES,
   MAX_IMAGES_PER_CONTAINER,
@@ -28,7 +27,10 @@ const uploadSchema = z.object({
   entityId: z.string().uuid(),
 });
 
-const extensionByMime: Record<(typeof ALLOWED_IMAGE_MIME_TYPES)[number], string> = {
+const extensionByMime: Record<
+  (typeof ALLOWED_IMAGE_MIME_TYPES)[number],
+  string
+> = {
   "image/webp": "webp",
   "image/jpeg": "jpg",
   "image/png": "png",
@@ -53,9 +55,6 @@ function checkRateLimit(userId: string) {
 }
 
 export async function POST(request: NextRequest) {
-  const originCheck = assertSameOriginForCookieAuth(request);
-  if (originCheck) return originCheck;
-
   const session = await getSession();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -83,11 +82,17 @@ export async function POST(request: NextRequest) {
     const thumb = formData.get("thumb");
 
     if (!householdId || !entityType || !entityId || !original || !thumb) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 },
+      );
     }
 
     if (!(original instanceof File) || !(thumb instanceof File)) {
-      return NextResponse.json({ error: "Invalid file payload" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid file payload" },
+        { status: 400 },
+      );
     }
 
     if (original.size > MAX_UPLOAD_BYTES || thumb.size > MAX_UPLOAD_BYTES) {
@@ -105,7 +110,10 @@ export async function POST(request: NextRequest) {
         thumb.type as (typeof ALLOWED_IMAGE_MIME_TYPES)[number],
       )
     ) {
-      return NextResponse.json({ error: "Unsupported file type" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Unsupported file type" },
+        { status: 400 },
+      );
     }
 
     try {
@@ -131,11 +139,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const originalExt = extensionByMime[original.type as keyof typeof extensionByMime];
-    const thumbExt = extensionByMime[thumb.type as keyof typeof extensionByMime];
+    const originalExt =
+      extensionByMime[original.type as keyof typeof extensionByMime];
+    const thumbExt =
+      extensionByMime[thumb.type as keyof typeof extensionByMime];
 
     if (!originalExt || !thumbExt) {
-      return NextResponse.json({ error: "Unsupported file type" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Unsupported file type" },
+        { status: 400 },
+      );
     }
 
     const base = `household/${householdId}/${entityType}/${entityId}/${Date.now()}-${crypto.randomUUID()}`;
@@ -143,7 +156,10 @@ export async function POST(request: NextRequest) {
     const thumbPath = `${base}-thumb.${thumbExt}`;
 
     const supabase = createSupabaseAdminClient();
-    const buffers = await Promise.all([original.arrayBuffer(), thumb.arrayBuffer()]);
+    const buffers = await Promise.all([
+      original.arrayBuffer(),
+      thumb.arrayBuffer(),
+    ]);
 
     const originalResult = await supabase.storage
       .from(STORAGE_BUCKET)
@@ -224,4 +240,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
