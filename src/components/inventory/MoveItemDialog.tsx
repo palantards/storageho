@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -13,6 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { FormFieldError, FormSubmitError } from "@/components/ui/form-feedback";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -22,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useBusyCursor } from "@/hooks/useBusyCursor";
 import { moveItemAction } from "@/lib/actions/items";
 
 export function MoveItemDialog({
@@ -44,6 +47,18 @@ export function MoveItemDialog({
   const [quantity, setQuantity] = useState(1);
   const [toContainerId, setToContainerId] = useState("");
   const [pending, setPending] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{
+    toContainerId?: string;
+    quantity?: string;
+  }>({});
+  const [formError, setFormError] = useState<string | null>(null);
+
+  useBusyCursor(pending);
+
+  useEffect(() => {
+    if (!formError) return;
+    toast.error(formError);
+  }, [formError]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -63,7 +78,14 @@ export function MoveItemDialog({
         <div className="space-y-3">
           <div className="space-y-2">
             <Label htmlFor="toContainer">Destination Box</Label>
-            <Select value={toContainerId} onValueChange={setToContainerId}>
+            <Select
+              value={toContainerId}
+              onValueChange={(value) => {
+                setToContainerId(value);
+                if (!fieldErrors.toContainerId) return;
+                setFieldErrors((prev) => ({ ...prev, toContainerId: undefined }));
+              }}
+            >
               <SelectTrigger id="toContainer">
                 <SelectValue placeholder="Select destination" />
               </SelectTrigger>
@@ -75,6 +97,7 @@ export function MoveItemDialog({
                 ))}
               </SelectContent>
             </Select>
+            <FormFieldError error={fieldErrors.toContainerId} />
           </div>
 
           <div className="space-y-2">
@@ -85,55 +108,66 @@ export function MoveItemDialog({
               min={1}
               max={maxQuantity}
               value={quantity}
-              onChange={(event) => setQuantity(Number(event.target.value || 1))}
+              onChange={(event) => {
+                setQuantity(Number(event.target.value || 1));
+                if (!fieldErrors.quantity) return;
+                setFieldErrors((prev) => ({ ...prev, quantity: undefined }));
+              }}
             />
+            <FormFieldError error={fieldErrors.quantity} />
           </div>
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => setOpen(false)}
-            disabled={pending}
-          >
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={pending}>
             Cancel
           </Button>
-          <Button
-            disabled={
-              pending ||
-              !toContainerId ||
-              quantity < 1 ||
-              quantity > maxQuantity
-            }
-            onClick={async () => {
-              try {
-                setPending(true);
-                const result = await moveItemAction({
-                  householdId,
-                  itemId,
-                  fromContainerId,
-                  toContainerId,
-                  quantity,
-                });
-                if (!result.ok) {
-                  throw new Error(result.error);
+          <div className="grid gap-2">
+            <FormSubmitError error={formError} title="Unable to move item" />
+            <Button
+              loading={pending}
+              loadingText="Moving..."
+              onClick={async () => {
+                const nextErrors: { toContainerId?: string; quantity?: string } = {};
+                if (!toContainerId) nextErrors.toContainerId = "Select a destination box.";
+                if (quantity < 1 || quantity > maxQuantity) {
+                  nextErrors.quantity = `Quantity must be between 1 and ${maxQuantity}.`;
+                }
+                if (Object.keys(nextErrors).length > 0) {
+                  setFieldErrors(nextErrors);
+                  setFormError(null);
+                  return;
                 }
 
-                onMoved?.();
-                router.refresh();
-                setOpen(false);
-              } catch (error) {
-                alert(error instanceof Error ? error.message : "Move failed");
-              } finally {
-                setPending(false);
-              }
-            }}
-          >
-            {pending ? "Moving..." : "Move"}
-          </Button>
+                try {
+                  setPending(true);
+                  setFormError(null);
+                  const result = await moveItemAction({
+                    householdId,
+                    itemId,
+                    fromContainerId,
+                    toContainerId,
+                    quantity,
+                  });
+                  if (!result.ok) {
+                    throw new Error(result.error);
+                  }
+
+                  onMoved?.();
+                  router.refresh();
+                  setOpen(false);
+                } catch (error) {
+                  setFormError(error instanceof Error ? error.message : "Move failed");
+                } finally {
+                  setPending(false);
+                }
+              }}
+            >
+              Move
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
-

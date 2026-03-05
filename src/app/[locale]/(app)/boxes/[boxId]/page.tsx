@@ -272,9 +272,17 @@ export default async function BoxPage({
       userId: context.user.id,
       householdId: activeHouseholdId,
       containerId: boxId,
-      limit: 80,
     }),
   ]);
+  const pendingSuggestionsCount = suggestions.filter(
+    (suggestion) => suggestion.status === "pending",
+  ).length;
+  const acceptedSuggestionsCount = suggestions.filter(
+    (suggestion) => suggestion.status === "accepted",
+  ).length;
+  const rejectedSuggestionsCount = suggestions.filter(
+    (suggestion) => suggestion.status === "rejected",
+  ).length;
 
   return (
     <PageFrame className="space-y-5" padded>
@@ -301,12 +309,22 @@ export default async function BoxPage({
       </div>
 
       <Tabs defaultValue="contents" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
-          <TabsTrigger value="contents">Contents</TabsTrigger>
-          <TabsTrigger value="photos">Photos</TabsTrigger>
-          <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-3 md:grid-cols-5">
+          <TabsTrigger className="w-full text-xs sm:text-sm" value="contents">
+            Contents
+          </TabsTrigger>
+          <TabsTrigger className="w-full text-xs sm:text-sm" value="photos">
+            Photos
+          </TabsTrigger>
+          <TabsTrigger className="w-full text-xs sm:text-sm" value="suggestions">
+            Suggestions
+          </TabsTrigger>
+          <TabsTrigger className="w-full text-xs sm:text-sm" value="activity">
+            Activity
+          </TabsTrigger>
+          <TabsTrigger className="w-full text-xs sm:text-sm" value="settings">
+            Settings
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="contents" className="space-y-4">
@@ -414,36 +432,54 @@ export default async function BoxPage({
         </TabsContent>
 
         <TabsContent value="photos" className="space-y-4">
-          <SectionDivider title="Photos" description="Upload and manage box photos." />
-          <div className="space-y-3">
-            <PhotoUploader
-              householdId={householdId}
-              entityType="container"
-              entityId={boxId}
-              refreshOnComplete
-              analyzeBatchOnComplete
-            />
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <div className="text-base font-semibold">Photos</div>
+              <div className="text-sm text-muted-foreground">
+                Upload and manage box photos.
+              </div>
+            </div>
+            <div className="text-xs text-muted-foreground">{photos.length} photo(s)</div>
+          </div>
+
+          <PhotoUploader
+            householdId={householdId}
+            entityType="container"
+            entityId={boxId}
+            refreshOnComplete
+          />
+
+          {photos.length === 0 ? (
+            <div className="rounded-lg border border-dashed bg-muted/20 p-6 text-sm text-muted-foreground">
+              No photos yet. Add your first photo from the upload area above.
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
               {photos.map((photo) => (
-                <SignedImage
-                  key={photo.id}
-                  path={photo.storagePathThumb}
-                  alt="Container photo"
-                  className="h-28 w-full rounded-md object-cover"
-                />
+                <div key={photo.id} className="overflow-hidden rounded-lg border bg-muted/20">
+                  <SignedImage
+                    path={photo.storagePathThumb}
+                    alt="Container photo"
+                    className="h-32 w-full object-cover transition hover:scale-[1.02]"
+                  />
+                </div>
               ))}
             </div>
-          </div>
+          )}
         </TabsContent>
 
         <TabsContent value="suggestions" className="space-y-4">
-          <SectionDivider
-            title="AI capture suggestions"
-            description="Review and accept/reject AI-detected items."
-          />
+          <div className="flex items-start justify-between gap-3">
+            <div className="text-base font-semibold">AI capture suggestions</div>
+            <div className="text-xs text-muted-foreground">
+              {photos.length} photo(s) | {pendingSuggestionsCount} pending |{" "}
+              {acceptedSuggestionsCount} accepted | {rejectedSuggestionsCount} rejected
+            </div>
+          </div>
           <BoxSuggestionsPanel
             householdId={householdId}
             containerId={boxId}
+            photosCount={photos.length}
             suggestions={suggestions.map((suggestion) => ({
               id: suggestion.id,
               suggestedName: suggestion.suggestedName,

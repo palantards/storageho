@@ -20,6 +20,10 @@ export type SetupMapGroup = {
   containers: SetupMapContainer[];
 };
 
+export function canSelectSetupMapRoom(roomId: string) {
+  return roomId !== "__unassigned__";
+}
+
 function compareByNameAndId<T extends { id: string; name: string }>(a: T, b: T) {
   const nameDiff = a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
   if (nameDiff !== 0) return nameDiff;

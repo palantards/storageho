@@ -110,7 +110,12 @@ export function AppShell({
             </Button>
           </div>
           <div className="flex-1 px-2 pb-3">
-            <SidebarNav locale={locale} isAdmin={user.isAdmin} collapsed={sidebarCollapsed} />
+            <SidebarNav
+              locale={locale}
+              isAdmin={user.isAdmin}
+              collapsed={sidebarCollapsed}
+              activeHouseholdId={activeHouseholdId}
+            />
           </div>
           <div className="mt-auto space-y-2 border-t border-border px-2 pb-3 pt-2">
             {!sidebarCollapsed ? (
@@ -162,7 +167,11 @@ export function AppShell({
                         </SheetTitle>
                       </SheetHeader>
                       <div className="p-3">
-                        <SidebarNav locale={locale} isAdmin={user.isAdmin} />
+                        <SidebarNav
+                          locale={locale}
+                          isAdmin={user.isAdmin}
+                          activeHouseholdId={activeHouseholdId}
+                        />
                       </div>
                       <div className="mt-auto space-y-3 border-t border-border p-3">
                         <HouseholdSwitcher

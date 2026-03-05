@@ -2,7 +2,6 @@ import Link from "next/link";
 
 import { HouseholdSetupFlow } from "@/components/inventory/HouseholdSetupFlow";
 import { PageFrame } from "@/components/inventory/PageFrame";
-import { SectionDivider } from "@/components/inventory/SectionDivider";
 import { Button } from "@/components/ui/button";
 import type { Locale } from "@/i18n/config";
 import { getMessages } from "@/i18n/getMessages";
@@ -67,12 +66,12 @@ export default async function HouseholdCanvasPage({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="text-2xl font-semibold">
-            {t("app.canvasSetup.pageTitle", "Set up your storage workflow")}
+            {`${t("nav.canvas", "Canvas")}: ${household.name}`}
           </div>
           <div className="text-sm text-muted-foreground">
             {t(
               "app.canvasSetup.pageDescription",
-              "Create floors and rooms, add containers, then review the read-only map preview.",
+              "Map-first setup: pick a floor, create rooms and containers from tools, and review the live read-only preview.",
             )}
           </div>
         </div>
@@ -83,15 +82,9 @@ export default async function HouseholdCanvasPage({
         </Button>
       </div>
 
-      <SectionDivider
-        title={t("app.canvasSetup.householdLabel", "Household")}
-        description={household.name}
-      />
-
       <HouseholdSetupFlow
         locale={locale}
         householdId={householdId}
-        householdName={household.name}
         floors={floors.map((floor) => ({
           id: floor.id,
           name: floor.name,

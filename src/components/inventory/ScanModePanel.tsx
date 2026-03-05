@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { PhotoUploader } from "@/components/inventory/PhotoUploader";
 import { SectionDivider } from "@/components/inventory/SectionDivider";
 import { Button } from "@/components/ui/button";
+import { FormFieldError, FormSubmitError } from "@/components/ui/form-feedback";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -15,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useBusyCursor } from "@/hooks/useBusyCursor";
 import { setActivePreferenceAction } from "@/lib/actions/preferences";
 import { quickAddAction } from "@/lib/actions/scan";
 
@@ -81,9 +84,25 @@ export function ScanModePanel({
   const streamRef = useRef<MediaStream | null>(null);
   const [manualInput, setManualInput] = useState("");
   const [quickText, setQuickText] = useState("");
+  const [quickTextError, setQuickTextError] = useState<string | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
+  const [pendingScanStart, setPendingScanStart] = useState(false);
   const [pendingQuickAdd, setPendingQuickAdd] = useState(false);
-  const [message, setMessage] = useState("");
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [quickAddError, setQuickAddError] = useState<string | null>(null);
+  const [quickAddSuccess, setQuickAddSuccess] = useState("");
+
+  useBusyCursor(pendingQuickAdd || pendingScanStart);
+
+  useEffect(() => {
+    if (!scanError) return;
+    toast.error(scanError);
+  }, [scanError]);
+
+  useEffect(() => {
+    if (!quickAddError) return;
+    toast.error(quickAddError);
+  }, [quickAddError]);
 
   const activeIndex = useMemo(
     () => recentBoxes.findIndex((box) => box.id === activeBox?.id),
@@ -115,12 +134,11 @@ export function ScanModePanel({
   }
 
   async function startCamera() {
-    setMessage("");
-    if (
-      !("mediaDevices" in navigator) ||
-      !navigator.mediaDevices.getUserMedia
-    ) {
-      setMessage("Camera not available in this browser.");
+    setPendingScanStart(true);
+    setScanError(null);
+    if (!("mediaDevices" in navigator) || !navigator.mediaDevices.getUserMedia) {
+      setScanError("Camera not available in this browser.");
+      setPendingScanStart(false);
       return;
     }
 
@@ -135,9 +153,8 @@ export function ScanModePanel({
       | undefined;
 
     if (!BarcodeDetectorCtor) {
-      setMessage(
-        "QR detection is unsupported here. Paste QR/deeplink manually.",
-      );
+      setScanError("QR detection is unsupported here. Paste QR/deeplink manually.");
+      setPendingScanStart(false);
       return;
     }
 
@@ -173,8 +190,10 @@ export function ScanModePanel({
       }, 450);
     } catch (error) {
       console.error(error);
-      setMessage("Failed to start camera.");
+      setScanError("Failed to start camera.");
       await stopCamera();
+    } finally {
+      setPendingScanStart(false);
     }
   }
 
@@ -202,7 +221,7 @@ export function ScanModePanel({
 
     const VoiceCtor = w.SpeechRecognition || w.webkitSpeechRecognition;
     if (!VoiceCtor) {
-      setMessage("Voice input is not available in this browser.");
+      setQuickAddError("Voice input is not available in this browser.");
       return;
     }
 
@@ -214,9 +233,11 @@ export function ScanModePanel({
       setQuickText((current) =>
         [current.trim(), transcript.trim()].filter(Boolean).join(", "),
       );
+      setQuickAddError(null);
+      setQuickTextError(null);
     };
     recognition.onerror = () => {
-      setMessage("Voice capture failed.");
+      setQuickAddError("Voice capture failed.");
     };
     recognition.start();
   }
@@ -232,14 +253,18 @@ export function ScanModePanel({
       <div className="space-y-3">
         <SectionDivider
           title="Scan box QR"
-          description="Paste QR text, URL, or box id—or use camera."
+          description="Paste QR text, URL, or box id - or use camera."
           className="pt-1"
         />
         <div className="flex flex-wrap gap-2">
           <Input
             placeholder="Paste QR text, URL, or box id"
             value={manualInput}
-            onChange={(event) => setManualInput(event.target.value)}
+            onChange={(event) => {
+              setManualInput(event.target.value);
+              if (!scanError) return;
+              setScanError(null);
+            }}
             className="min-w-[260px] flex-1"
           />
           <Button
@@ -248,16 +273,23 @@ export function ScanModePanel({
             onClick={() => {
               const boxId = extractBoxId(manualInput);
               if (!boxId) {
-                setMessage("Could not parse a box id from input.");
+                setScanError("Could not parse a box id from input.");
                 return;
               }
+              setScanError(null);
               openBox(boxId);
             }}
           >
             Open box
           </Button>
-          <Button type="button" onClick={startCamera} disabled={cameraActive}>
-            {cameraActive ? "Scanning..." : "Start camera scan"}
+          <Button
+            type="button"
+            onClick={startCamera}
+            loading={pendingScanStart || cameraActive}
+            loadingText={cameraActive ? "Scanning..." : "Starting..."}
+            disabled={cameraActive || pendingScanStart}
+          >
+            Start camera scan
           </Button>
           {cameraActive ? (
             <Button type="button" variant="ghost" onClick={() => stopCamera()}>
@@ -271,9 +303,7 @@ export function ScanModePanel({
           playsInline
           muted
         />
-        {message ? (
-          <div className="text-xs text-muted-foreground">{message}</div>
-        ) : null}
+        <FormSubmitError error={scanError} title="Scan failed" />
       </div>
 
       <div className="space-y-2">
@@ -333,7 +363,7 @@ export function ScanModePanel({
                 <div className="font-medium">{box.name}</div>
                 <div className="text-xs text-muted-foreground">
                   {box.locationName} / {box.roomName}
-                  {box.code ? ` · ${box.code}` : ""}
+                  {box.code ? ` - ${box.code}` : ""}
                 </div>
               </button>
             ))
@@ -346,7 +376,7 @@ export function ScanModePanel({
           <SectionDivider
             title={`Box session: ${activeBox.name}`}
             description={`${activeBox.locationName} / ${activeBox.roomName}${
-              activeBox.code ? ` · ${activeBox.code}` : ""
+              activeBox.code ? ` - ${activeBox.code}` : ""
             }`}
             className="pt-1"
           />
@@ -360,7 +390,6 @@ export function ScanModePanel({
                 householdId={householdId}
                 entityType="container"
                 entityId={activeBox.id}
-                analyzeBatchOnComplete
                 onUploaded={() => router.refresh()}
               />
             </div>
@@ -370,62 +399,75 @@ export function ScanModePanel({
                 <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   2) Quick add by text/voice
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={startVoiceCapture}
-                >
+                <Button type="button" variant="ghost" size="sm" onClick={startVoiceCapture}>
                   Voice
                 </Button>
               </div>
               <Textarea
                 placeholder="2 HDMI cables, 1 powerbank"
                 value={quickText}
-                onChange={(event) => setQuickText(event.target.value)}
+                onChange={(event) => {
+                  setQuickText(event.target.value);
+                  if (!quickTextError) return;
+                  setQuickTextError(null);
+                }}
+                aria-invalid={quickTextError ? true : undefined}
               />
+              <FormFieldError error={quickTextError} />
               <div className="mt-2 flex flex-wrap gap-2">
                 <Button
                   type="button"
+                  loading={pendingQuickAdd}
+                  loadingText="Adding..."
                   disabled={pendingQuickAdd || !quickText.trim()}
                   onClick={async () => {
+                    const text = quickText.trim();
+                    if (!text) {
+                      setQuickTextError("Enter at least one item.");
+                      return;
+                    }
+
                     try {
                       setPendingQuickAdd(true);
-                      setMessage("");
+                      setQuickAddError(null);
+                      setQuickAddSuccess("");
                       const result = await quickAddAction({
                         householdId,
                         containerId: activeBox.id,
-                        text: quickText,
+                        text,
                       });
                       if (!result.ok) {
-                        throw new Error(result.error);
+                        if (result.fieldErrors?.text) {
+                          setQuickTextError(result.fieldErrors.text);
+                        } else {
+                          setQuickAddError(result.error);
+                        }
+                        return;
                       }
-                      setMessage(`Added ${result.processed || 0} entries.`);
+                      setQuickAddSuccess(`Added ${result.processed || 0} entries.`);
                       setQuickText("");
                       router.refresh();
                     } catch (error) {
-                      setMessage(
-                        error instanceof Error
-                          ? error.message
-                          : "Quick add failed",
+                      setQuickAddError(
+                        error instanceof Error ? error.message : "Quick add failed",
                       );
                     } finally {
                       setPendingQuickAdd(false);
                     }
                   }}
                 >
-                  {pendingQuickAdd ? "Adding..." : "Add to box"}
+                  Add to box
                 </Button>
                 {nextBox ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => openBox(nextBox.id)}
-                  >
+                  <Button type="button" variant="outline" onClick={() => openBox(nextBox.id)}>
                     Accept + next box
                   </Button>
                 ) : null}
               </div>
+              <FormSubmitError error={quickAddError} title="Quick add failed" />
+              {quickAddSuccess ? (
+                <div className="text-xs text-muted-foreground">{quickAddSuccess}</div>
+              ) : null}
             </div>
           </div>
         </div>

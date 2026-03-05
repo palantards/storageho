@@ -9,6 +9,11 @@ import {
   addItemQuantityToContainer,
   findOrCreateItemByName,
 } from "@/lib/inventory/service";
+import {
+  type ActionFail,
+  type ActionOk,
+  zodToFieldErrors,
+} from "@/lib/forms/action-result";
 
 const quickAddSchema = z.object({
   householdId: z.string().uuid(),
@@ -21,16 +26,19 @@ const MAX_ENTRIES = 60;
 export async function quickAddAction(
   input: unknown,
 ): Promise<
-  | {
-      ok: true;
+  | ActionOk<{
       results: Array<{ itemId: string; name: string; quantity: number }>;
       processed: number;
-    }
-  | { ok: false; error: string }
+    }>
+  | ActionFail<"text">
 > {
   const parsed = quickAddSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: "Invalid quick-add payload" };
+    return {
+      ok: false,
+      error: "Invalid quick-add payload",
+      fieldErrors: zodToFieldErrors(parsed.error, ["text"] as const),
+    };
   }
 
   try {
@@ -39,7 +47,11 @@ export async function quickAddAction(
 
     const entries = parseQuickAddText(parsed.data.text).slice(0, MAX_ENTRIES);
     if (entries.length === 0) {
-      return { ok: false, error: "No valid entries found in text input." };
+      return {
+        ok: false,
+        error: "No valid entries found in text input.",
+        fieldErrors: { text: "No valid entries found in text input." },
+      };
     }
 
     const results: Array<{ itemId: string; name: string; quantity: number }> =

@@ -17,8 +17,8 @@ import {
 const analyzeSchema = z.object({
   householdId: z.string().uuid(),
   containerId: z.string().uuid(),
-  maxPhotos: z.number().int().min(1).max(6).optional().default(4),
-  maxSuggestions: z.number().int().min(1).max(24).optional().default(12),
+  maxPhotos: z.number().int().min(1).max(10).optional().default(10),
+  maxSuggestions: z.number().int().min(1).optional(),
   replacePending: z.boolean().optional().default(true),
   language: z.string().trim().min(2).max(10).optional(),
 });
@@ -42,6 +42,14 @@ export async function analyzeContainerPhotosAction(
   try {
     const user = await requireSessionUser();
     await requireHouseholdWriteAccess(user.id, parsed.data.householdId);
+    console.info("[analyzeContainerPhotosAction] start", {
+      householdId: parsed.data.householdId,
+      containerId: parsed.data.containerId,
+      requestedMaxPhotos: parsed.data.maxPhotos,
+      maxSuggestions: parsed.data.maxSuggestions,
+      replacePending: parsed.data.replacePending,
+      userId: user.id,
+    });
 
     const photos = await db.query.photos.findMany({
       where: and(
@@ -52,23 +60,54 @@ export async function analyzeContainerPhotosAction(
       orderBy: [desc(schema.photos.createdAt)],
       limit: parsed.data.maxPhotos,
     });
+    console.info("[analyzeContainerPhotosAction] selected photos", {
+      householdId: parsed.data.householdId,
+      containerId: parsed.data.containerId,
+      fetchedPhotos: photos.length,
+      photos: photos.map((photo) => ({
+        id: photo.id,
+        createdAt: photo.createdAt.toISOString(),
+      })),
+    });
 
     if (!photos.length) {
+      console.warn("[analyzeContainerPhotosAction] no photos found", {
+        householdId: parsed.data.householdId,
+        containerId: parsed.data.containerId,
+      });
       return { ok: false, error: "No photos available for this container" };
     }
 
     const supabase = createSupabaseAdminClient();
     const signedUrls: string[] = [];
+    const signedPhotoIds: string[] = [];
+    const signFailedPhotoIds: string[] = [];
     for (const photo of photos) {
       const signed = await supabase.storage
         .from(STORAGE_BUCKET)
         .createSignedUrl(photo.storagePathOriginal, 60 * 10);
       if (signed.data?.signedUrl) {
         signedUrls.push(signed.data.signedUrl);
+        signedPhotoIds.push(photo.id);
+      } else {
+        signFailedPhotoIds.push(photo.id);
       }
     }
+    console.info("[analyzeContainerPhotosAction] sign result", {
+      householdId: parsed.data.householdId,
+      containerId: parsed.data.containerId,
+      requestedMaxPhotos: parsed.data.maxPhotos,
+      fetchedPhotos: photos.length,
+      signedPhotos: signedUrls.length,
+      signedPhotoIds,
+      signFailedPhotoIds,
+    });
 
     if (!signedUrls.length) {
+      console.warn("[analyzeContainerPhotosAction] no signed urls", {
+        householdId: parsed.data.householdId,
+        containerId: parsed.data.containerId,
+      });
       return { ok: false, error: "Could not sign photo URLs for analysis" };
     }
 
@@ -115,6 +154,14 @@ export async function analyzeContainerPhotosAction(
             )
             .returning()
         : [];
+    console.info("[analyzeContainerPhotosAction] completed", {
+      householdId: parsed.data.householdId,
+      containerId: parsed.data.containerId,
+      photosAnalyzed: signedUrls.length,
+      aiSuggestionsCount: analysis.suggestions.length,
+      savedSuggestionsCount: inserted.length,
+      replacePending: parsed.data.replacePending,
+    });
 
     return {
       ok: true,

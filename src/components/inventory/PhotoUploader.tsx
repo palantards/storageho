@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ImagePlus } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { analyzeContainerPhotosAction } from "@/lib/actions/suggestions";
+import { FormSubmitError } from "@/components/ui/form-feedback";
+import { useBusyCursor } from "@/hooks/useBusyCursor";
 
 const MAX_ORIGINAL_DIMENSION = 1600;
 const MAX_THUMB_DIMENSION = 400;
@@ -51,8 +53,6 @@ export function PhotoUploader({
   maxFiles,
   onUploaded,
   refreshOnComplete = false,
-  analyzeBatchOnComplete = false,
-  maxAnalyzePhotos = 4,
 }: {
   householdId: string;
   entityType: "container" | "item" | "room_layout";
@@ -60,124 +60,121 @@ export function PhotoUploader({
   maxFiles?: number;
   onUploaded?: () => void | Promise<void>;
   refreshOnComplete?: boolean;
-  analyzeBatchOnComplete?: boolean;
-  maxAnalyzePhotos?: number;
 }) {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
+
+  useBusyCursor(uploading);
+
+  useEffect(() => {
+    if (!formError) return;
+    toast.error(formError);
+  }, [formError]);
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <Input
-          type="file"
-          accept="image/png,image/jpeg,image/webp"
-          multiple
-          disabled={uploading}
-          onChange={async (event) => {
-            const rawFiles = Array.from(event.target.files || []);
-            const files =
-              typeof maxFiles === "number" && maxFiles > 0
-                ? rawFiles.slice(0, maxFiles)
-                : rawFiles;
-            if (files.length === 0) return;
+    <div className="space-y-3">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        multiple
+        className="sr-only"
+        disabled={uploading}
+        onChange={async (event) => {
+          const inputElement = event.currentTarget;
+          const rawFiles = Array.from(event.target.files || []);
+          const files =
+            typeof maxFiles === "number" && maxFiles > 0
+              ? rawFiles.slice(0, maxFiles)
+              : rawFiles;
+          if (files.length === 0) return;
 
-            try {
-              setUploading(true);
-              setMessage("");
-              let aiSucceeded = 0;
-              let aiFailed = 0;
-              let aiSkipped = 0;
+          try {
+            setUploading(true);
+            setFormError(null);
+            setMessage("");
 
-              for (const file of files) {
-                const originalBlob = await resizeToBlob(file, MAX_ORIGINAL_DIMENSION, 0.82);
-                const thumbBlob = await resizeToBlob(file, MAX_THUMB_DIMENSION, 0.76);
+            for (const file of files) {
+              const originalBlob = await resizeToBlob(file, MAX_ORIGINAL_DIMENSION, 0.82);
+              const thumbBlob = await resizeToBlob(file, MAX_THUMB_DIMENSION, 0.76);
 
-                const payload = new FormData();
-                payload.append("householdId", householdId);
-                payload.append("entityType", entityType);
-                payload.append("entityId", entityId);
-                payload.append(
-                  "original",
-                  new File([originalBlob], `${file.name}-original.webp`, {
-                    type: "image/webp",
-                  }),
-                );
-                payload.append(
-                  "thumb",
-                  new File([thumbBlob], `${file.name}-thumb.webp`, {
-                    type: "image/webp",
-                  }),
-                );
+              const payload = new FormData();
+              payload.append("householdId", householdId);
+              payload.append("entityType", entityType);
+              payload.append("entityId", entityId);
+              payload.append(
+                "original",
+                new File([originalBlob], `${file.name}-original.webp`, {
+                  type: "image/webp",
+                }),
+              );
+              payload.append(
+                "thumb",
+                new File([thumbBlob], `${file.name}-thumb.webp`, {
+                  type: "image/webp",
+                }),
+              );
 
-                const response = await fetch("/api/photos/upload", {
-                  method: "POST",
-                  body: payload,
-                });
+              const response = await fetch("/api/photos/upload", {
+                method: "POST",
+                body: payload,
+              });
 
-                const data = await response.json().catch(() => null);
-                if (!response.ok) {
-                  throw new Error(data?.error || "Upload failed");
-                }
-
-                const aiStatus = data?.ai?.status as string | undefined;
-                if (aiStatus === "succeeded") aiSucceeded += 1;
-                else if (aiStatus === "failed") aiFailed += 1;
-                else if (aiStatus === "skipped") aiSkipped += 1;
+              const data = await response.json().catch(() => null);
+              if (!response.ok) {
+                throw new Error(data?.error || "Upload failed");
               }
-
-              let batchSuggestionsCount = 0;
-              if (analyzeBatchOnComplete && entityType === "container") {
-                const result = await analyzeContainerPhotosAction({
-                  householdId,
-                  containerId: entityId,
-                  maxPhotos: maxAnalyzePhotos,
-                  maxSuggestions: 12,
-                  replacePending: true,
-                });
-                if (result.ok) {
-                  batchSuggestionsCount = Number(result.suggestionsCount ?? 0);
-                } else {
-                  console.error("Batch suggestion analyze failed", result.error);
-                }
-              }
-
-              await onUploaded?.();
-              if (refreshOnComplete) {
-                router.refresh();
-              }
-
-              if (batchSuggestionsCount > 0) {
-                setMessage(
-                  `Upload complete. Batch AI produced ${batchSuggestionsCount} suggestion(s) from multiple photos.`,
-                );
-              } else if (aiSucceeded > 0) {
-                setMessage(`Upload complete. AI generated suggestions for ${aiSucceeded} photo(s).`);
-              } else if (aiFailed > 0) {
-                setMessage("Upload complete, but AI analysis failed. Check API key/model permissions.");
-              } else if (aiSkipped > 0) {
-                setMessage("Upload complete. AI job queued and will be picked by background runner.");
-              } else {
-                setMessage("Upload complete.");
-              }
-              event.target.value = "";
-            } catch (error) {
-              console.error(error);
-              const errorMessage = error instanceof Error ? error.message : "Upload failed";
-              setMessage(errorMessage);
-              alert(errorMessage);
-            } finally {
-              setUploading(false);
             }
-          }}
-        />
-        <Button type="button" variant="outline" disabled={uploading}>
-          {uploading ? "Uploading..." : "Add Photos"}
-        </Button>
+
+            await onUploaded?.();
+            if (refreshOnComplete) {
+              router.refresh();
+            }
+
+            setMessage("Upload complete.");
+          } catch (error) {
+            console.error(error);
+            const errorMessage = error instanceof Error ? error.message : "Upload failed";
+            setFormError(errorMessage);
+          } finally {
+            setUploading(false);
+            inputElement.value = "";
+          }
+        }}
+      />
+
+      <div className="rounded-xl border border-dashed bg-muted/20 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="rounded-lg border bg-background p-2 text-muted-foreground">
+              <ImagePlus className="h-4 w-4" />
+            </div>
+            <div className="space-y-1">
+              <div className="text-sm font-medium">Upload photos</div>
+              <div className="text-xs text-muted-foreground">
+                PNG, JPG, or WEBP. Images are compressed automatically.
+              </div>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            disabled={uploading}
+            loading={uploading}
+            loadingText="Uploading..."
+            onClick={() => fileInputRef.current?.click()}
+          >
+            Add Photos
+          </Button>
+        </div>
       </div>
+
+      <FormSubmitError error={formError} title="Photo upload failed" />
       {message ? <div className="text-xs text-muted-foreground">{message}</div> : null}
     </div>
   );
 }
-

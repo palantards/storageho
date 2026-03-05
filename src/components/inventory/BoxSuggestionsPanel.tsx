@@ -1,14 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { PhotoUploader } from "@/components/inventory/PhotoUploader";
+import { SectionDivider } from "@/components/inventory/SectionDivider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   analyzeContainerPhotosAction,
   updateSuggestionAction,
 } from "@/lib/actions/suggestions";
+import { cn } from "@/lib/utils";
 
 export type BoxSuggestionRow = {
   id: string;
@@ -25,10 +28,12 @@ export function BoxSuggestionsPanel({
   householdId,
   containerId,
   suggestions,
+  photosCount = 0,
 }: {
   householdId: string;
   containerId?: string;
   suggestions: BoxSuggestionRow[];
+  photosCount?: number;
 }) {
   const router = useRouter();
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -36,11 +41,33 @@ export function BoxSuggestionsPanel({
   const [draftNames, setDraftNames] = useState<Record<string, string>>({});
   const [draftQty, setDraftQty] = useState<Record<string, string>>({});
   const [message, setMessage] = useState("");
+  const [optimisticallyHiddenPendingIds, setOptimisticallyHiddenPendingIds] =
+    useState<string[]>([]);
 
-  const pendingSuggestions = useMemo(
-    () => suggestions.filter((suggestion) => suggestion.status === "pending"),
-    [suggestions],
+  const hasPhotos = photosCount > 0;
+  const visibleSuggestions = useMemo(
+    () =>
+      suggestions.filter(
+        (suggestion) =>
+          !optimisticallyHiddenPendingIds.includes(suggestion.id),
+      ),
+    [suggestions, optimisticallyHiddenPendingIds],
   );
+  const pendingSuggestions = useMemo(
+    () =>
+      visibleSuggestions.filter((suggestion) => suggestion.status === "pending"),
+    [visibleSuggestions],
+  );
+
+  useEffect(() => {
+    if (optimisticallyHiddenPendingIds.length === 0) return;
+    const stillPresent = suggestions.some((suggestion) =>
+      optimisticallyHiddenPendingIds.includes(suggestion.id),
+    );
+    if (!stillPresent) {
+      setOptimisticallyHiddenPendingIds([]);
+    }
+  }, [suggestions, optimisticallyHiddenPendingIds]);
 
   async function submitAction(
     input: {
@@ -84,66 +111,63 @@ export function BoxSuggestionsPanel({
     }
   }
 
-  return (
-    <div className="space-y-3">
-      <div className="text-xs text-muted-foreground">
-        Suggestions are generated automatically after upload (single-photo +
-        batch pass). If they still do not appear, use Refresh or run the AI job
-        runner endpoint.
-      </div>
+  async function analyzePhotos() {
+    if (!containerId) {
+      setMessage("Select a container first.");
+      return;
+    }
 
-      <div className="flex flex-wrap gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => router.refresh()}
-        >
+    try {
+      setPendingAnalyze(true);
+      setMessage("");
+      const pendingIds = suggestions
+        .filter((suggestion) => suggestion.status === "pending")
+        .map((suggestion) => suggestion.id);
+      setOptimisticallyHiddenPendingIds(pendingIds);
+      const result = await analyzeContainerPhotosAction({
+        householdId,
+        containerId,
+        maxPhotos: 10,
+        replacePending: true,
+      });
+      if (!result.ok) {
+        throw new Error(result.error);
+      }
+      const count = Number(result.suggestionsCount ?? 0);
+      const photosAnalyzed = Number(result.photosAnalyzed ?? 0);
+      setMessage(
+        `Analyzed ${photosAnalyzed} photo(s). ${count} suggestion(s) generated.`,
+      );
+      router.refresh();
+    } catch (error) {
+      setOptimisticallyHiddenPendingIds([]);
+      setMessage(error instanceof Error ? error.message : "Analyze failed");
+    } finally {
+      setPendingAnalyze(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" variant="outline" onClick={() => router.refresh()}>
           Refresh suggestions
         </Button>
         <Button
           type="button"
           variant="outline"
-          disabled={!containerId || pendingAnalyze}
-          onClick={async () => {
-            if (!containerId) {
-              setMessage("Select a container first.");
-              return;
-            }
-
-            try {
-              setPendingAnalyze(true);
-              setMessage("");
-              const result = await analyzeContainerPhotosAction({
-                householdId,
-                containerId,
-                maxPhotos: 4,
-                maxSuggestions: 12,
-                replacePending: true,
-              });
-              if (!result.ok) {
-                throw new Error(result.error);
-              }
-              const count = Number(result.suggestionsCount ?? 0);
-              setMessage(
-                `Re-analyzed latest photos. ${count} suggestion(s) generated.`,
-              );
-              router.refresh();
-            } catch (error) {
-              setMessage(
-                error instanceof Error ? error.message : "Re-analyze failed",
-              );
-            } finally {
-              setPendingAnalyze(false);
-            }
-          }}
+          loading={pendingAnalyze}
+          loadingText="Analyzing..."
+          disabled={!containerId || !hasPhotos || pendingAnalyze}
+          onClick={analyzePhotos}
         >
-          {pendingAnalyze ? "Analyzing..." : "Re-analyze latest photos"}
+          Analyze photos
         </Button>
-
         {pendingSuggestions.length > 0 ? (
           <Button
             type="button"
             variant="outline"
+            disabled={pendingAnalyze}
             onClick={async () => {
               const highConfidence = pendingSuggestions.filter(
                 (suggestion) => suggestion.confidence >= 0.82,
@@ -175,30 +199,61 @@ export function BoxSuggestionsPanel({
       </div>
 
       {message ? (
-        <div className="text-xs text-muted-foreground">{message}</div>
+        <div className="rounded-md border bg-background px-3 py-2 text-xs text-muted-foreground">
+          {message}
+        </div>
       ) : null}
 
-      {suggestions.length === 0 ? (
-        <div className="text-sm text-muted-foreground">
-          No suggestions yet. Upload photos to trigger AI capture suggestions.
+      <SectionDivider title="Suggestions" />
+
+      {!hasPhotos ? (
+        <div className="rounded-xl border border-dashed bg-muted/20 p-4">
+          <div className="mb-3 text-sm font-medium">No photos yet</div>
+          {containerId ? (
+            <PhotoUploader
+              householdId={householdId}
+              entityType="container"
+              entityId={containerId}
+              refreshOnComplete
+            />
+          ) : (
+            <div className="text-xs text-muted-foreground">
+              Select a container first.
+            </div>
+          )}
+        </div>
+      ) : visibleSuggestions.length === 0 ? (
+        <div className="rounded-xl border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
+          No suggestions yet. Click Analyze photos to generate AI suggestions.
         </div>
       ) : (
-        suggestions.map((suggestion) => (
-          <div key={suggestion.id} className="rounded-md border p-3">
+        visibleSuggestions.map((suggestion) => (
+          <div key={suggestion.id} className="py-4 first:pt-0">
             <div className="flex items-center justify-between gap-2">
               <div className="font-medium">{suggestion.suggestedName}</div>
-              <div className="text-xs text-muted-foreground">
-                {Math.round(suggestion.confidence * 100)}% confidence
+              <div
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-[11px] font-medium",
+                  suggestion.status === "accepted" &&
+                    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+                  suggestion.status === "rejected" &&
+                    "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
+                  suggestion.status === "pending" &&
+                    "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+                )}
+              >
+                {suggestion.status}
               </div>
             </div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              Qty: {suggestion.suggestedQty ?? 1} | Tags:{" "}
-              {(suggestion.suggestedTags || []).join(", ") || "-"} | Status:{" "}
-              {suggestion.status}
+
+            <div className="mt-2 text-xs text-muted-foreground">
+              Confidence: {Math.round(suggestion.confidence * 100)}% | Qty:{" "}
+              {suggestion.suggestedQty ?? 1} | Tags:{" "}
+              {(suggestion.suggestedTags || []).join(", ") || "-"}
             </div>
 
             {suggestion.status === "pending" ? (
-              <div className="mt-3 grid gap-2 md:grid-cols-[1fr_120px_auto_auto]">
+              <div className="mt-3 grid gap-2 lg:grid-cols-[minmax(0,1fr)_120px_auto_auto]">
                 <Input
                   value={draftNames[suggestion.id] ?? suggestion.suggestedName}
                   onChange={(event) =>

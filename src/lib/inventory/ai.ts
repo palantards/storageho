@@ -10,7 +10,7 @@ const suggestionSchema = z.object({
 });
 
 const responseSchema = z.object({
-  suggestions: z.array(suggestionSchema).max(24),
+  suggestions: z.array(suggestionSchema),
 });
 
 const PROHIBITED_TERMS = ["weapon", "bomb", "explosive", "nazi"];
@@ -76,10 +76,14 @@ function sanitizeSuggestion(input: AiSuggestion): AiSuggestion | null {
 
 function normalizeSuggestions(
   suggestions: AiSuggestion[],
-  maxSuggestions: number,
+  maxSuggestions?: number,
 ) {
   const normalized: AiSuggestion[] = [];
   const seen = new Set<string>();
+  const hasLimit =
+    typeof maxSuggestions === "number" &&
+    Number.isFinite(maxSuggestions) &&
+    maxSuggestions > 0;
 
   for (const suggestion of suggestions) {
     const safe = sanitizeSuggestion(suggestion);
@@ -88,7 +92,7 @@ function normalizeSuggestions(
     if (seen.has(key)) continue;
     seen.add(key);
     normalized.push(safe);
-    if (normalized.length >= maxSuggestions) break;
+    if (hasLimit && normalized.length >= maxSuggestions) break;
   }
 
   return normalized;
@@ -112,7 +116,7 @@ function extractJsonFromModelOutput(content: string) {
 
 async function runVisionSuggestionModel(input: {
   messages: Array<Record<string, unknown>>;
-  maxSuggestions: number;
+  maxSuggestions?: number;
 }) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -169,7 +173,10 @@ export async function analyzePhotoWithAi(input: {
   maxSuggestions?: number;
   language?: string;
 }) {
-  const maxSuggestions = Math.min(20, Math.max(1, input.maxSuggestions ?? 10));
+  const maxSuggestions =
+    typeof input.maxSuggestions === "number" && input.maxSuggestions > 0
+      ? Math.floor(input.maxSuggestions)
+      : undefined;
   const language = input.language?.trim() || "en";
   if (!isAiEnabled()) {
     return { suggestions: [] as AiSuggestion[] };
@@ -213,14 +220,22 @@ export async function analyzePhotoWithAi(input: {
     messages: [
       {
         role: "system",
-        content: `You extract inventory candidates from a storage photo. Return JSON only with shape { suggestions: [{ name, qty, tags, confidence }] }. Never output prose. Use language ${language} for item names and tags; if unsure, use English.`,
+        content: `You extract inventory candidates from a storage photo. Return JSON only with shape { suggestions: [{ name, qty, tags, confidence }] }. Never output prose.
+Rules:
+- Include only physical objects clearly visible in the image.
+- Prefer canonical singular names (e.g. "USB cable", "Power adapter").
+- Set qty only when count is visually clear; otherwise omit qty.
+- Use short lowercase tags (category/material/use-case), max 8 per item.
+- confidence must be between 0 and 1; lower confidence for uncertain guesses.
+- Do not include shelves/walls/background unless clearly intentional stored items.
+Use language ${language} for item names and tags; if unsure, use English.`,
       },
       {
         role: "user",
         content: [
           {
             type: "text",
-            text: "List visible objects likely worth tracking in household inventory. Keep it concise.",
+            text: "List all distinct visible objects worth tracking in household inventory. Do not omit likely items because of brevity.",
           },
           {
             type: "image_url",
@@ -239,8 +254,11 @@ export async function analyzeContainerPhotosWithAi(input: {
   maxSuggestions?: number;
   language?: string;
 }) {
-  const urls = input.signedUrls.filter(Boolean).slice(0, 4);
-  const maxSuggestions = Math.min(24, Math.max(1, input.maxSuggestions ?? 12));
+  const urls = input.signedUrls.filter(Boolean).slice(0, 10);
+  const maxSuggestions =
+    typeof input.maxSuggestions === "number" && input.maxSuggestions > 0
+      ? Math.floor(input.maxSuggestions)
+      : undefined;
   const language = input.language?.trim() || "en";
 
   if (!isAiEnabled() || urls.length === 0) {
@@ -281,14 +299,23 @@ export async function analyzeContainerPhotosWithAi(input: {
     messages: [
       {
         role: "system",
-        content: `You extract inventory candidates from multiple photos of the same storage container. Return JSON only with shape { suggestions: [{ name, qty, tags, confidence }] }. Deduplicate entities across photos, merge quantities conservatively, and never output prose. Use language ${language} for item names and tags; if unsure, use English.`,
+        content: `You extract inventory candidates from multiple photos of the same storage container. Return JSON only with shape { suggestions: [{ name, qty, tags, confidence }] }. Never output prose.
+Rules:
+- These photos are the same container from different angles.
+- Include only physical objects clearly visible in at least one photo.
+- Deduplicate entities across photos using canonical singular names.
+- Merge quantities conservatively; if unsure about count, omit qty.
+- Use short lowercase tags (category/material/use-case), max 8 per item.
+- confidence must be between 0 and 1; lower confidence for uncertain guesses.
+- Do not include background furniture unless clearly stored as inventory.
+Use language ${language} for item names and tags; if unsure, use English.`,
       },
       {
         role: "user",
         content: [
           {
             type: "text",
-            text: "These images show the same box from different angles. Return one consolidated deduplicated suggestion list of trackable items.",
+            text: "These images show the same box from different angles. Return one consolidated deduplicated list of trackable inventory items.",
           },
           ...urls.map((url) => ({
             type: "image_url",

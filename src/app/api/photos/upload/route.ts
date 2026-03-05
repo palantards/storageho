@@ -9,12 +9,10 @@ import {
   STORAGE_BUCKET,
 } from "@/lib/inventory/constants";
 import {
-  enqueueAiJob,
   insertPhotoRecord,
   listContainerPhotos,
 } from "@/lib/inventory/service";
 import { requireHouseholdWriteAccess } from "@/lib/inventory/guards";
-import { runAiJobNow } from "@/lib/inventory/ai-jobs";
 import { createSupabaseAdminClient } from "@/lib/supabaseServer";
 
 const uploadRateLimit = new Map<string, { count: number; resetAt: number }>();
@@ -203,35 +201,7 @@ export async function POST(request: NextRequest) {
       thumbPath,
     });
 
-    const runNow = process.env.AI_RUN_ON_UPLOAD !== "0";
-    let aiResult: Awaited<ReturnType<typeof runAiJobNow>> | null = null;
-
-    try {
-      const aiJob = await enqueueAiJob({
-        userId: session.user.id,
-        householdId,
-        jobType: "photo_analyze",
-        payload: {
-          photoId: photo.id,
-          householdId,
-          entityType,
-          entityId,
-          originalPath,
-          thumbPath,
-        },
-      });
-
-      if (runNow) {
-        aiResult = await runAiJobNow({
-          jobId: aiJob.id,
-          workerId: `upload-${session.user.id}-${crypto.randomUUID()}`,
-        });
-      }
-    } catch (error) {
-      console.error("AI enqueue failed", error);
-    }
-
-    return NextResponse.json({ photo, ai: aiResult });
+    return NextResponse.json({ photo });
   } catch (error) {
     console.error(error);
     return NextResponse.json(

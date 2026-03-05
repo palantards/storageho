@@ -410,7 +410,6 @@ async function processPhotoAnalyzeJob(job: AiJobRecord) {
 
   const analysis = await analyzePhotoWithAi({
     signedUrl: signed.data.signedUrl,
-    maxSuggestions: 12,
     language,
   });
 

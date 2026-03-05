@@ -16,10 +16,12 @@ export function SidebarNav({
   locale,
   collapsed = false,
   isAdmin = false,
+  activeHouseholdId,
 }: {
   locale: Locale;
   collapsed?: boolean;
   isAdmin?: boolean;
+  activeHouseholdId?: string;
 }) {
   const pathname = usePathname();
   const { t } = useI18n();
@@ -31,6 +33,17 @@ export function SidebarNav({
           const visibleItems = group.items.filter(
             (item) => !(item.adminOnly && !isAdmin),
           );
+          const groupItems =
+            group.labelKey === "nav.group.main" && activeHouseholdId
+              ? [
+                  ...visibleItems,
+                  {
+                    labelKey: "nav.householdSettings",
+                    href: `/households/${activeHouseholdId}/settings`,
+                    icon: "Settings",
+                  },
+                ]
+              : visibleItems;
           return (
           <div
             key={group.labelKey ?? `group-${gi}`}
@@ -47,7 +60,7 @@ export function SidebarNav({
               </div>
             ) : null}
             <div className="grid gap-1">
-              {visibleItems.map((item) => {
+              {groupItems.map((item) => {
                 const href = localizedHref(locale, item.href);
                 const active = isActiveRoute(pathname, href, locale);
                 const Icon = item.icon ? icons[item.icon as IconKey] : null;

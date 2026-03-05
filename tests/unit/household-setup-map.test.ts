@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { buildReadOnlyMapGroups } from "@/lib/inventory/household-setup-map";
+import {
+  buildReadOnlyMapGroups,
+  canSelectSetupMapRoom,
+} from "@/lib/inventory/household-setup-map";
 
 describe("household setup read-only map grouping", () => {
   it("sorts non-system rooms first and keeps deterministic container order", () => {
@@ -36,5 +39,10 @@ describe("household setup read-only map grouping", () => {
     const fallback = groups.find((group) => group.roomId === "__unassigned__");
     expect(fallback).toBeTruthy();
     expect(fallback?.containers.map((container) => container.name)).toEqual(["Orphan"]);
+  });
+
+  it("marks synthetic fallback group as non-selectable", () => {
+    expect(canSelectSetupMapRoom("__unassigned__")).toBe(false);
+    expect(canSelectSetupMapRoom("room-real")).toBe(true);
   });
 });

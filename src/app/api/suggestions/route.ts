@@ -28,7 +28,6 @@ export async function GET(request: NextRequest) {
       householdId: parsed.householdId,
       containerId: parsed.containerId,
       status: parsed.status,
-      limit: 150,
     });
 
     return NextResponse.json({ suggestions });

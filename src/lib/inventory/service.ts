@@ -2675,7 +2675,10 @@ export async function listPhotoSuggestions(
   },
 ) {
   await assertMembership(input);
-  const limit = Math.min(200, Math.max(1, input.limit ?? 100));
+  const limit =
+    typeof input.limit === "number"
+      ? Math.max(1, Math.floor(input.limit))
+      : undefined;
 
   return db.query.photoSuggestions.findMany({
     where: and(

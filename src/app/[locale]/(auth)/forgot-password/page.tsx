@@ -16,7 +16,7 @@ import {
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { FormSubmitButton } from "@/components/ui/form-submit-button";
 
 export default async function ForgotPasswordPage({
   params,
@@ -89,9 +89,12 @@ export default async function ForgotPasswordPage({
             />
           </div>
 
-          <Button type="submit" className="w-full">
+          <FormSubmitButton
+            className="w-full"
+            loadingText={`${t("auth.forgot.submit")}...`}
+          >
             {t("auth.forgot.submit")}
-          </Button>
+          </FormSubmitButton>
 
           <p className="text-center text-sm text-muted-foreground">
             <Link

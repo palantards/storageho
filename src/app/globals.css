@@ -99,6 +99,11 @@ body {
   font-family: var(--font-sans-stack);
 }
 
+body[data-busy="true"],
+body[data-busy="true"] * {
+  cursor: wait !important;
+}
+
 /*
   ---break---
 */

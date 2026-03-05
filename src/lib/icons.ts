@@ -17,6 +17,7 @@ import {
   FileDown,
   ScanLine,
   Map,
+  Settings,
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
@@ -40,6 +41,7 @@ export const icons = {
   FileDown,
   ScanLine,
   Map,
+  Settings,
   PanelLeftClose,
   PanelLeftOpen,
 } as const;

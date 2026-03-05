@@ -1,13 +1,14 @@
 "use client";
 
-import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
+import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { FormFieldError, FormSubmitError } from "@/components/ui/form-feedback";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useBusyCursor } from "@/hooks/useBusyCursor";
 
 type Labels = {
   email: string;
@@ -32,22 +33,46 @@ export function LoginForm({
   action: (prev: State, formData: FormData) => Promise<State>;
   labels: Labels;
 }) {
-  const [state, formAction] = useActionState(action, { errorKey: undefined });
-  const { pending } = useFormStatus();
-
+  const [state, formAction, pending] = useActionState(action, { errorKey: undefined });
+  const [fieldErrors, setFieldErrors] = useState<{
+    email?: string;
+    password?: string;
+  }>({});
   const errorMessage = state.errorKey
     ? (labels.errors[state.errorKey] ?? labels.errors.generic)
     : null;
+  const formError = errorMessage;
+
+  useBusyCursor(pending);
+
+  useEffect(() => {
+    if (!formError) return;
+    toast.error(formError);
+  }, [formError]);
 
   return (
-    <form action={formAction} className="grid gap-4">
-      {errorMessage && (
-        <Alert variant="destructive">
-          <AlertTitle>{labels.errors.title}</AlertTitle>
-          <AlertDescription>{errorMessage}</AlertDescription>
-        </Alert>
-      )}
+    <form
+      action={formAction}
+      className="grid gap-4"
+      noValidate
+      onSubmit={(event) => {
+        const formData = new FormData(event.currentTarget);
+        const nextErrors: { email?: string; password?: string } = {};
 
+        const email = String(formData.get("email") ?? "").trim();
+        const password = String(formData.get("password") ?? "").trim();
+        if (!email) nextErrors.email = labels.errors.required;
+        if (!password) nextErrors.password = labels.errors.required;
+
+        if (Object.keys(nextErrors).length > 0) {
+          event.preventDefault();
+          setFieldErrors(nextErrors);
+          return;
+        }
+
+        setFieldErrors({});
+      }}
+    >
       <div className="grid gap-2">
         <Label htmlFor="email">{labels.email}</Label>
         <Input
@@ -57,7 +82,13 @@ export function LoginForm({
           placeholder="you@company.com"
           autoComplete="email"
           required
+          aria-invalid={fieldErrors.email ? true : undefined}
+          onChange={() => {
+            if (!fieldErrors.email) return;
+            setFieldErrors((prev) => ({ ...prev, email: undefined }));
+          }}
         />
+        <FormFieldError error={fieldErrors.email} />
       </div>
 
       <div className="grid gap-2">
@@ -68,7 +99,13 @@ export function LoginForm({
           type="password"
           autoComplete="current-password"
           required
+          aria-invalid={fieldErrors.password ? true : undefined}
+          onChange={() => {
+            if (!fieldErrors.password) return;
+            setFieldErrors((prev) => ({ ...prev, password: undefined }));
+          }}
         />
+        <FormFieldError error={fieldErrors.password} />
         <div className="flex items-center justify-between">
           <Link
             className="text-xs text-muted-foreground hover:text-foreground"
@@ -89,8 +126,15 @@ export function LoginForm({
         <span>{labels.remember ?? "Remember me"}</span>
       </label>
 
-      <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? `${labels.submit}…` : labels.submit}
+      <FormSubmitError error={formError} title={labels.errors.title} />
+
+      <Button
+        type="submit"
+        className="w-full"
+        loading={pending}
+        loadingText={`${labels.submit}...`}
+      >
+        {labels.submit}
       </Button>
 
       <p className="text-center text-sm text-muted-foreground">
@@ -101,4 +145,3 @@ export function LoginForm({
     </form>
   );
 }
-

@@ -15,7 +15,7 @@ export function PageFrame({ children, className, padded = true, header }: PageFr
   return (
     <div
       className={cn(
-        "rounded-2xl border border-border/60 bg-background/90 shadow-[0_1px_0_rgba(0,0,0,0.04)]",
+        "rounded-2xl bg-background/90",
         padded ? "px-4 py-4 md:px-6 md:py-5" : "",
         className,
       )}
