@@ -24,7 +24,10 @@ type Props = {
   initialCategory?: string;
 };
 
-export function AdminTicketsSection({ initialStatus = "all", initialCategory = "all" }: Props) {
+export function AdminTicketsSection({
+  initialStatus = "all",
+  initialCategory = "all",
+}: Props) {
   const [rows, setRows] = React.useState<AdminTicketRow[]>([]);
   const [offset, setOffset] = React.useState(LIMIT);
   const [hasMore, setHasMore] = React.useState(false);
@@ -71,7 +74,8 @@ export function AdminTicketsSection({ initialStatus = "all", initialCategory = "
     ticketId: string,
     patch: Partial<Ticket> & { action?: "convert_to_bug" },
   ) => {
-    const { action, ...optimisticPatch } = patch;
+    const optimisticPatch = { ...patch };
+    delete optimisticPatch.action;
     // optimistic
     setRows((prev) =>
       prev.map((r) =>
@@ -279,4 +283,3 @@ export function AdminTicketsSection({ initialStatus = "all", initialCategory = "
     </div>
   );
 }
-
