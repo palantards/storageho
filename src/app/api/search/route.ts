@@ -11,6 +11,7 @@ import {
   fuseSearchResults,
 } from "@/lib/inventory/search-fusion";
 import { normalizeSearchQuery } from "@/lib/inventory/search-utils";
+import { withRlsUserContext } from "@/server/db/tenant";
 
 export async function GET(request: NextRequest) {
   const session = await getSession();
@@ -28,26 +29,33 @@ export async function GET(request: NextRequest) {
 
   const requestedHouseholdId = request.nextUrl.searchParams.get("householdId");
 
-  const context = await getActiveMembershipContext(session.user.id);
-  const activeHouseholdId = requestedHouseholdId || context.active?.household.id;
-  if (!activeHouseholdId) {
-    return NextResponse.json({ results: [] });
-  }
-
   try {
+    const context = await withRlsUserContext(session.user.id, async () => {
+      return getActiveMembershipContext(session.user.id);
+    });
+    const activeHouseholdId =
+      requestedHouseholdId || context.active?.household.id;
+    if (!activeHouseholdId) {
+      return NextResponse.json({ results: [] });
+    }
+
     const [fuzzyResults, semanticResults] = await Promise.all([
-      globalSearch({
-        userId: session.user.id,
-        householdId: activeHouseholdId,
-        query,
-        limit: 30,
+      withRlsUserContext(session.user.id, async () => {
+        return globalSearch({
+          userId: session.user.id,
+          householdId: activeHouseholdId,
+          query,
+          limit: 30,
+        });
       }),
-      semanticSearch({
-        userId: session.user.id,
-        householdId: activeHouseholdId,
-        query,
-        limit: 24,
-      }).catch(() => []),
+      withRlsUserContext(session.user.id, async () => {
+        return semanticSearch({
+          userId: session.user.id,
+          householdId: activeHouseholdId,
+          query,
+          limit: 24,
+        }).catch(() => []);
+      }),
     ]);
 
     const results = fuseSearchResults({

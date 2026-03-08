@@ -1,6 +1,7 @@
 import type { Locale } from "@/i18n/config";
 import { getInventoryContext } from "@/lib/inventory/page-context";
 import { listFloors } from "@/lib/inventory/service";
+import { withRlsUserContext } from "@/server/db/tenant";
 import { PageFrame } from "@/components/inventory/PageFrame";
 import { SectionDivider } from "@/components/inventory/SectionDivider";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ export default async function ExportPage({
 }) {
   const { locale } = await params;
   const context = await getInventoryContext(locale);
+  const userId = context.user.id;
   const householdId = context.activeMembership?.household.id;
 
   if (!householdId) {
@@ -28,10 +30,12 @@ export default async function ExportPage({
     );
   }
 
-  const floors = await listFloors({
-    userId: context.user.id,
-    householdId,
-  });
+  const floors = await withRlsUserContext(userId, async () =>
+    listFloors({
+      userId,
+      householdId,
+    }),
+  );
 
   const selectedFloor = floors[0]?.location.id;
 
@@ -51,7 +55,7 @@ export default async function ExportPage({
         </div>
       </div>
 
-      <form action="/api/export" method="POST" className="space-y-3">
+      <form action="/api/export" method="GET" className="space-y-3">
         <SectionDivider title="Choose scope" />
         <input type="hidden" name="householdId" value={householdId} />
         <Select name="floorId" defaultValue={selectedFloor || "all"}>

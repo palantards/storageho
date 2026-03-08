@@ -4,10 +4,11 @@ import { defineConfig } from "drizzle-kit";
 config({ path: ".env.local" });
 config();
 
-const connectionString = process.env.DATABASE_URL;
+const connectionString =
+  process.env.DATABASE_URL_ADMIN || process.env.DATABASE_URL;
 
 if (!connectionString) {
-  throw new Error("DATABASE_URL is not set");
+  throw new Error("DATABASE_URL_ADMIN or DATABASE_URL is not set");
 }
 
 export default defineConfig({

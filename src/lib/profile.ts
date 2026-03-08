@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 
-import { db, schema } from "@/server/db";
+import { dbAdmin as db, schema } from "@/server/db";
 
 export async function getProfileBySupabaseId(supabaseUserId: string) {
   if (!supabaseUserId) return null;

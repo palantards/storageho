@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import type { UserWithProfileAndSubscription } from "@/lib/admin/users";
+import { setUserBlockAction, setUserFlagAction } from "@/app/[locale]/(app)/admin/actions";
 
 const LIMIT = 30;
 
@@ -17,6 +18,8 @@ export function UserList({
   const [offset, setOffset] = React.useState(LIMIT);
   const [isLoading, setIsLoading] = React.useState(false);
   const [hasMore, setHasMore] = React.useState(true);
+  const [actionError, setActionError] = React.useState<string | null>(null);
+  const [isPending, startTransition] = React.useTransition();
 
   const loaderRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -48,7 +51,7 @@ export function UserList({
 
     try {
       const res = await fetch(
-        `/api/admin/users?offset=${offset}&limit=${LIMIT}`,
+        `/api/admin?offset=${offset}&limit=${LIMIT}`,
         { cache: "no-store" },
       );
       if (!res.ok) return;
@@ -69,6 +72,56 @@ export function UserList({
       inFlightRef.current = false;
     }
   }, [hasMore, offset]);
+
+  const updateUserState = React.useCallback(
+    (
+      userId: string,
+      patch: Partial<UserWithProfileAndSubscription["users"]>,
+    ) => {
+      setUsers((prev) =>
+        prev.map((entry) =>
+          entry.users.id === userId
+            ? { ...entry, users: { ...entry.users, ...patch } }
+            : entry,
+        ),
+      );
+    },
+    [],
+  );
+
+  const handleFlagToggle = React.useCallback(
+    (userId: string, isFlagged: boolean) => {
+      setActionError(null);
+
+      startTransition(async () => {
+        const result = await setUserFlagAction({ userId, value: !isFlagged });
+        if (!result.ok) {
+          setActionError(result.error);
+          return;
+        }
+
+        updateUserState(userId, { isFlagged: !isFlagged });
+      });
+    },
+    [updateUserState],
+  );
+
+  const handleBlockToggle = React.useCallback(
+    (userId: string, isBlocked: boolean) => {
+      setActionError(null);
+
+      startTransition(async () => {
+        const result = await setUserBlockAction({ userId, value: !isBlocked });
+        if (!result.ok) {
+          setActionError(result.error);
+          return;
+        }
+
+        updateUserState(userId, { isBlocked: !isBlocked });
+      });
+    },
+    [updateUserState],
+  );
 
   React.useEffect(() => {
     const el = loaderRef.current;
@@ -96,6 +149,9 @@ export function UserList({
           {users.length} loaded
         </div>
       </div>
+      {actionError ? (
+        <div className="text-sm text-destructive">{actionError}</div>
+      ) : null}
 
       <div className="overflow-x-auto rounded-lg border bg-background">
         <table className="min-w-full text-sm">
@@ -135,19 +191,25 @@ export function UserList({
                 </td>
                 <td className="py-3 px-4 whitespace-nowrap">
                   <div className="flex gap-2">
-                    <form action="/api/admin/flag-user" method="POST">
-                      <input type="hidden" name="userId" value={user.id} />
-                      <Button type="submit" variant="secondary" size="sm">
-                        {user.isFlagged ? "Unflag" : "Flag"}
-                      </Button>
-                    </form>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={isPending}
+                      onClick={() => handleFlagToggle(user.id, user.isFlagged)}
+                    >
+                      {user.isFlagged ? "Unflag" : "Flag"}
+                    </Button>
 
-                    <form action="/api/admin/block-user" method="POST">
-                      <input type="hidden" name="userId" value={user.id} />
-                      <Button type="submit" variant="destructive" size="sm">
-                        {user.isBlocked ? "Unblock" : "Block"}
-                      </Button>
-                    </form>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      disabled={isPending}
+                      onClick={() => handleBlockToggle(user.id, user.isBlocked)}
+                    >
+                      {user.isBlocked ? "Unblock" : "Block"}
+                    </Button>
                   </div>
                 </td>
               </tr>

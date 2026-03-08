@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { db } from "@/server/db";
+import { dbAdmin as db } from "@/server/db";
 import {
   tickets,
   ticketVotes,
@@ -57,7 +57,7 @@ export async function loadTicketsAction(input: z.infer<typeof LoadSchema>) {
     })
     .from(tickets)
     .leftJoin(users, eq(tickets.userId, users.id))
-    .leftJoin(profiles, eq(users.id, profiles.userId))
+    .leftJoin(profiles, eq(users.supabaseUserId, profiles.userId))
     .where(where)
     .orderBy(desc(tickets.createdAt))
     .limit(limit)
@@ -224,4 +224,57 @@ export async function convertSupportRequestToTicketAction(
     .where(eq(supportRequests.id, requestId));
 
   return { ok: true, ticketId: created.id };
+}
+
+const ToggleUserModerationSchema = z.object({
+  userId: z.string().uuid(),
+  value: z.boolean(),
+});
+
+type AdminMutationResult = { ok: true } | { ok: false; error: string };
+
+export async function setUserFlagAction(
+  input: z.input<typeof ToggleUserModerationSchema>,
+): Promise<AdminMutationResult> {
+  const guard = await requireAdmin();
+  if (!guard.ok) return { ok: false, error: "Forbidden" };
+
+  const parsed = ToggleUserModerationSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid input" };
+
+  const { userId, value } = parsed.data;
+  const updated = await db
+    .update(users)
+    .set({ isFlagged: value })
+    .where(eq(users.id, userId))
+    .returning({ id: users.id });
+
+  if (updated.length === 0) {
+    return { ok: false, error: "User not found" };
+  }
+
+  return { ok: true };
+}
+
+export async function setUserBlockAction(
+  input: z.input<typeof ToggleUserModerationSchema>,
+): Promise<AdminMutationResult> {
+  const guard = await requireAdmin();
+  if (!guard.ok) return { ok: false, error: "Forbidden" };
+
+  const parsed = ToggleUserModerationSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid input" };
+
+  const { userId, value } = parsed.data;
+  const updated = await db
+    .update(users)
+    .set({ isBlocked: value })
+    .where(eq(users.id, userId))
+    .returning({ id: users.id });
+
+  if (updated.length === 0) {
+    return { ok: false, error: "User not found" };
+  }
+
+  return { ok: true };
 }

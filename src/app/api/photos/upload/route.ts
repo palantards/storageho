@@ -13,9 +13,13 @@ import {
   listContainerPhotos,
 } from "@/lib/inventory/service";
 import { requireHouseholdWriteAccess } from "@/lib/inventory/guards";
+import {
+  applyRateLimitHeaders,
+  consumeRateLimit,
+} from "@/lib/security/rate-limit";
 import { createSupabaseAdminClient } from "@/lib/supabaseServer";
+import { withRlsUserContext } from "@/server/db/tenant";
 
-const uploadRateLimit = new Map<string, { count: number; resetAt: number }>();
 const WINDOW_MS = 60_000;
 const MAX_UPLOADS_PER_WINDOW = 40;
 
@@ -34,35 +38,26 @@ const extensionByMime: Record<
   "image/png": "png",
 };
 
-function checkRateLimit(userId: string) {
-  const now = Date.now();
-  const current = uploadRateLimit.get(userId);
-
-  if (!current || current.resetAt < now) {
-    uploadRateLimit.set(userId, { count: 1, resetAt: now + WINDOW_MS });
-    return true;
-  }
-
-  if (current.count >= MAX_UPLOADS_PER_WINDOW) {
-    return false;
-  }
-
-  current.count += 1;
-  uploadRateLimit.set(userId, current);
-  return true;
-}
-
 export async function POST(request: NextRequest) {
   const session = await getSession();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!checkRateLimit(session.user.id)) {
-    return NextResponse.json(
+  const rateLimit = await consumeRateLimit({
+    scope: "photo_upload_user",
+    identifier: session.user.id,
+    windowSec: Math.floor(WINDOW_MS / 1000),
+    limit: MAX_UPLOADS_PER_WINDOW,
+  });
+
+  if (!rateLimit.allowed) {
+    const response = NextResponse.json(
       { error: "Upload rate limit exceeded. Try again in a minute." },
       { status: 429 },
     );
+    applyRateLimitHeaders(response.headers, rateLimit);
+    return response;
   }
 
   try {
@@ -114,27 +109,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    try {
-      await requireHouseholdWriteAccess(session.user.id, householdId);
-    } catch {
+    const existingPhotoCount = await withRlsUserContext(
+      session.user.id,
+      async () => {
+        await requireHouseholdWriteAccess(session.user.id, householdId);
+        if (entityType !== "container") {
+          return -1;
+        }
+
+        const existingPhotos = await listContainerPhotos({
+          userId: session.user.id,
+          householdId,
+          containerId: entityId,
+        });
+
+        return existingPhotos.length;
+      },
+    ).catch(() => null);
+
+    if (existingPhotoCount === null) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    if (entityType === "container") {
-      const existingPhotos = await listContainerPhotos({
-        userId: session.user.id,
-        householdId,
-        containerId: entityId,
-      });
-
-      if (existingPhotos.length >= MAX_IMAGES_PER_CONTAINER) {
-        return NextResponse.json(
-          {
-            error: `Image limit reached for this container (${MAX_IMAGES_PER_CONTAINER})`,
-          },
-          { status: 400 },
-        );
-      }
+    if (
+      existingPhotoCount >= 0 &&
+      existingPhotoCount >= MAX_IMAGES_PER_CONTAINER
+    ) {
+      return NextResponse.json(
+        {
+          error: `Image limit reached for this container (${MAX_IMAGES_PER_CONTAINER})`,
+        },
+        { status: 400 },
+      );
     }
 
     const originalExt =
@@ -192,16 +198,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const photo = await insertPhotoRecord({
-      userId: session.user.id,
-      householdId,
-      entityType,
-      entityId,
-      originalPath,
-      thumbPath,
+    const photo = await withRlsUserContext(session.user.id, async () => {
+      return insertPhotoRecord({
+        userId: session.user.id,
+        householdId,
+        entityType,
+        entityId,
+        originalPath,
+        thumbPath,
+      });
     });
 
-    return NextResponse.json({ photo });
+    const response = NextResponse.json({ photo });
+    applyRateLimitHeaders(response.headers, rateLimit);
+    return response;
   } catch (error) {
     console.error(error);
     return NextResponse.json(

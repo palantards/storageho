@@ -22,6 +22,7 @@ import {
   type ActionOk,
   zodToFieldErrors,
 } from "@/lib/forms/action-result";
+import { withRlsUserContext } from "@/server/db/tenant";
 
 const floorDeleteSchema = z.object({
   householdId: z.string().uuid(),
@@ -39,12 +40,14 @@ export async function createFloorAction(input: unknown) {
   }
   try {
     const user = await requireSessionUser();
-    await requireHouseholdWriteAccess(user.id, parsed.data.householdId);
-    const floor = await createHouseholdFloor({
-      userId: user.id,
-      householdId: parsed.data.householdId,
-      name: parsed.data.name,
-      sortOrder: parsed.data.sortOrder,
+    const floor = await withRlsUserContext(user.id, async () => {
+      await requireHouseholdWriteAccess(user.id, parsed.data.householdId);
+      return createHouseholdFloor({
+        userId: user.id,
+        householdId: parsed.data.householdId,
+        name: parsed.data.name,
+        sortOrder: parsed.data.sortOrder,
+      });
     });
     return { ok: true as const, floor } satisfies ActionOk<{ floor: typeof floor }>;
   } catch (error) {
@@ -64,13 +67,15 @@ export async function updateFloorAction(input: unknown) {
   }
   try {
     const user = await requireSessionUser();
-    await requireHouseholdWriteAccess(user.id, parsed.data.householdId);
-    const floor = await updateHouseholdFloor({
-      userId: user.id,
-      householdId: parsed.data.householdId,
-      floorId: parsed.data.floorId,
-      name: parsed.data.name,
-      sortOrder: parsed.data.sortOrder,
+    const floor = await withRlsUserContext(user.id, async () => {
+      await requireHouseholdWriteAccess(user.id, parsed.data.householdId);
+      return updateHouseholdFloor({
+        userId: user.id,
+        householdId: parsed.data.householdId,
+        floorId: parsed.data.floorId,
+        name: parsed.data.name,
+        sortOrder: parsed.data.sortOrder,
+      });
     });
     return { ok: true as const, floor } satisfies ActionOk<{ floor: typeof floor }>;
   } catch (error) {
@@ -86,11 +91,13 @@ export async function deleteFloorAction(input: unknown) {
   }
   try {
     const user = await requireSessionUser();
-    await requireHouseholdWriteAccess(user.id, parsed.data.householdId);
-    const floor = await deleteHouseholdFloor({
-      userId: user.id,
-      householdId: parsed.data.householdId,
-      floorId: parsed.data.floorId,
+    const floor = await withRlsUserContext(user.id, async () => {
+      await requireHouseholdWriteAccess(user.id, parsed.data.householdId);
+      return deleteHouseholdFloor({
+        userId: user.id,
+        householdId: parsed.data.householdId,
+        floorId: parsed.data.floorId,
+      });
     });
     return { ok: true as const, floor } satisfies ActionOk<{ floor: typeof floor }>;
   } catch (error) {
@@ -110,13 +117,15 @@ export async function createSetupRoomAction(input: unknown) {
   }
   try {
     const user = await requireSessionUser();
-    await requireHouseholdWriteAccess(user.id, parsed.data.householdId);
-    const result = await createRoomFromSetupFlow({
-      userId: user.id,
-      householdId: parsed.data.householdId,
-      floorId: parsed.data.floorId,
-      name: parsed.data.name,
-      description: parsed.data.description,
+    const result = await withRlsUserContext(user.id, async () => {
+      await requireHouseholdWriteAccess(user.id, parsed.data.householdId);
+      return createRoomFromSetupFlow({
+        userId: user.id,
+        householdId: parsed.data.householdId,
+        floorId: parsed.data.floorId,
+        name: parsed.data.name,
+        description: parsed.data.description,
+      });
     });
     return { ok: true as const, ...result } satisfies ActionOk<typeof result>;
   } catch (error) {
@@ -136,15 +145,17 @@ export async function createSetupContainerAction(input: unknown) {
   }
   try {
     const user = await requireSessionUser();
-    await requireHouseholdWriteAccess(user.id, parsed.data.householdId);
-    const result = await createContainerFromSetupFlow({
-      userId: user.id,
-      householdId: parsed.data.householdId,
-      floorId: parsed.data.floorId,
-      roomId: parsed.data.roomId ?? null,
-      name: parsed.data.name,
-      code: parsed.data.code,
-      description: parsed.data.description,
+    const result = await withRlsUserContext(user.id, async () => {
+      await requireHouseholdWriteAccess(user.id, parsed.data.householdId);
+      return createContainerFromSetupFlow({
+        userId: user.id,
+        householdId: parsed.data.householdId,
+        floorId: parsed.data.floorId,
+        roomId: parsed.data.roomId ?? null,
+        name: parsed.data.name,
+        code: parsed.data.code,
+        description: parsed.data.description,
+      });
     });
     return { ok: true as const, ...result } satisfies ActionOk<typeof result>;
   } catch (error) {

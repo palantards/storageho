@@ -8,7 +8,8 @@ import { requireHouseholdWriteAccess } from "@/lib/inventory/guards";
 import { STORAGE_BUCKET } from "@/lib/inventory/constants";
 import { analyzeContainerPhotosWithAi } from "@/lib/inventory/ai";
 import { createSupabaseAdminClient } from "@/lib/supabaseServer";
-import { db, schema } from "@/server/db";
+import { dbTenant as db, schema } from "@/server/db";
+import { withRlsUserContext } from "@/server/db/tenant";
 import {
   acceptPhotoSuggestion,
   rejectPhotoSuggestion,
@@ -41,25 +42,35 @@ export async function analyzeContainerPhotosAction(
 
   try {
     const user = await requireSessionUser();
-    await requireHouseholdWriteAccess(user.id, parsed.data.householdId);
-    console.info("[analyzeContainerPhotosAction] start", {
-      householdId: parsed.data.householdId,
-      containerId: parsed.data.containerId,
-      requestedMaxPhotos: parsed.data.maxPhotos,
-      maxSuggestions: parsed.data.maxSuggestions,
-      replacePending: parsed.data.replacePending,
-      userId: user.id,
+    const prep = await withRlsUserContext(user.id, async () => {
+      await requireHouseholdWriteAccess(user.id, parsed.data.householdId);
+      console.info("[analyzeContainerPhotosAction] start", {
+        householdId: parsed.data.householdId,
+        containerId: parsed.data.containerId,
+        requestedMaxPhotos: parsed.data.maxPhotos,
+        maxSuggestions: parsed.data.maxSuggestions,
+        replacePending: parsed.data.replacePending,
+        userId: user.id,
+      });
+
+      const photos = await db.query.photos.findMany({
+        where: and(
+          eq(schema.photos.householdId, parsed.data.householdId),
+          eq(schema.photos.entityType, "container"),
+          eq(schema.photos.entityId, parsed.data.containerId),
+        ),
+        orderBy: [desc(schema.photos.createdAt)],
+        limit: parsed.data.maxPhotos,
+      });
+      const household = await db.query.households.findFirst({
+        where: eq(schema.households.id, parsed.data.householdId),
+        columns: { language: true },
+      });
+
+      return { photos, language: household?.language || "en" };
     });
 
-    const photos = await db.query.photos.findMany({
-      where: and(
-        eq(schema.photos.householdId, parsed.data.householdId),
-        eq(schema.photos.entityType, "container"),
-        eq(schema.photos.entityId, parsed.data.containerId),
-      ),
-      orderBy: [desc(schema.photos.createdAt)],
-      limit: parsed.data.maxPhotos,
-    });
+    const photos = prep.photos;
     console.info("[analyzeContainerPhotosAction] selected photos", {
       householdId: parsed.data.householdId,
       containerId: parsed.data.containerId,
@@ -111,33 +122,28 @@ export async function analyzeContainerPhotosAction(
       return { ok: false, error: "Could not sign photo URLs for analysis" };
     }
 
-    const household = await db.query.households.findFirst({
-      where: eq(schema.households.id, parsed.data.householdId),
-      columns: { language: true },
-    });
-
     const analysis = await analyzeContainerPhotosWithAi({
       signedUrls,
       maxSuggestions: parsed.data.maxSuggestions,
-      language: parsed.data.language || household?.language || "en",
+      language: parsed.data.language || prep.language || "en",
     });
 
-    if (parsed.data.replacePending) {
-      await db
-        .delete(schema.photoSuggestions)
-        .where(
-          and(
-            eq(schema.photoSuggestions.householdId, parsed.data.householdId),
-            eq(schema.photoSuggestions.containerId, parsed.data.containerId),
-            eq(schema.photoSuggestions.status, "pending"),
-          ),
-        );
-    }
-
     const anchorPhotoId = photos[0].id;
-    const inserted =
-      analysis.suggestions.length > 0
-        ? await db
+    const inserted = await withRlsUserContext(user.id, async () => {
+      if (parsed.data.replacePending) {
+        await db
+          .delete(schema.photoSuggestions)
+          .where(
+            and(
+              eq(schema.photoSuggestions.householdId, parsed.data.householdId),
+              eq(schema.photoSuggestions.containerId, parsed.data.containerId),
+              eq(schema.photoSuggestions.status, "pending"),
+            ),
+          );
+      }
+
+      return analysis.suggestions.length > 0
+        ? db
             .insert(schema.photoSuggestions)
             .values(
               analysis.suggestions.map((suggestion) => ({
@@ -154,6 +160,8 @@ export async function analyzeContainerPhotosAction(
             )
             .returning()
         : [];
+    });
+
     console.info("[analyzeContainerPhotosAction] completed", {
       householdId: parsed.data.householdId,
       containerId: parsed.data.containerId,
@@ -197,26 +205,28 @@ export async function updateSuggestionAction(
 
   try {
     const user = await requireSessionUser();
-    await requireHouseholdWriteAccess(user.id, parsed.data.householdId);
+    return withRlsUserContext(user.id, async () => {
+      await requireHouseholdWriteAccess(user.id, parsed.data.householdId);
 
-    if (parsed.data.action === "accept") {
-      const suggestion = await acceptPhotoSuggestion({
+      if (parsed.data.action === "accept") {
+        const suggestion = await acceptPhotoSuggestion({
+          userId: user.id,
+          householdId: parsed.data.householdId,
+          suggestionId: parsed.data.suggestionId,
+          name: parsed.data.name,
+          quantity: parsed.data.quantity,
+          tags: parsed.data.tags,
+        });
+        return { ok: true, suggestion };
+      }
+
+      const suggestion = await rejectPhotoSuggestion({
         userId: user.id,
         householdId: parsed.data.householdId,
         suggestionId: parsed.data.suggestionId,
-        name: parsed.data.name,
-        quantity: parsed.data.quantity,
-        tags: parsed.data.tags,
       });
       return { ok: true, suggestion };
-    }
-
-    const suggestion = await rejectPhotoSuggestion({
-      userId: user.id,
-      householdId: parsed.data.householdId,
-      suggestionId: parsed.data.suggestionId,
     });
-    return { ok: true, suggestion };
   } catch (error) {
     console.error(error);
     return { ok: false, error: "Unable to update suggestion" };

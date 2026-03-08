@@ -3,7 +3,7 @@ import "server-only";
 import { sql } from "drizzle-orm";
 
 import { type SessionUser } from "@/lib/auth";
-import { db, schema } from "@/server/db";
+import { dbAdmin as db, schema } from "@/server/db";
 
 type ProfileDefaults = {
   name?: string | null;

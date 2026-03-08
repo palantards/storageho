@@ -1,23 +1,22 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { z } from "zod";
 
 import type { Locale } from "@/i18n/config";
 import { getMessages } from "@/i18n/getMessages";
 import { t as tt } from "@/i18n/translate";
 import { getSession } from "@/lib/auth";
+import { getOrCreateStripeCustomerId } from "@/lib/billing/customer";
 import { billingState, getSubscriptionFromDb } from "@/lib/billing-state";
 import {
   createBillingPortalSession,
   createCheckoutSession,
-  ensureStripeCustomer,
 } from "@/lib/stripe";
 import {
   getPriceIdForPlan,
   planDefinitions,
   getPlanLabel,
   getPlanPrice,
-  PlanId,
 } from "@/config/billing";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -30,13 +29,15 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { localizedHref } from "@/i18n/routing";
-import { db, schema } from "@/server/db";
+import { findDbUserBySupabaseId } from "@/lib/users";
 
 const fallbackUrl =
   process.env.APP_URL ||
   process.env.NEXT_PUBLIC_APP_URL ||
   process.env.NEXT_PUBLIC_SITE_URL ||
   "http://localhost:3000";
+
+const checkoutPlanSchema = z.enum(["starter", "pro", "business"]);
 
 export default async function ProfileSubscriptionPage({
   params,
@@ -51,44 +52,50 @@ export default async function ProfileSubscriptionPage({
   const t = (key: string, vars?: Record<string, string | number>) =>
     tt(messages, key, vars);
   const session = await getSession();
+  const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);
   const checkoutStatus =
     typeof search?.checkout === "string" ? search.checkout : undefined;
 
   const appPath = localizedHref(locale, "/profile/subscription");
 
   const dbUser = session?.user.id
-    ? await db.query.users.findFirst({
-        where: eq(schema.users.supabaseUserId, session.user.id),
-      })
+    ? await findDbUserBySupabaseId(session.user.id)
     : null;
 
-  let customerId = dbUser?.stripeCustomerId || session?.user.stripeCustomerId;
-  if (!customerId && process.env.STRIPE_SECRET_KEY) {
-    customerId = await ensureStripeCustomer({
-      email: session?.user.email || "",
-      name: session?.user.name || undefined,
-      company: session?.user.company || undefined,
-    });
-    if (dbUser?.id) {
-      await db
-        .update(schema.users)
-        .set({ stripeCustomerId: customerId })
-        .where(eq(schema.users.id, dbUser.id));
-    }
-  }
-  const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);
+  const customerId =
+    stripeConfigured && session?.user.email
+      ? await getOrCreateStripeCustomerId({
+          supabaseUserId: session.user.id,
+          email: session.user.email,
+          name: session.user.name || undefined,
+          company: session.user.company || undefined,
+        })
+      : dbUser?.stripeCustomerId || session?.user.stripeCustomerId || null;
 
-  const subscription = dbUser?.id
-    ? await getSubscriptionFromDb(dbUser.id)
+  const billingUser =
+    session?.user.id && (!dbUser || (customerId && !dbUser.stripeCustomerId))
+      ? await findDbUserBySupabaseId(session.user.id)
+      : dbUser;
+
+  const subscription = billingUser?.id
+    ? await getSubscriptionFromDb(billingUser.id)
     : null;
 
   async function checkoutAction(formData: FormData) {
     "use server";
-    const plan = String(formData.get("plan") ?? "") as PlanId;
+    const plan = checkoutPlanSchema.parse(String(formData.get("plan") ?? ""));
     const userSession = await getSession();
     if (!userSession?.user.email) {
       redirect(localizedHref(locale, "/login"));
     }
+
+    const stripeCustomerId = await getOrCreateStripeCustomerId({
+      supabaseUserId: userSession.user.id,
+      email: userSession.user.email,
+      name: userSession.user.name || undefined,
+      company: userSession.user.company || undefined,
+    });
+
     const priceId = getPriceIdForPlan(plan);
     if (!priceId) {
       throw new Error(`No Stripe price configured for plan ${plan}`);
@@ -99,8 +106,7 @@ export default async function ProfileSubscriptionPage({
       priceId,
       successUrl,
       cancelUrl,
-      customerId: userSession.user.stripeCustomerId,
-      customerEmail: userSession.user.email,
+      customerId: stripeCustomerId,
     });
     redirect(checkout.url);
   }
@@ -108,17 +114,16 @@ export default async function ProfileSubscriptionPage({
   async function portalAction() {
     "use server";
     const userSession = await getSession();
-    const dbUserForPortal = userSession?.user.id
-      ? await db.query.users.findFirst({
-          where: eq(schema.users.supabaseUserId, userSession.user.id),
-        })
-      : null;
-    const stripeCustomerId =
-      dbUserForPortal?.stripeCustomerId || userSession?.user.stripeCustomerId;
-
-    if (!stripeCustomerId) {
-      throw new Error("No Stripe customer id available");
+    if (!userSession?.user.email) {
+      redirect(localizedHref(locale, "/login"));
     }
+
+    const stripeCustomerId = await getOrCreateStripeCustomerId({
+      supabaseUserId: userSession.user.id,
+      email: userSession.user.email,
+      name: userSession.user.name || undefined,
+      company: userSession.user.company || undefined,
+    });
 
     const portal = await createBillingPortalSession({
       customerId: stripeCustomerId,
@@ -133,8 +138,12 @@ export default async function ProfileSubscriptionPage({
     revalidatePath(appPath);
   }
 
-  const state = dbUser?.id
-    ? await billingState({ userId: dbUser.id, stripeCustomerId: customerId, t })
+  const state = billingUser?.id
+    ? await billingState({
+        userId: billingUser.id,
+        stripeCustomerId: customerId,
+        t,
+      })
     : {
         planLabel: t("profile.subscription.freePlan"),
         statusLabel: t("profile.subscription.status.free"),

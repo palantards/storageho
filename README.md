@@ -33,6 +33,11 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
 DATABASE_URL=postgresql://...
+DATABASE_URL_ADMIN=postgresql://...
+DATABASE_URL_RLS=postgresql://...
+DATABASE_SSL_CA=
+DATABASE_SSL_CA_FILE=
+DATABASE_SSL_ALLOW_SELF_SIGNED=false
 ```
 
 3. For AI features:
@@ -54,6 +59,10 @@ Notes:
 - Set `AI_MOCK_MODE=0` in production when `OPENAI_API_KEY` is configured.
 - `AI_DISPATCH_ON_ENQUEUE=1` triggers `/api/jobs/run` automatically when jobs are enqueued.
 - `INTERNAL_APP_URL` should point to your deployed app base URL so dispatch calls reach the job runner endpoint.
+- `DATABASE_URL_ADMIN` is used for migrations/admin/system jobs.
+- `DATABASE_URL_RLS` is used for tenant-scoped application queries that must respect RLS.
+- If your environment uses a private/corporate CA, set `DATABASE_SSL_CA` (PEM) or `DATABASE_SSL_CA_FILE`.
+- Only use `DATABASE_SSL_ALLOW_SELF_SIGNED=true` as a local/dev fallback.
 
 ## 3) Install And Migrate
 

@@ -3,7 +3,7 @@ import "server-only";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { db, schema } from "@/server/db";
+import { dbAdmin as db, schema } from "@/server/db";
 import { createSupabaseAdminClient } from "@/lib/supabaseServer";
 import { analyzePhotoWithAi, embedTextForSearch } from "@/lib/inventory/ai";
 import { STORAGE_BUCKET } from "@/lib/inventory/constants";

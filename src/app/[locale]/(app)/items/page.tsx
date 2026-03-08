@@ -19,15 +19,17 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { Locale } from "@/i18n/config";
-import { getInventoryContext } from "@/lib/inventory/page-context";
-import { parseQuickAddText } from "@/lib/inventory/quick-add";
 import {
-  findOrCreateItemByName,
+  bulkAddItemsFormAction,
+  mergeItemsFormAction,
+} from "@/lib/actions/itemLibrary";
+import { getInventoryContext } from "@/lib/inventory/page-context";
+import {
   listItemPlacements,
   listItems,
   listTags,
-  mergeItems,
 } from "@/lib/inventory/service";
+import { withRlsUserContext } from "@/server/db/tenant";
 
 export default async function ItemsPage({
   params,
@@ -39,6 +41,7 @@ export default async function ItemsPage({
   const { locale } = await params;
   const search = (await searchParams) || {};
   const context = await getInventoryContext(locale);
+  const userId = context.user.id;
   const householdId = context.activeMembership?.household.id;
 
   if (!householdId) {
@@ -50,18 +53,20 @@ export default async function ItemsPage({
 
   const tagFilter = search.tag && search.tag !== "all" ? search.tag : undefined;
 
-  const [items, tags] = await Promise.all([
-    listItems({
-      userId: context.user.id,
-      householdId: activeHouseholdId,
-      q: search.q,
-      tagId: tagFilter,
-    }),
-    listTags({
-      userId: context.user.id,
-      householdId: activeHouseholdId,
-    }),
-  ]);
+  const [items, tags] = await withRlsUserContext(userId, async () =>
+    Promise.all([
+      listItems({
+        userId,
+        householdId: activeHouseholdId,
+        q: search.q,
+        tagId: tagFilter,
+      }),
+      listTags({
+        userId,
+        householdId: activeHouseholdId,
+      }),
+    ]),
+  );
 
   const itemRows: ItemsVirtualizedRow[] = items.map((entry) => ({
     id: entry.item.id,
@@ -72,47 +77,22 @@ export default async function ItemsPage({
 
   const selectedItemId = search.item;
   const placements = selectedItemId
-    ? await listItemPlacements({
-        userId: context.user.id,
-        householdId: activeHouseholdId,
-        itemId: selectedItemId,
-      })
+    ? await withRlsUserContext(userId, async () =>
+        listItemPlacements({
+          userId,
+          householdId: activeHouseholdId,
+          itemId: selectedItemId,
+        }),
+      )
     : [];
-
-  async function bulkAddAction(formData: FormData) {
-    "use server";
-
-    const parsed = parseQuickAddText(String(formData.get("bulkText") || ""));
-    for (const entry of parsed) {
-      const item = await findOrCreateItemByName({
-        userId: context.user.id,
-        householdId: activeHouseholdId,
-        name: entry.name,
-      });
-      await findOrCreateItemByName({
-        userId: context.user.id,
-        householdId: activeHouseholdId,
-        name: item.name,
-      });
-    }
-
-    revalidatePath(`/${locale}/items`);
-  }
-
-  async function mergeItemsAction(formData: FormData) {
-    "use server";
-    const sourceItemId = String(formData.get("sourceItemId") || "");
-    const targetItemId = String(formData.get("targetItemId") || "");
-
-    await mergeItems({
-      userId: context.user.id,
-      householdId: activeHouseholdId,
-      sourceItemId,
-      targetItemId,
-    });
-
-    revalidatePath(`/${locale}/items`);
-  }
+  const bulkAddAction = bulkAddItemsFormAction.bind(null, {
+    locale,
+    householdId: activeHouseholdId,
+  });
+  const mergeItemsAction = mergeItemsFormAction.bind(null, {
+    locale,
+    householdId: activeHouseholdId,
+  });
 
   const duplicates = items.reduce<Record<string, ItemsVirtualizedRow[]>>(
     (acc, row) => {

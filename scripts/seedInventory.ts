@@ -1,6 +1,6 @@
 ﻿import { sql } from "drizzle-orm";
 
-import { db } from "@/server/db";
+import { dbAdmin as db } from "@/server/db";
 
 async function run() {
   const seedUser = process.env.SEED_USER_ID;

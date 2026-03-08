@@ -14,7 +14,7 @@ import {
 } from "drizzle-orm";
 
 import { embedTextForSearch } from "@/lib/inventory/ai";
-import { db, schema } from "@/server/db";
+import { dbTenant as db, schema } from "@/server/db";
 import { dispatchAiRunner, enqueueEmbeddingJob } from "@/lib/inventory/ai-jobs";
 import {
   normalizeSuggestionQuantity,

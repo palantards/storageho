@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { requireSessionUser } from "@/lib/inventory/auth";
 import { setActiveHousehold } from "@/lib/inventory/service";
+import { withRlsUserContext } from "@/server/db/tenant";
 
 const setActiveHouseholdSchema = z.object({
   householdId: z.string().uuid(),
@@ -18,7 +19,9 @@ export async function setActiveHouseholdAction(
   }
   try {
     const user = await requireSessionUser();
-    await setActiveHousehold(user.id, parsed.data.householdId);
+    await withRlsUserContext(user.id, async () => {
+      await setActiveHousehold(user.id, parsed.data.householdId);
+    });
     return { ok: true };
   } catch (error) {
     console.error(error);

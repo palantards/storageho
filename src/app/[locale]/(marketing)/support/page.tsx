@@ -3,6 +3,7 @@ import { t as tt } from "@/i18n/translate";
 import { getSession } from "@/lib/auth";
 import { Locale } from "@/i18n/config";
 import { getPublicTicketsPage } from "@/lib/support";
+import { findDbUserIdBySupabaseId } from "@/lib/users";
 import OngoingTicketsBoard from "@/components/support/OngoingTicketBoard";
 import Support from "@/components/support/Support";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@radix-ui/react-tabs";
@@ -20,15 +21,17 @@ export default async function SupportPage({
     tt(messages, key, vars);
 
   const session = await getSession();
-  const viewerUserId = session?.user?.id;
+  const viewerDbUserId = session?.user?.id
+    ? (await findDbUserIdBySupabaseId(session.user.id))?.id
+    : undefined;
 
   const [suggestions, bugs] = await Promise.all([
     getPublicTicketsPage({
       category: "suggestion",
       limit: PRELOAD,
-      viewerUserId,
+      viewerDbUserId,
     }),
-    getPublicTicketsPage({ category: "bug", limit: PRELOAD, viewerUserId }),
+    getPublicTicketsPage({ category: "bug", limit: PRELOAD, viewerDbUserId }),
   ]);
 
   return (

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireSessionUser } from "@/lib/inventory/auth";
 import { requireHouseholdWriteAccess } from "@/lib/inventory/guards";
 import { moveItemBetweenContainers } from "@/lib/inventory/service";
+import { withRlsUserContext } from "@/server/db/tenant";
 
 const moveSchema = z.object({
   householdId: z.string().uuid(),
@@ -24,15 +25,17 @@ export async function moveItemAction(
 
   try {
     const user = await requireSessionUser();
-    await requireHouseholdWriteAccess(user.id, parsed.data.householdId);
+    await withRlsUserContext(user.id, async () => {
+      await requireHouseholdWriteAccess(user.id, parsed.data.householdId);
 
-    await moveItemBetweenContainers({
-      userId: user.id,
-      householdId: parsed.data.householdId,
-      itemId: parsed.data.itemId,
-      fromContainerId: parsed.data.fromContainerId,
-      toContainerId: parsed.data.toContainerId,
-      quantity: parsed.data.quantity,
+      await moveItemBetweenContainers({
+        userId: user.id,
+        householdId: parsed.data.householdId,
+        itemId: parsed.data.itemId,
+        fromContainerId: parsed.data.fromContainerId,
+        toContainerId: parsed.data.toContainerId,
+        quantity: parsed.data.quantity,
+      });
     });
 
     return { ok: true };

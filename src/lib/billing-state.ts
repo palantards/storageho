@@ -1,7 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 
 import { formatPlanName, formatSubscriptionStatus } from "@/config/billing";
-import { db, schema } from "@/server/db";
+import { dbAdmin as db, schema } from "@/server/db";
 import { fetchLatestStripeSubscription } from "@/lib/stripe";
 import { upsertSubscriptionFromStripe } from "@/server/stripe/webhookHandlers";
 

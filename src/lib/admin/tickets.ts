@@ -1,5 +1,5 @@
 // src/lib/admin/tickets.ts
-import { db } from "@/server/db";
+import { dbAdmin as db } from "@/server/db";
 import { tickets, users, profiles, ticketVotes } from "@/server/db/schema";
 import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 
@@ -51,7 +51,7 @@ export async function getAdminTickets(opts: {
     })
     .from(tickets)
     .leftJoin(users, eq(tickets.userId, users.id))
-    .leftJoin(profiles, eq(users.id, profiles.userId))
+    .leftJoin(profiles, eq(users.supabaseUserId, profiles.userId))
     .where(where)
     .orderBy(desc(tickets.createdAt))
     .limit(limit)

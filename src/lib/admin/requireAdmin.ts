@@ -1,5 +1,5 @@
 import { getSession, type Session } from "@/lib/auth";
-import { db } from "@/server/db";
+import { dbAdmin as db } from "@/server/db";
 import { users } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 

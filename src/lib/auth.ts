@@ -2,8 +2,9 @@ import "server-only";
 
 import { eq, sql } from "drizzle-orm";
 
+import { getOrCreateStripeCustomerId } from "@/lib/billing/customer";
 import { ensureUserRecord } from "@/lib/user-sync";
-import { db, schema } from "@/server/db";
+import { dbAdmin as db, schema } from "@/server/db";
 import {
   fetchSupabaseUser,
   getStoredTokens,
@@ -14,7 +15,6 @@ import {
   supabaseSignOut,
   SupabaseUser,
 } from "./supabase";
-import { ensureStripeCustomer } from "./stripe";
 
 export interface SessionUser {
   id: string;
@@ -132,15 +132,12 @@ export async function getSession(): Promise<Session | null> {
 
         if (process.env.STRIPE_SECRET_KEY && !dbUser.stripeCustomerId) {
           try {
-            const newCustomerId = await ensureStripeCustomer({
+            const newCustomerId = await getOrCreateStripeCustomerId({
+              supabaseUserId: user.id,
               email: user.email,
               name: (metadata?.name as string | undefined) ?? undefined,
               company: metadataCompany,
             });
-            await db
-              .update(schema.users)
-              .set({ stripeCustomerId: newCustomerId })
-              .where(eq(schema.users.id, dbUser.id));
             dbUser.stripeCustomerId = newCustomerId;
           } catch (error) {
             console.error(

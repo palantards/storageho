@@ -14,7 +14,9 @@ if (!stripeApiKey) {
 }
 
 // Initialize Stripe SDK
-const stripe = new Stripe(stripeApiKey, { apiVersion: "2025-12-15.clover" });
+const stripe = new Stripe(stripeApiKey, {
+  apiVersion: Stripe.API_VERSION as Stripe.LatestApiVersion,
+});
 
 // Define the list of events our webhook should listen to
 const WEBHOOK_EVENTS = [

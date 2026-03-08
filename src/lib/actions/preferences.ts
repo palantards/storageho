@@ -7,6 +7,7 @@ import {
   setActiveLocationPreference,
   setActiveRoomPreference,
 } from "@/lib/inventory/service";
+import { withRlsUserContext } from "@/server/db/tenant";
 
 const preferenceSchema = z.object({
   householdId: z.string().uuid(),
@@ -24,20 +25,21 @@ export async function setActivePreferenceAction(
 
   try {
     const user = await requireSessionUser();
-
-    if (parsed.data.roomId !== undefined) {
-      await setActiveRoomPreference({
-        userId: user.id,
-        householdId: parsed.data.householdId,
-        roomId: parsed.data.roomId ?? null,
-      });
-    } else {
-      await setActiveLocationPreference({
-        userId: user.id,
-        householdId: parsed.data.householdId,
-        locationId: parsed.data.locationId ?? null,
-      });
-    }
+    await withRlsUserContext(user.id, async () => {
+      if (parsed.data.roomId !== undefined) {
+        await setActiveRoomPreference({
+          userId: user.id,
+          householdId: parsed.data.householdId,
+          roomId: parsed.data.roomId ?? null,
+        });
+      } else {
+        await setActiveLocationPreference({
+          userId: user.id,
+          householdId: parsed.data.householdId,
+          locationId: parsed.data.locationId ?? null,
+        });
+      }
+    });
 
     return { ok: true };
   } catch (error) {

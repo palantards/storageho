@@ -10,6 +10,7 @@ import {
   listRecentContainers,
   listRoomsWithFloor,
 } from "@/lib/inventory/service";
+import { withRlsUserContext } from "@/server/db/tenant";
 import { BoxSuggestionsPanel } from "@/components/inventory/BoxSuggestionsPanel";
 import { MoveItemDialog } from "@/components/inventory/MoveItemDialog";
 import { ScanModePanel } from "@/components/inventory/ScanModePanel";
@@ -27,6 +28,7 @@ export default async function ScanModePage({
   const { locale } = await params;
   const search = (await searchParams) || {};
   const context = await getInventoryContext(locale);
+  const userId = context.user.id;
   const householdId = context.activeMembership?.household.id;
 
   if (!householdId) {
@@ -35,10 +37,12 @@ export default async function ScanModePage({
     );
   }
 
-  const rooms = await listRoomsWithFloor({
-    userId: context.user.id,
-    householdId,
-  });
+  const rooms = await withRlsUserContext(userId, async () =>
+    listRoomsWithFloor({
+      userId,
+      householdId,
+    }),
+  );
 
   const selectedRoomId =
     (search.roomId && rooms.some((entry) => entry.room.id === search.roomId)
@@ -50,12 +54,14 @@ export default async function ScanModePage({
         ? context.preferences.activeRoomId
         : rooms[0]?.room.id) || undefined;
 
-  const recentBoxes = await listRecentContainers({
-    userId: context.user.id,
-    householdId,
-    roomId: selectedRoomId,
-    limit: 16,
-  });
+  const recentBoxes = await withRlsUserContext(userId, async () =>
+    listRecentContainers({
+      userId,
+      householdId,
+      roomId: selectedRoomId,
+      limit: 16,
+    }),
+  );
 
   const selectedBoxId =
     (search.boxId &&
@@ -64,33 +70,37 @@ export default async function ScanModePage({
       : recentBoxes[0]?.container.id) || undefined;
 
   const activeBox = selectedBoxId
-    ? await getContainerById({
-        userId: context.user.id,
-        householdId,
-        containerId: selectedBoxId,
-      })
+    ? await withRlsUserContext(userId, async () =>
+        getContainerById({
+          userId,
+          householdId,
+          containerId: selectedBoxId,
+        }),
+      )
     : null;
 
   const [itemsInBox, moveTargets, suggestions] = activeBox?.container.id
-    ? await Promise.all([
-        listContainerItems({
-          userId: context.user.id,
-          householdId,
-          containerId: activeBox.container.id,
-        }),
-        listContainersForHousehold({
-          userId: context.user.id,
-          householdId,
-          excludeContainerId: activeBox.container.id,
-        }),
-        listPhotoSuggestions({
-          userId: context.user.id,
-          householdId,
-          containerId: activeBox.container.id,
-          status: "pending",
-          limit: 25,
-        }),
-      ])
+    ? await withRlsUserContext(userId, async () =>
+        Promise.all([
+          listContainerItems({
+            userId,
+            householdId,
+            containerId: activeBox.container.id,
+          }),
+          listContainersForHousehold({
+            userId,
+            householdId,
+            excludeContainerId: activeBox.container.id,
+          }),
+          listPhotoSuggestions({
+            userId,
+            householdId,
+            containerId: activeBox.container.id,
+            status: "pending",
+            limit: 25,
+          }),
+        ]),
+      )
     : [[], [], []];
 
   return (

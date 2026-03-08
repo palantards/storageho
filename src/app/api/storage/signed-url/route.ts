@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { STORAGE_BUCKET } from "@/lib/inventory/constants";
 import { createSupabaseAdminClient } from "@/lib/supabaseServer";
 import { requireHouseholdMembership } from "@/lib/inventory/guards";
+import { withRlsUserContext } from "@/server/db/tenant";
 
 const pathSchema = z
   .string()
@@ -30,7 +31,9 @@ export async function POST(request: NextRequest) {
   const householdId = path.split("/")[1];
 
   try {
-    await requireHouseholdMembership(session.user.id, householdId);
+    await withRlsUserContext(session.user.id, async () => {
+      await requireHouseholdMembership(session.user.id, householdId);
+    });
   } catch {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

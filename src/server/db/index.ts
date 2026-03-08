@@ -1,29 +1,24 @@
 import "server-only";
 
-import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
-
 import * as schema from "./schema";
+import { dbAdmin, poolAdmin } from "./admin";
+import { getRlsTenantTx } from "./tenant";
 
-const connectionString = process.env.DATABASE_URL;
+const dbTenant = new Proxy({} as typeof dbAdmin, {
+  get(_target, prop, receiver) {
+    const scopedTx = getRlsTenantTx();
+    if (!scopedTx) {
+      throw new Error("Tenant DB accessed without withRlsUserContext");
+    }
 
-if (!connectionString) {
-  throw new Error("DATABASE_URL is not set");
-}
+    const value = Reflect.get(scopedTx as object, prop, receiver);
+    if (typeof value === "function") {
+      return value.bind(scopedTx);
+    }
+    return value;
+  },
+});
 
-const globalForDb = globalThis as unknown as {
-  db?: NodePgDatabase<typeof schema>;
-  pool?: Pool;
-};
-
-const pool = globalForDb.pool ?? new Pool({ connectionString });
-const db = globalForDb.db ?? drizzle(pool, { schema });
-
-if (process.env.NODE_ENV !== "production") {
-  globalForDb.pool = pool;
-  globalForDb.db = db;
-}
-
-export { db, pool, schema };
+export { dbAdmin, dbTenant, poolAdmin as pool, schema };
 export { timestampColumns } from "./schema";
 

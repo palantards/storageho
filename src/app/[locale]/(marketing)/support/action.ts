@@ -1,7 +1,8 @@
 "use server";
 import { getSession } from "@/lib/auth";
-import { getPublicTicketsPage, PublicTicketCategory } from "@/lib/support";
-import { db, schema } from "@/server/db";
+import { getPublicTicketsPage } from "@/lib/support";
+import { findDbUserBySupabaseId, findDbUserIdBySupabaseId } from "@/lib/users";
+import { dbAdmin as db, schema } from "@/server/db";
 import { ticketVotes } from "@/server/db/schema";
 import { and, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
@@ -16,9 +17,25 @@ async function voteAction(formData: FormData) {
   }
 
   const ticketIdValue = ticketId.data;
-  const dbUser = await db.query.users.findFirst({
-    where: eq(schema.users.supabaseUserId, session.user.id),
+  const ticket = await db.query.tickets.findFirst({
+    where: eq(schema.tickets.id, ticketIdValue),
+    columns: {
+      id: true,
+      isPublic: true,
+      category: true,
+      status: true,
+    },
   });
+  if (
+    !ticket ||
+    !ticket.isPublic ||
+    (ticket.category !== "bug" && ticket.category !== "suggestion") ||
+    ticket.status === "closed"
+  ) {
+    redirect(`/`);
+  }
+
+  const dbUser = await findDbUserBySupabaseId(session.user.id);
   if (!dbUser) redirect(`/`);
 
   const existingVote = await db.query.ticketVotes.findFirst({
@@ -57,14 +74,16 @@ async function loadPublicTicketsAction(input: z.infer<typeof Schema>) {
   const { category, limit, cursorCreatedAt, cursorId } = Schema.parse(input);
 
   const session = await getSession();
-  const viewerUserId = session?.user?.id;
+  const viewerDbUserId = session?.user?.id
+    ? (await findDbUserIdBySupabaseId(session.user.id))?.id
+    : undefined;
 
   return getPublicTicketsPage({
-    category: category as PublicTicketCategory,
+    category,
     limit,
     cursorCreatedAt: cursorCreatedAt ? new Date(cursorCreatedAt) : undefined,
     cursorId,
-    viewerUserId,
+    viewerDbUserId,
   });
 }
 

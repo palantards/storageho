@@ -1,6 +1,4 @@
 import Link from "next/link";
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 
 import { SectionDivider } from "@/components/inventory/SectionDivider";
 import { PageFrame } from "@/components/inventory/PageFrame";
@@ -15,22 +13,22 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { Locale } from "@/i18n/config";
+import {
+  bulkCreateRoomPathsFormAction,
+  createRoomContainerFormAction,
+  deleteRoomContainerFormAction,
+  deleteRoomFormAction,
+  setRoomContainerArchivedFormAction,
+} from "@/lib/actions/roomDetails";
 import { getInventoryContext } from "@/lib/inventory/page-context";
 import {
-  createContainerPathInRoom,
-  createContainer,
-  deleteContainer,
-  deleteRoom,
   getRoomById,
   listContainersForRoom,
   listTags,
-  setContainerArchived,
 } from "@/lib/inventory/service";
 import {
-  createContainerPathSchema,
-  createContainerSchema,
-  deleteEntitySchema,
 } from "@/lib/inventory/validation";
+import { withRlsUserContext } from "@/server/db/tenant";
 
 export default async function RoomPage({
   params,
@@ -42,6 +40,7 @@ export default async function RoomPage({
   const { locale, roomId } = await params;
   const search = (await searchParams) || {};
   const context = await getInventoryContext(locale);
+  const userId = context.user.id;
   const householdId = context.activeMembership?.household.id;
 
   if (!householdId) {
@@ -49,139 +48,56 @@ export default async function RoomPage({
   }
   const activeHouseholdId = householdId;
 
-  const room = await getRoomById({
-    userId: context.user.id,
-    householdId: activeHouseholdId,
-    roomId,
-  });
+  const room = await withRlsUserContext(userId, async () =>
+    getRoomById({
+      userId,
+      householdId: activeHouseholdId,
+      roomId,
+    }),
+  );
 
   if (!room) {
     return <div className="text-sm text-muted-foreground">Room not found.</div>;
   }
+  const createContainerAction = createRoomContainerFormAction.bind(null, {
+    locale,
+    householdId: activeHouseholdId,
+    roomId,
+  });
+  const bulkCreatePathsAction = bulkCreateRoomPathsFormAction.bind(null, {
+    locale,
+    householdId: activeHouseholdId,
+    roomId,
+  });
+  const archiveContainerAction = setRoomContainerArchivedFormAction.bind(null, {
+    locale,
+    householdId: activeHouseholdId,
+    roomId,
+  });
+  const deleteContainerAction = deleteRoomContainerFormAction.bind(null, {
+    locale,
+    householdId: activeHouseholdId,
+    roomId,
+  });
+  const deleteRoomAction = deleteRoomFormAction.bind(null, {
+    locale,
+    householdId: activeHouseholdId,
+    roomId,
+    canvasHouseholdId: activeHouseholdId,
+  });
 
-  async function createContainerAction(formData: FormData) {
-    "use server";
-
-    const parsed = createContainerSchema.parse({
-      householdId,
-      roomId,
-      parentContainerId:
-        String(formData.get("parentContainerId") || "") === "__root__"
-          ? null
-          : String(formData.get("parentContainerId") || "") || null,
-      name: String(formData.get("name") || ""),
-      code: String(formData.get("code") || ""),
-      description: String(formData.get("description") || ""),
-    });
-
-    await createContainer({
-      userId: context.user.id,
-      householdId: parsed.householdId,
-      roomId: parsed.roomId,
-      parentContainerId: parsed.parentContainerId,
-      name: parsed.name,
-      code: parsed.code,
-      description: parsed.description,
-    });
-
-    revalidatePath(`/${locale}/rooms/${roomId}`);
-  }
-
-  async function bulkCreatePathsAction(formData: FormData) {
-    "use server";
-
-    const roomParsed = createContainerPathSchema.parse({
-      householdId,
-      roomId,
-      rootParentContainerId:
-        String(formData.get("rootParentContainerId") || "") === "__root__"
-          ? null
-          : String(formData.get("rootParentContainerId") || "") || null,
-      path: "__placeholder__",
-    });
-
-    const raw = String(formData.get("paths") || "");
-    const lines = raw
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .slice(0, 80);
-
-    if (!lines.length) {
-      throw new Error("Add at least one path line");
-    }
-
-    for (const path of lines) {
-      await createContainerPathInRoom({
-        userId: context.user.id,
-        householdId: roomParsed.householdId,
-        roomId: roomParsed.roomId,
-        rootParentContainerId: roomParsed.rootParentContainerId ?? null,
-        path,
-      });
-    }
-
-    revalidatePath(`/${locale}/rooms/${roomId}`);
-  }
-
-  async function archiveContainerAction(formData: FormData) {
-    "use server";
-
-    const parsed = deleteEntitySchema.parse({
-      householdId,
-      id: String(formData.get("containerId") || ""),
-    });
-    const archived = String(formData.get("archived") || "0") === "1";
-
-    await setContainerArchived({
-      userId: context.user.id,
-      householdId: parsed.householdId,
-      containerId: parsed.id,
-      archived,
-    });
-
-    revalidatePath(`/${locale}/rooms/${roomId}`);
-  }
-
-  async function deleteContainerAction(formData: FormData) {
-    "use server";
-
-    const parsed = deleteEntitySchema.parse({
-      householdId,
-      id: String(formData.get("containerId") || ""),
-    });
-
-    await deleteContainer({
-      userId: context.user.id,
-      householdId: parsed.householdId,
-      containerId: parsed.id,
-    });
-
-    revalidatePath(`/${locale}/rooms/${roomId}`);
-  }
-
-  async function deleteRoomAction() {
-    "use server";
-
-    await deleteRoom({
-      userId: context.user.id,
-      householdId: activeHouseholdId,
-      roomId,
-    });
-
-    redirect(`/${locale}/households/${activeHouseholdId}/canvas`);
-  }
-
-  const [containers, tags] = await Promise.all([
-    listContainersForRoom({
-      userId: context.user.id,
-      householdId: activeHouseholdId,
-      roomId,
-      includeArchived: search.archived === "1",
-      tagId: search.tag || undefined,
-    }),
-    listTags({ userId: context.user.id, householdId: activeHouseholdId }),
-  ]);
+  const [containers, tags] = await withRlsUserContext(userId, async () =>
+    Promise.all([
+      listContainersForRoom({
+        userId,
+        householdId: activeHouseholdId,
+        roomId,
+        includeArchived: search.archived === "1",
+        tagId: search.tag || undefined,
+      }),
+      listTags({ userId, householdId: activeHouseholdId }),
+    ]),
+  );
 
   return (
     <PageFrame className="space-y-6">

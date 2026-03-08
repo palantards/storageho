@@ -14,6 +14,7 @@ import {
   listHouseholdFloors,
   listRoomsWithFloor,
 } from "@/lib/inventory/service";
+import { withRlsUserContext } from "@/server/db/tenant";
 
 export default async function HouseholdCanvasPage({
   params,
@@ -27,39 +28,48 @@ export default async function HouseholdCanvasPage({
     return value === key ? fallback : value;
   };
   const context = await getInventoryContext(locale);
+  const userId = context.user.id;
 
-  const household = await getHouseholdById({
-    userId: context.user.id,
-    householdId,
-  });
+  const household = await withRlsUserContext(userId, async () =>
+    getHouseholdById({
+      userId,
+      householdId,
+    }),
+  );
 
   if (!household) {
     return <div className="text-sm text-muted-foreground">Household not found.</div>;
   }
 
-  await ensureHouseholdFloorsInitialized({
-    userId: context.user.id,
-    householdId,
-  });
+  await withRlsUserContext(userId, async () =>
+    ensureHouseholdFloorsInitialized({
+      userId,
+      householdId,
+    }),
+  );
 
-  const [floors, rooms, containers] = await Promise.all([
-    listHouseholdFloors({
-      userId: context.user.id,
-      householdId,
-    }),
-    listRoomsWithFloor({
-      userId: context.user.id,
-      householdId,
-      includeSystem: true,
-      limit: 5000,
-    }),
-    listContainersWithRoomFloor({
-      userId: context.user.id,
-      householdId,
-      includeArchived: false,
-      limit: 5000,
-    }),
-  ]);
+  const [floors, rooms, containers] = await withRlsUserContext(
+    userId,
+    async () =>
+      Promise.all([
+        listHouseholdFloors({
+          userId,
+          householdId,
+        }),
+        listRoomsWithFloor({
+          userId,
+          householdId,
+          includeSystem: true,
+          limit: 5000,
+        }),
+        listContainersWithRoomFloor({
+          userId,
+          householdId,
+          includeArchived: false,
+          limit: 5000,
+        }),
+      ]),
+  );
 
   return (
     <PageFrame className="space-y-6">

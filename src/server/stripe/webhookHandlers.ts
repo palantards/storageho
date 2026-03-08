@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import Stripe from "stripe";
 import { eq } from "drizzle-orm";
 
-import { db, schema } from "../db";
+import { dbAdmin as db, schema } from "../db";
 
 const { subscriptions, users, webhookEvents } = schema;
 

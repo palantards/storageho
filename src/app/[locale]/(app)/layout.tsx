@@ -4,6 +4,7 @@ import type { Locale } from "@/i18n/config";
 import { getSession } from "@/lib/auth";
 import { AppShell } from "@/components/shell/AppShell";
 import { getActiveMembershipContext } from "@/lib/inventory/service";
+import { withRlsUserContext } from "@/server/db/tenant";
 
 export default async function AppLayout({
   children,
@@ -19,7 +20,9 @@ export default async function AppLayout({
 
   if (!session.user) redirect(`/${locale}/login`);
 
-  const membershipContext = await getActiveMembershipContext(session.user.id);
+  const membershipContext = await withRlsUserContext(session.user.id, async () =>
+    getActiveMembershipContext(session.user.id),
+  );
 
   return (
     <AppShell

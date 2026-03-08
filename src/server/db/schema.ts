@@ -678,6 +678,29 @@ export const webhookEvents = pgTable(
   }),
 );
 
+export const requestRateLimits = pgTable(
+  "request_rate_limits",
+  {
+    scope: text("scope").notNull(),
+    identifier: text("identifier").notNull(),
+    bucketStart: timestamp("bucket_start", { withTimezone: true }).notNull(),
+    count: integer("count").notNull().default(1),
+    ...timestampColumns(),
+  },
+  (table) => ({
+    pk: primaryKey({
+      columns: [table.scope, table.identifier, table.bucketStart],
+    }),
+    bucketStartIdx: index("request_rate_limits_bucket_start_idx").on(
+      table.bucketStart,
+    ),
+    scopeBucketIdx: index("request_rate_limits_scope_bucket_idx").on(
+      table.scope,
+      table.bucketStart,
+    ),
+  }),
+);
+
 export const supportRequests = pgTable(
   "support_requests",
   {

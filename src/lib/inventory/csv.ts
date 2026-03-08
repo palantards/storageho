@@ -1,7 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 
 import { enqueueEmbeddingJob } from "@/lib/inventory/ai-jobs";
-import { db, schema } from "@/server/db";
+import { dbTenant as db, schema } from "@/server/db";
 import { logActivity } from "@/lib/inventory/service";
 import {
   type InventoryCsvRow,

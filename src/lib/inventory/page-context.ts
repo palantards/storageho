@@ -6,16 +6,19 @@ import {
   getActiveMembershipContext,
   claimPendingInvitesForUser,
 } from "@/lib/inventory/service";
+import { withRlsUserContext } from "@/server/db/tenant";
 
 export async function getInventoryContext(locale: Locale) {
   const user = await requireSessionUser(locale);
 
-  await claimPendingInvitesForUser({
-    userId: user.id,
-    email: user.email,
-  });
+  const context = await withRlsUserContext(user.id, async () => {
+    await claimPendingInvitesForUser({
+      userId: user.id,
+      email: user.email,
+    });
 
-  const context = await getActiveMembershipContext(user.id);
+    return getActiveMembershipContext(user.id);
+  });
 
   return {
     user,

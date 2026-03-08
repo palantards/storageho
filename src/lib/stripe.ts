@@ -1,13 +1,21 @@
 import Stripe from "stripe";
 
-const stripeSecret = process.env.STRIPE_SECRET_KEY;
-// Initialize Stripe client if key is available
-const stripe = stripeSecret
-  ? new Stripe(stripeSecret, { apiVersion: "2025-12-15.clover" })
-  : undefined;
+import { getStripe } from "@/lib/stripe/server";
 
-if (!stripeSecret) {
-  console.warn("Stripe secret key not set – Stripe API calls are disabled.");
+const SUPABASE_USER_METADATA_KEY = "supabase_user_id";
+
+function stripeClient() {
+  return getStripe();
+}
+
+function buildCustomerMetadata(input: {
+  supabaseUserId: string;
+  company?: string;
+}) {
+  return {
+    [SUPABASE_USER_METADATA_KEY]: input.supabaseUserId,
+    ...(input.company ? { company: input.company } : {}),
+  };
 }
 
 /**
@@ -15,30 +23,76 @@ if (!stripeSecret) {
  * Returns the Stripe Customer ID.
  */
 export async function ensureStripeCustomer({
+  supabaseUserId,
   email,
   name,
   company,
 }: {
+  supabaseUserId: string;
   email: string;
   name?: string;
   company?: string;
 }): Promise<string> {
-  if (!stripe) {
-    throw new Error("Stripe is not configured (missing STRIPE_SECRET_KEY)");
-  }
-  // Try to find an existing customer by email to avoid duplicates
-  const existingCustomers = await stripe.customers.search({
-    query: `email:'${email}'`,
+  const stripe = stripeClient();
+
+  const metadataMatch = await stripe.customers.search({
+    query: `metadata['${SUPABASE_USER_METADATA_KEY}']:'${supabaseUserId}'`,
+    limit: 1,
   });
-  if (existingCustomers.data.length > 0) {
-    const existing = existingCustomers.data[0];
-    return existing.id;
+
+  const existingCustomer = metadataMatch.data[0];
+  if (existingCustomer) {
+    const nextName = name ?? existingCustomer.name ?? undefined;
+    const nextMetadata = {
+      ...existingCustomer.metadata,
+      ...buildCustomerMetadata({ supabaseUserId, company }),
+    };
+    const needsUpdate =
+      existingCustomer.email !== email ||
+      existingCustomer.name !== nextName ||
+      existingCustomer.metadata?.[SUPABASE_USER_METADATA_KEY] !==
+        supabaseUserId ||
+      (company ? existingCustomer.metadata?.company !== company : false);
+
+    if (needsUpdate) {
+      await stripe.customers.update(existingCustomer.id, {
+        email,
+        name: nextName,
+        metadata: nextMetadata,
+      });
+    }
+
+    return existingCustomer.id;
   }
-  // Create a new customer with the provided info
+
+  const emailMatches = await stripe.customers.list({
+    email,
+    limit: 10,
+  });
+
+  const legacyCustomer =
+    emailMatches.data.length === 1 &&
+    !emailMatches.data[0].metadata?.[SUPABASE_USER_METADATA_KEY]
+      ? emailMatches.data[0]
+      : null;
+
+  if (legacyCustomer) {
+    await stripe.customers.update(legacyCustomer.id, {
+      email,
+      name: name ?? legacyCustomer.name ?? undefined,
+      metadata: {
+        ...legacyCustomer.metadata,
+        ...buildCustomerMetadata({ supabaseUserId, company }),
+      },
+    });
+
+    return legacyCustomer.id;
+  }
+
   const customer = await stripe.customers.create({
     email,
     name,
-    metadata: company ? { company } : undefined,
+    metadata: buildCustomerMetadata({ supabaseUserId, company }),
   });
   return customer.id;
 }
@@ -52,18 +106,14 @@ export async function createCheckoutSession({
   successUrl,
   cancelUrl,
   customerId,
-  customerEmail,
 }: {
   priceId: string;
   successUrl: string;
   cancelUrl: string;
-  customerId?: string;
-  customerEmail?: string;
+  customerId: string;
 }) {
-  if (!stripe) {
-    throw new Error("Stripe is not configured (missing STRIPE_SECRET_KEY)");
-  }
-  // Ensure the success URL contains the session_id if not already present
+  const stripe = stripeClient();
+
   const successWithSession =
     successUrl.includes("{CHECKOUT_SESSION_ID}") ||
     successUrl.includes("session_id=")
@@ -77,11 +127,9 @@ export async function createCheckoutSession({
     success_url: successWithSession,
     cancel_url: cancelUrl,
     line_items: [{ price: priceId, quantity: 1 }],
-    // Use existing customer if we have one, otherwise let Stripe create a new customer using email
-    ...(customerId
-      ? { customer: customerId }
-      : { customer_email: customerEmail }),
+    customer: customerId,
   });
+
   return { id: session.id, url: session.url! };
 }
 
@@ -96,9 +144,7 @@ export async function createBillingPortalSession({
   customerId: string;
   returnUrl: string;
 }) {
-  if (!stripe) {
-    throw new Error("Stripe is not configured (missing STRIPE_SECRET_KEY)");
-  }
+  const stripe = stripeClient();
   const portalSession = await stripe.billingPortal.sessions.create({
     customer: customerId,
     return_url: returnUrl,
@@ -111,17 +157,13 @@ export async function createBillingPortalSession({
  * Used to repair missing subscription records or to get updated status.
  */
 export async function fetchLatestStripeSubscription(
-  customerId: string
+  customerId: string,
 ): Promise<Stripe.Subscription | null> {
-  if (!stripe) {
-    throw new Error("Stripe is not configured (missing STRIPE_SECRET_KEY)");
-  }
+  const stripe = stripeClient();
   const subs = await stripe.subscriptions.list({
     customer: customerId,
     status: "all",
     limit: 1,
   });
-  if (subs.data.length === 0) return null;
-  return subs.data[0];
+  return subs.data[0] ?? null;
 }
-

@@ -1,6 +1,6 @@
-import { db } from "@/server/db";
+import { dbAdmin as db } from "@/server/db";
 import { tickets, ticketVotes } from "@/server/db/schema";
-import { and, desc, eq, lt, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, ne, or, sql } from "drizzle-orm";
 
 export type PublicTicketCategory = "support" | "suggestion" | "bug";
 
@@ -11,7 +11,7 @@ export type PublicTicketItem = {
   category: string;
   status: string;
   isPublic: boolean;
-  createdAt: string; // ISO
+  createdAt: string;
   voteCount: number;
   userHasVoted: boolean;
 };
@@ -27,9 +27,9 @@ export async function getPublicTicketsPage(opts: {
   limit: number;
   cursorCreatedAt?: Date;
   cursorId?: string;
-  viewerUserId?: string; // optional: mark userHasVoted
+  viewerDbUserId?: string;
 }): Promise<TicketsPage> {
-  const { category, limit, cursorCreatedAt, cursorId, viewerUserId } = opts;
+  const { category, limit, cursorCreatedAt, cursorId, viewerDbUserId } = opts;
 
   const cursorWhere =
     cursorCreatedAt && cursorId
@@ -39,7 +39,6 @@ export async function getPublicTicketsPage(opts: {
         )
       : undefined;
 
-  // Fetch limit+1 to detect hasMore
   const rows = await db
     .select({
       ticket: tickets,
@@ -62,21 +61,19 @@ export async function getPublicTicketsPage(opts: {
   const hasMore = rows.length > limit;
   const pageRows = hasMore ? rows.slice(0, limit) : rows;
 
-  // Mark userHasVoted if viewer is logged in
   let votedSet = new Set<string>();
-  if (viewerUserId && pageRows.length) {
-    const ids = pageRows.map((r) => r.ticket.id);
+  if (viewerDbUserId && pageRows.length) {
+    const ids = pageRows.map((row) => row.ticket.id);
     const votes = await db
       .select({ ticketId: ticketVotes.ticketId })
       .from(ticketVotes)
       .where(
         and(
-          eq(ticketVotes.userId, viewerUserId),
-          sql`${ticketVotes.ticketId} = any(${ids})`,
+          eq(ticketVotes.userId, viewerDbUserId),
+          inArray(ticketVotes.ticketId, ids),
         ),
       );
-    // NOTE: if your dialect doesn’t like ANY(array), tell me and I’ll swap to inArray().
-    votedSet = new Set(votes.map((v) => v.ticketId));
+    votedSet = new Set(votes.map((vote) => vote.ticketId));
   }
 
   const items: PublicTicketItem[] = pageRows.map(({ ticket, voteCount }) => ({
@@ -97,4 +94,3 @@ export async function getPublicTicketsPage(opts: {
 
   return { items, hasMore, nextCursor };
 }
-

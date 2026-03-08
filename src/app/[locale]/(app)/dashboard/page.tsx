@@ -8,14 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Locale } from "@/i18n/config";
+import { createHouseholdFormAction } from "@/lib/actions/dashboard";
 import { getInventoryContext } from "@/lib/inventory/page-context";
 import {
-  createHousehold,
   getUsageHints,
   listActivity,
-  setActiveHousehold,
 } from "@/lib/inventory/service";
-import { createHouseholdSchema } from "@/lib/inventory/validation";
+import { withRlsUserContext } from "@/server/db/tenant";
 
 export default async function DashboardPage({
   params,
@@ -24,24 +23,9 @@ export default async function DashboardPage({
 }) {
   const { locale } = await params;
   const context = await getInventoryContext(locale);
+  const userId = context.user.id;
   const active = context.activeMembership;
-
-  async function createHouseholdAction(formData: FormData) {
-    "use server";
-
-    const parsed = createHouseholdSchema.parse({
-      name: String(formData.get("name") || ""),
-    });
-
-    const household = await createHousehold({
-      userId: context.user.id,
-      name: parsed.name,
-      language: locale,
-    });
-
-    await setActiveHousehold(context.user.id, household.id);
-    redirect(`/${locale}/dashboard`);
-  }
+  const createHouseholdAction = createHouseholdFormAction.bind(null, { locale });
 
   if (!active) {
     return (
@@ -67,10 +51,12 @@ export default async function DashboardPage({
 
   const householdId = active.household.id;
 
-  const [activity, usage] = await Promise.all([
-    listActivity({ userId: context.user.id, householdId, limit: 12 }),
-    getUsageHints({ userId: context.user.id, householdId }),
-  ]);
+  const [activity, usage] = await withRlsUserContext(userId, async () =>
+    Promise.all([
+      listActivity({ userId, householdId, limit: 12 }),
+      getUsageHints({ userId, householdId }),
+    ]),
+  );
 
   return (
     <PageFrame className="space-y-6">

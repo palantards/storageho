@@ -1,4 +1,4 @@
-import { db, schema } from "@/server/db";
+import { dbAdmin as db, schema } from "@/server/db";
 import { users, subscriptions, profiles, tickets } from "@/server/db/schema";
 import { sql, inArray, eq, InferSelectModel, and, gte, ne } from "drizzle-orm";
 
@@ -28,7 +28,7 @@ export const getUsers = async ({
     .limit(limit)
     .offset(offset)
     .leftJoin(subscriptions, eq(users.id, subscriptions.userId))
-    .leftJoin(profiles, eq(users.id, schema.profiles.userId));
+    .leftJoin(profiles, eq(users.supabaseUserId, schema.profiles.userId));
 };
 export const getAdminStats = async (): Promise<AdminStats> => {
   const totalUsers = await db

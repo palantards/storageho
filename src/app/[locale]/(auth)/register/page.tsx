@@ -3,9 +3,8 @@ import type { Locale } from "@/i18n/config";
 import { getMessages } from "@/i18n/getMessages";
 import { t as tt } from "@/i18n/translate";
 import { registerWithSupabase } from "@/lib/auth";
+import { getOrCreateStripeCustomerId } from "@/lib/billing/customer";
 import { localizedHref } from "@/i18n/routing";
-import { ensureStripeCustomer } from "@/lib/stripe";
-// ** Import the helper to sync user record: **
 import { ensureUserRecord } from "@/lib/user-sync";
 
 import {
@@ -51,22 +50,28 @@ export default async function RegisterPage({
     let stripeCustomerId = result.user.user_metadata?.stripe_customer_id as
       | string
       | undefined;
-    if (!stripeCustomerId && process.env.STRIPE_SECRET_KEY) {
-      stripeCustomerId = await ensureStripeCustomer({
-        email,
-        name: rawName || undefined,
-        company: company || undefined,
-      });
-      // ** Save the Stripe customer ID to our database (users table) **
-      try {
+    try {
+      if (stripeCustomerId) {
         await ensureUserRecord({
           id: result.user.id,
-          email: email,
-          stripeCustomerId: stripeCustomerId,
+          email,
+          stripeCustomerId,
         });
-      } catch (err) {
-        console.error("Failed to save user record with Stripe ID", err);
+      } else if (process.env.STRIPE_SECRET_KEY) {
+        stripeCustomerId = await getOrCreateStripeCustomerId({
+          supabaseUserId: result.user.id,
+          email,
+          name: rawName || undefined,
+          company: company || undefined,
+        });
+      } else {
+        await ensureUserRecord({
+          id: result.user.id,
+          email,
+        });
       }
+    } catch (err) {
+      console.error("Failed to save user record with Stripe ID", err);
     }
 
     // Redirect to dashboard after successful registration

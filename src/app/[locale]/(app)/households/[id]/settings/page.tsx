@@ -15,18 +15,16 @@ import {
 import type { Locale } from "@/i18n/config";
 import { getInventoryContext } from "@/lib/inventory/page-context";
 import {
+  inviteHouseholdMemberFormAction,
+  updateHouseholdLanguageFormAction,
+  updateHouseholdMemberFormAction,
+} from "@/lib/actions/householdSettings";
+import {
   getHouseholdById,
   getUsageHints,
-  inviteMember,
   listHouseholdMembers,
-  updateHouseholdLanguage,
-  updateMemberRole,
 } from "@/lib/inventory/service";
-import {
-  inviteMemberSchema,
-  updateHouseholdLanguageSchema,
-  updateMemberRoleSchema,
-} from "@/lib/inventory/validation";
+import { withRlsUserContext } from "@/server/db/tenant";
 
 export default async function HouseholdSettingsPage({
   params,
@@ -35,66 +33,37 @@ export default async function HouseholdSettingsPage({
 }) {
   const { locale, id: householdId } = await params;
   const context = await getInventoryContext(locale);
+  const userId = context.user.id;
 
-  const household = await getHouseholdById({
-    userId: context.user.id,
-    householdId,
-  });
+  const household = await withRlsUserContext(userId, async () =>
+    getHouseholdById({
+      userId,
+      householdId,
+    }),
+  );
 
   if (!household) {
     return <div className="text-sm text-muted-foreground">Household not found.</div>;
   }
 
-  const usage = await getUsageHints({ userId: context.user.id, householdId });
-  const members = await listHouseholdMembers({ userId: context.user.id, householdId });
-
-  async function updateLanguageAction(formData: FormData) {
-    "use server";
-    const parsed = updateHouseholdLanguageSchema.parse({
-      householdId,
-      language: String(formData.get("language") || "en"),
-    });
-    await updateHouseholdLanguage({
-      userId: context.user.id,
-      householdId: parsed.householdId,
-      language: parsed.language,
-    });
-    revalidatePath(`/${locale}/households/${householdId}/settings`);
-  }
-
-  async function inviteAction(formData: FormData) {
-    "use server";
-    const parsed = inviteMemberSchema.parse({
-      householdId,
-      email: String(formData.get("email") || ""),
-      role: String(formData.get("role") || "viewer"),
-    });
-    await inviteMember({
-      userId: context.user.id,
-      householdId: parsed.householdId,
-      email: parsed.email,
-      role: parsed.role as "viewer" | "member" | "admin" | "owner",
-    });
-    revalidatePath(`/${locale}/households/${householdId}/settings`);
-  }
-
-  async function updateRoleAction(formData: FormData) {
-    "use server";
-    const parsed = updateMemberRoleSchema.parse({
-      householdId,
-      memberId: String(formData.get("memberId") || ""),
-      role: String(formData.get("role") || "member"),
-      status: String(formData.get("status") || "active"),
-    });
-    await updateMemberRole({
-      userId: context.user.id,
-      householdId: parsed.householdId,
-      memberId: parsed.memberId,
-      role: parsed.role as "viewer" | "member" | "admin" | "owner",
-      status: parsed.status as "active" | "invited" | "removed",
-    });
-    revalidatePath(`/${locale}/households/${householdId}/settings`);
-  }
+  const [usage, members] = await withRlsUserContext(userId, async () =>
+    Promise.all([
+      getUsageHints({ userId, householdId }),
+      listHouseholdMembers({ userId, householdId }),
+    ]),
+  );
+  const updateLanguageAction = updateHouseholdLanguageFormAction.bind(null, {
+    locale,
+    householdId,
+  });
+  const inviteAction = inviteHouseholdMemberFormAction.bind(null, {
+    locale,
+    householdId,
+  });
+  const updateRoleAction = updateHouseholdMemberFormAction.bind(null, {
+    locale,
+    householdId,
+  });
 
   return (
     <PageFrame className="space-y-6">

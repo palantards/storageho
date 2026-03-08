@@ -16,9 +16,10 @@ const selectedFile =
     ? args[fileFlagIndex + 1]
     : null;
 
-const connectionString = process.env.DATABASE_URL;
+const connectionString =
+  process.env.DATABASE_URL_ADMIN || process.env.DATABASE_URL;
 if (!connectionString) {
-  throw new Error("DATABASE_URL is not set");
+  throw new Error("DATABASE_URL_ADMIN or DATABASE_URL is not set");
 }
 
 const migrationsDir = path.resolve(process.cwd(), "supabase", "migrations");

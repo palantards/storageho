@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { commitInventoryCsv } from "@/lib/inventory/csv";
 import { getActiveMembershipContext } from "@/lib/inventory/service";
 import { requireHouseholdWriteAccess } from "@/lib/inventory/guards";
+import { withRlsUserContext } from "@/server/db/tenant";
 
 const csvRowSchema = z.object({
   location: z.string().min(1),
@@ -31,33 +32,40 @@ export async function POST(request: NextRequest) {
 
   try {
     const payload = bodySchema.parse(await request.json());
-    const context = await getActiveMembershipContext(session.user.id);
-    const householdId = payload.householdId || context.active?.household.id;
+    const result = await withRlsUserContext(session.user.id, async () => {
+      const context = await getActiveMembershipContext(session.user.id);
+      const householdId = payload.householdId || context.active?.household.id;
 
-    if (!householdId) {
-      return NextResponse.json({ error: "No active household" }, { status: 400 });
-    }
+      if (!householdId) {
+        return NextResponse.json(
+          { error: "No active household" },
+          { status: 400 },
+        );
+      }
 
-    const canAccessHousehold = context.memberships.some(
-      (entry) => entry.household.id === householdId,
-    );
-    if (!canAccessHousehold) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+      const canAccessHousehold = context.memberships.some(
+        (entry) => entry.household.id === householdId,
+      );
+      if (!canAccessHousehold) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
 
-    try {
-      await requireHouseholdWriteAccess(session.user.id, householdId);
-    } catch {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+      try {
+        await requireHouseholdWriteAccess(session.user.id, householdId);
+      } catch {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
 
-    const result = await commitInventoryCsv({
-      userId: session.user.id,
-      householdId,
-      rows: payload.rows,
+      const commitResult = await commitInventoryCsv({
+        userId: session.user.id,
+        householdId,
+        rows: payload.rows,
+      });
+
+      return NextResponse.json({ ok: true, result: commitResult });
     });
 
-    return NextResponse.json({ ok: true, result });
+    return result;
   } catch (error) {
     console.error(error);
     return NextResponse.json(

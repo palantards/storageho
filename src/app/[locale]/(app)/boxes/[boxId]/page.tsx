@@ -3,12 +3,17 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import type { Locale } from "@/i18n/config";
+import {
+  addItemToBoxFormAction,
+  deleteBoxFormAction,
+  removeBoxItemFormAction,
+  renameBoxItemFormAction,
+  setBoxArchivedFormAction,
+  updateBoxItemQuantityFormAction,
+  updateBoxTagsFormAction,
+} from "@/lib/actions/boxDetails";
 import { getInventoryContext } from "@/lib/inventory/page-context";
 import {
-  createItem,
-  createTag,
-  deleteContainer,
-  deleteContainerItem,
   getContainerById,
   listActivity,
   listContainerItems,
@@ -17,11 +22,6 @@ import {
   listContainersForHousehold,
   listItemsForHousehold,
   listPhotoSuggestions,
-  setContainerArchived,
-  setContainerTags,
-  updateContainerItemQuantity,
-  updateItemName,
-  upsertContainerItem,
 } from "@/lib/inventory/service";
 import { ActivityFeed } from "@/components/inventory/ActivityFeed";
 import { BoxSuggestionsPanel } from "@/components/inventory/BoxSuggestionsPanel";
@@ -45,6 +45,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { HelpCircle } from "lucide-react";
+import { withRlsUserContext } from "@/server/db/tenant";
 
 const appUrl =
   process.env.NEXT_PUBLIC_APP_URL ||
@@ -58,6 +59,7 @@ export default async function BoxPage({
 }) {
   const { locale, boxId } = await params;
   const context = await getInventoryContext(locale);
+  const userId = context.user.id;
   const householdId = context.activeMembership?.household.id;
 
   if (!householdId) {
@@ -65,170 +67,56 @@ export default async function BoxPage({
   }
   const activeHouseholdId = householdId;
 
-  const row = await getContainerById({
-    userId: context.user.id,
-    householdId,
-    containerId: boxId,
-  });
+  const row = await withRlsUserContext(userId, async () =>
+    getContainerById({
+      userId,
+      householdId,
+      containerId: boxId,
+    }),
+  );
 
   if (!row) {
     return <div className="text-sm text-muted-foreground">Box not found.</div>;
   }
 
   const absoluteDeepLink = `${appUrl}/${locale}/boxes/${boxId}`;
-
-  async function addItemUnifiedAction(formData: FormData) {
-    "use server";
-
-    const rawName = String(formData.get("item") || "").trim();
-    const quantity = Number(formData.get("quantity") || "1");
-    const note = String(formData.get("note") || "");
-
-    if (!rawName) {
-      throw new Error("Item name is required");
-    }
-    if (quantity < 1) {
-      throw new Error("Quantity must be at least 1");
-    }
-
-    const existingItems = await listItemsForHousehold({
-      userId: context.user.id,
-      householdId: activeHouseholdId,
-    });
-    const match = existingItems.find(
-      (it) => it.name.trim().toLowerCase() === rawName.toLowerCase(),
-    );
-
-    let targetItemId = match?.id;
-    if (!targetItemId) {
-      const created = await createItem({
-        userId: context.user.id,
-        householdId: activeHouseholdId,
-        name: rawName,
-      });
-      targetItemId = created.id;
-    }
-
-    await upsertContainerItem({
-      userId: context.user.id,
-      householdId: activeHouseholdId,
-      containerId: boxId,
-      itemId: targetItemId,
-      quantity,
-      note,
-    });
-
-    revalidatePath(`/${locale}/boxes/${boxId}`);
-    revalidatePath(`/${locale}/items`);
-  }
-
-  async function updateTagsAction(formData: FormData) {
-    "use server";
-
-    const raw = String(formData.get("tagNames") || "");
-    const names = raw
-      .split(",")
-      .map((value) => value.trim())
-      .filter(Boolean)
-      .slice(0, 20);
-
-    const tagIds: string[] = [];
-    for (const name of names) {
-      const tag = await createTag({
-        userId: context.user.id,
-        householdId: activeHouseholdId,
-        name,
-      });
-      tagIds.push(tag.id);
-    }
-
-    await setContainerTags({
-      userId: context.user.id,
-      householdId: activeHouseholdId,
-      containerId: boxId,
-      tagIds,
-    });
-
-    revalidatePath(`/${locale}/boxes/${boxId}`);
-  }
-
-  async function archiveBoxAction(formData: FormData) {
-    "use server";
-
-    const archived = String(formData.get("archived") || "0") === "1";
-    await setContainerArchived({
-      userId: context.user.id,
-      householdId: activeHouseholdId,
-      containerId: boxId,
-      archived,
-    });
-
-    revalidatePath(`/${locale}/boxes/${boxId}`);
-    revalidatePath(`/${locale}/rooms/${row.room.id}`);
-  }
-
-  async function updateItemNameAction(formData: FormData) {
-    "use server";
-    const itemId = String(formData.get("itemId") || "");
-    const name = String(formData.get("name") || "");
-    if (!itemId || !name.trim()) {
-      throw new Error("Item name is required");
-    }
-
-    await updateItemName({
-      userId: context.user.id,
-      householdId: activeHouseholdId,
-      itemId,
-      name,
-    });
-
-    revalidatePath(`/${locale}/boxes/${boxId}`);
-    revalidatePath(`/${locale}/items`);
-  }
-
-  async function updateQuantityAction(formData: FormData) {
-    "use server";
-    const containerItemId = String(formData.get("containerItemId") || "");
-    const quantity = Number(formData.get("quantity") || "1");
-    if (!containerItemId || quantity < 1) {
-      throw new Error("Quantity must be at least 1");
-    }
-
-    await updateContainerItemQuantity({
-      userId: context.user.id,
-      householdId: activeHouseholdId,
-      containerItemId,
-      quantity,
-    });
-
-    revalidatePath(`/${locale}/boxes/${boxId}`);
-  }
-
-  async function removeItemAction(formData: FormData) {
-    "use server";
-    const containerItemId = String(formData.get("containerItemId") || "");
-    if (!containerItemId) throw new Error("containerItemId required");
-
-    await deleteContainerItem({
-      userId: context.user.id,
-      householdId: activeHouseholdId,
-      containerItemId,
-    });
-
-    revalidatePath(`/${locale}/boxes/${boxId}`);
-  }
-
-  async function deleteBoxAction() {
-    "use server";
-
-    await deleteContainer({
-      userId: context.user.id,
-      householdId: activeHouseholdId,
-      containerId: boxId,
-    });
-
-    redirect(`/${locale}/rooms/${row.room.id}`);
-  }
+  const addItemUnifiedAction = addItemToBoxFormAction.bind(null, {
+    locale,
+    householdId: activeHouseholdId,
+    boxId,
+  });
+  const updateTagsAction = updateBoxTagsFormAction.bind(null, {
+    locale,
+    householdId: activeHouseholdId,
+    boxId,
+  });
+  const archiveBoxAction = setBoxArchivedFormAction.bind(null, {
+    locale,
+    householdId: activeHouseholdId,
+    boxId,
+    roomId: row.room.id,
+  });
+  const updateItemNameAction = renameBoxItemFormAction.bind(null, {
+    locale,
+    householdId: activeHouseholdId,
+    boxId,
+  });
+  const updateQuantityAction = updateBoxItemQuantityFormAction.bind(null, {
+    locale,
+    householdId: activeHouseholdId,
+    boxId,
+  });
+  const removeItemAction = removeBoxItemFormAction.bind(null, {
+    locale,
+    householdId: activeHouseholdId,
+    boxId,
+  });
+  const deleteBoxAction = deleteBoxFormAction.bind(null, {
+    locale,
+    householdId: activeHouseholdId,
+    boxId,
+    roomId: row.room.id,
+  });
 
   const [
     containerItems,
@@ -238,42 +126,44 @@ export default async function BoxPage({
     activity,
     containerTags,
     suggestions,
-  ] = await Promise.all([
-    listContainerItems({
-      userId: context.user.id,
-      householdId: activeHouseholdId,
-      containerId: boxId,
-    }),
-    listItemsForHousehold({
-      userId: context.user.id,
-      householdId: activeHouseholdId,
-    }),
-    listContainersForHousehold({
-      userId: context.user.id,
-      householdId: activeHouseholdId,
-      excludeContainerId: boxId,
-    }),
-    listContainerPhotos({
-      userId: context.user.id,
-      householdId: activeHouseholdId,
-      containerId: boxId,
-    }),
-    listActivity({
-      userId: context.user.id,
-      householdId: activeHouseholdId,
-      limit: 20,
-    }),
-    listContainerTags({
-      userId: context.user.id,
-      householdId: activeHouseholdId,
-      containerId: boxId,
-    }),
-    listPhotoSuggestions({
-      userId: context.user.id,
-      householdId: activeHouseholdId,
-      containerId: boxId,
-    }),
-  ]);
+  ] = await withRlsUserContext(userId, async () =>
+    Promise.all([
+      listContainerItems({
+        userId,
+        householdId: activeHouseholdId,
+        containerId: boxId,
+      }),
+      listItemsForHousehold({
+        userId,
+        householdId: activeHouseholdId,
+      }),
+      listContainersForHousehold({
+        userId,
+        householdId: activeHouseholdId,
+        excludeContainerId: boxId,
+      }),
+      listContainerPhotos({
+        userId,
+        householdId: activeHouseholdId,
+        containerId: boxId,
+      }),
+      listActivity({
+        userId,
+        householdId: activeHouseholdId,
+        limit: 20,
+      }),
+      listContainerTags({
+        userId,
+        householdId: activeHouseholdId,
+        containerId: boxId,
+      }),
+      listPhotoSuggestions({
+        userId,
+        householdId: activeHouseholdId,
+        containerId: boxId,
+      }),
+    ]),
+  );
   const pendingSuggestionsCount = suggestions.filter(
     (suggestion) => suggestion.status === "pending",
   ).length;

@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { getSession } from "@/lib/auth";
 import { listPhotoSuggestions } from "@/lib/inventory/service";
+import { withRlsUserContext } from "@/server/db/tenant";
 
 const querySchema = z.object({
   householdId: z.string().uuid(),
@@ -23,11 +24,13 @@ export async function GET(request: NextRequest) {
       status: request.nextUrl.searchParams.get("status") || undefined,
     });
 
-    const suggestions = await listPhotoSuggestions({
-      userId: session.user.id,
-      householdId: parsed.householdId,
-      containerId: parsed.containerId,
-      status: parsed.status,
+    const suggestions = await withRlsUserContext(session.user.id, async () => {
+      return listPhotoSuggestions({
+        userId: session.user.id,
+        householdId: parsed.householdId,
+        containerId: parsed.containerId,
+        status: parsed.status,
+      });
     });
 
     return NextResponse.json({ suggestions });

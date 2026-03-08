@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { getSession } from "@/lib/auth";
 import { exportRowsToCsv } from "@/lib/inventory/csv";
 import { getExportRows } from "@/lib/inventory/service";
+import { withRlsUserContext } from "@/server/db/tenant";
 
 export async function GET(request: NextRequest) {
   const session = await getSession();
@@ -19,10 +20,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const rows = await getExportRows({
-      userId: session.user.id,
-      householdId,
-      locationId: floorId || undefined,
+    const rows = await withRlsUserContext(session.user.id, async () => {
+      return getExportRows({
+        userId: session.user.id,
+        householdId,
+        locationId: floorId || undefined,
+      });
     });
 
     const csv = exportRowsToCsv(rows);
