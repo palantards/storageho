@@ -63,28 +63,28 @@ export default async function RoomPage({
     locale,
     householdId: activeHouseholdId,
     roomId,
-  });
+  }) as unknown as (formData: FormData) => Promise<void>;
   const bulkCreatePathsAction = bulkCreateRoomPathsFormAction.bind(null, {
     locale,
     householdId: activeHouseholdId,
     roomId,
-  });
+  }) as unknown as (formData: FormData) => Promise<void>;
   const archiveContainerAction = setRoomContainerArchivedFormAction.bind(null, {
     locale,
     householdId: activeHouseholdId,
     roomId,
-  });
+  }) as unknown as (formData: FormData) => Promise<void>;
   const deleteContainerAction = deleteRoomContainerFormAction.bind(null, {
     locale,
     householdId: activeHouseholdId,
     roomId,
-  });
+  }) as unknown as (formData: FormData) => Promise<void>;
   const deleteRoomAction = deleteRoomFormAction.bind(null, {
     locale,
     householdId: activeHouseholdId,
     roomId,
     canvasHouseholdId: activeHouseholdId,
-  });
+  }) as unknown as (formData: FormData) => Promise<void>;
 
   const [containers, tags] = await withRlsUserContext(userId, async () =>
     Promise.all([

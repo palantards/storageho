@@ -17,6 +17,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 export const webhookStatusEnum = pgEnum("webhook_status", [
+  "processing",
   "processed",
   "ignored",
   "failed",

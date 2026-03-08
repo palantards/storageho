@@ -23,10 +23,7 @@ vi.mock("@/lib/stripe", () => ({
 }));
 
 vi.mock("@/lib/supabase", () => ({
-  fetchSupabaseUser: vi.fn(),
-  getStoredTokens: vi.fn(),
-  persistSession: vi.fn(),
-  refreshSupabaseSession: vi.fn(),
+  createSupabaseServerClient: vi.fn(),
   signInWithPassword: vi.fn(),
   signUpWithSupabase: vi.fn(),
   supabaseSignOut: vi.fn(),
@@ -38,7 +35,6 @@ import {
   signOutSupabase,
 } from "@/lib/auth";
 import {
-  persistSession,
   signInWithPassword,
   signUpWithSupabase,
   supabaseSignOut,
@@ -56,7 +52,6 @@ describe("auth login/register", () => {
       expires_in: 3600,
       token_type: "bearer",
     } as never);
-    vi.mocked(persistSession).mockResolvedValue(undefined);
 
     const result = await loginWithSupabase({
       email: "u@example.com",
@@ -68,11 +63,8 @@ describe("auth login/register", () => {
     expect(signInWithPassword).toHaveBeenCalledWith({
       email: "u@example.com",
       password: "Password123!",
+      rememberMe: false,
     });
-    expect(persistSession).toHaveBeenCalledWith(
-      expect.objectContaining({ access_token: "at" }),
-      { rememberMe: false },
-    );
   });
 
   it("loginWithSupabase maps invalid credentials", async () => {
@@ -88,7 +80,7 @@ describe("auth login/register", () => {
     expect(result).toEqual({ ok: false, errorKey: "invalidCredentials" });
   });
 
-  it("registerWithSupabase persists session when session is returned", async () => {
+  it("registerWithSupabase returns the created user when signup succeeds", async () => {
     vi.mocked(signUpWithSupabase).mockResolvedValue({
       user: { id: "u1", email: "u@example.com" },
       session: {
@@ -98,7 +90,6 @@ describe("auth login/register", () => {
         token_type: "bearer",
       },
     } as never);
-    vi.mocked(persistSession).mockResolvedValue(undefined);
 
     const result = await registerWithSupabase({
       email: "u@example.com",
@@ -110,7 +101,6 @@ describe("auth login/register", () => {
       user: { id: "u1", email: "u@example.com" },
     });
     expect(signUpWithSupabase).toHaveBeenCalled();
-    expect(persistSession).toHaveBeenCalled();
   });
 
   it("registerWithSupabase maps known signup errors", async () => {
@@ -126,11 +116,11 @@ describe("auth login/register", () => {
     expect(result).toEqual({ user: null, errorKey: "userExists" });
   });
 
-  it("signOutSupabase revokes access token when provided", async () => {
+  it("signOutSupabase revokes the current session", async () => {
     vi.mocked(supabaseSignOut).mockResolvedValue(undefined);
 
-    await signOutSupabase("token");
+    await signOutSupabase();
 
-    expect(supabaseSignOut).toHaveBeenCalledWith("token");
+    expect(supabaseSignOut).toHaveBeenCalledWith();
   });
 });

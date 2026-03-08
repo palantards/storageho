@@ -3,6 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import {
+  type ActionFail,
+  type ActionOk,
+  zodToFieldErrors,
+} from "@/lib/forms/action-result";
 import { requireSessionUser } from "@/lib/inventory/auth";
 import {
   inviteMember,
@@ -30,70 +35,130 @@ export async function updateHouseholdLanguageFormAction(
   scopeInput: unknown,
   formData: FormData,
 ) {
-  const scope = householdSettingsScopeSchema.parse(scopeInput);
-  const parsed = updateHouseholdLanguageSchema.parse({
-    householdId: scope.householdId,
+  const scope = householdSettingsScopeSchema.safeParse(scopeInput);
+  if (!scope.success) {
+    return { ok: false as const, error: "Invalid request context" } satisfies ActionFail;
+  }
+
+  const parsed = updateHouseholdLanguageSchema.safeParse({
+    householdId: scope.data.householdId,
     language: getFormString(formData, "language") || "en",
   });
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: "Invalid household language payload",
+      fieldErrors: zodToFieldErrors(parsed.error, ["language"] as const),
+    } satisfies ActionFail<"language">;
+  }
 
-  const user = await requireSessionUser();
-  await withRlsUserContext(user.id, async () =>
-    updateHouseholdLanguage({
-      userId: user.id,
-      householdId: parsed.householdId,
-      language: parsed.language,
-    }),
-  );
+  try {
+    const user = await requireSessionUser();
+    await withRlsUserContext(user.id, async () =>
+      updateHouseholdLanguage({
+        userId: user.id,
+        householdId: parsed.data.householdId,
+        language: parsed.data.language,
+      }),
+    );
+  } catch (error) {
+    console.error("Failed to update household language", error);
+    return {
+      ok: false as const,
+      error: "Unable to update household language",
+    } satisfies ActionFail;
+  }
 
-  revalidatePath(settingsPath(scope.locale, scope.householdId));
+  revalidatePath(settingsPath(scope.data.locale, scope.data.householdId));
+  return { ok: true as const } satisfies ActionOk;
 }
 
 export async function inviteHouseholdMemberFormAction(
   scopeInput: unknown,
   formData: FormData,
 ) {
-  const scope = householdSettingsScopeSchema.parse(scopeInput);
-  const parsed = inviteMemberSchema.parse({
-    householdId: scope.householdId,
+  const scope = householdSettingsScopeSchema.safeParse(scopeInput);
+  if (!scope.success) {
+    return { ok: false as const, error: "Invalid request context" } satisfies ActionFail;
+  }
+
+  const parsed = inviteMemberSchema.safeParse({
+    householdId: scope.data.householdId,
     email: getFormString(formData, "email"),
     role: getFormString(formData, "role") || "viewer",
   });
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: "Invalid invite payload",
+      fieldErrors: zodToFieldErrors(parsed.error, ["email", "role"] as const),
+    } satisfies ActionFail<"email" | "role">;
+  }
 
-  const user = await requireSessionUser();
-  await withRlsUserContext(user.id, async () =>
-    inviteMember({
-      userId: user.id,
-      householdId: parsed.householdId,
-      email: parsed.email,
-      role: parsed.role,
-    }),
-  );
+  try {
+    const user = await requireSessionUser();
+    await withRlsUserContext(user.id, async () =>
+      inviteMember({
+        userId: user.id,
+        householdId: parsed.data.householdId,
+        email: parsed.data.email,
+        role: parsed.data.role,
+      }),
+    );
+  } catch (error) {
+    console.error("Failed to invite household member", error);
+    return { ok: false as const, error: "Unable to invite member" } satisfies ActionFail;
+  }
 
-  revalidatePath(settingsPath(scope.locale, scope.householdId));
+  revalidatePath(settingsPath(scope.data.locale, scope.data.householdId));
+  return { ok: true as const } satisfies ActionOk;
 }
 
 export async function updateHouseholdMemberFormAction(
   scopeInput: unknown,
   formData: FormData,
 ) {
-  const scope = householdSettingsScopeSchema.parse(scopeInput);
-  const parsed = updateMemberRoleSchema.parse({
-    householdId: scope.householdId,
+  const scope = householdSettingsScopeSchema.safeParse(scopeInput);
+  if (!scope.success) {
+    return { ok: false as const, error: "Invalid request context" } satisfies ActionFail;
+  }
+
+  const parsed = updateMemberRoleSchema.safeParse({
+    householdId: scope.data.householdId,
     memberId: getFormString(formData, "memberId"),
     role: getFormString(formData, "role") || "member",
     status: getFormString(formData, "status") || "active",
   });
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: "Invalid member update payload",
+      fieldErrors: zodToFieldErrors(
+        parsed.error,
+        ["memberId", "role", "status"] as const,
+      ),
+    } satisfies ActionFail<"memberId" | "role" | "status">;
+  }
 
-  const user = await requireSessionUser();
-  await withRlsUserContext(user.id, async () =>
-    updateMemberRole({
-      userId: user.id,
-      householdId: parsed.householdId,
-      memberId: parsed.memberId,
-      role: parsed.role,
-      status: parsed.status,
-    }),
-  );
+  try {
+    const user = await requireSessionUser();
+    await withRlsUserContext(user.id, async () =>
+      updateMemberRole({
+        userId: user.id,
+        householdId: parsed.data.householdId,
+        memberId: parsed.data.memberId,
+        role: parsed.data.role,
+        status: parsed.data.status,
+      }),
+    );
+  } catch (error) {
+    console.error("Failed to update household member", error);
+    return {
+      ok: false as const,
+      error: "Unable to update household member",
+    } satisfies ActionFail;
+  }
 
-  revalidatePath(settingsPath(scope.locale, scope.householdId));
+  revalidatePath(settingsPath(scope.data.locale, scope.data.householdId));
+  return { ok: true as const } satisfies ActionOk;
 }

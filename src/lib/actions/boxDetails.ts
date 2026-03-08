@@ -4,6 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import {
+  type ActionFail,
+  type ActionOk,
+  zodToFieldErrors,
+} from "@/lib/forms/action-result";
 import { requireSessionUser } from "@/lib/inventory/auth";
 import {
   createItem,
@@ -18,7 +23,6 @@ import {
   upsertContainerItem,
 } from "@/lib/inventory/service";
 import {
-  getFormNullableString,
   getFormOptionalString,
   getFormString,
 } from "@/lib/forms/form-data";
@@ -78,181 +82,302 @@ export async function addItemToBoxFormAction(
   scopeInput: unknown,
   formData: FormData,
 ) {
-  const scope = boxScopeSchema.parse(scopeInput);
-  const parsed = addBoxItemSchema.parse({
+  const scope = boxScopeSchema.safeParse(scopeInput);
+  if (!scope.success) {
+    return { ok: false as const, error: "Invalid request context" } satisfies ActionFail;
+  }
+
+  const parsed = addBoxItemSchema.safeParse({
     item: getFormString(formData, "item"),
     quantity: getFormString(formData, "quantity"),
     note: getFormOptionalString(formData, "note"),
   });
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: "Invalid box item payload",
+      fieldErrors: zodToFieldErrors(
+        parsed.error,
+        ["item", "quantity", "note"] as const,
+      ),
+    } satisfies ActionFail<"item" | "quantity" | "note">;
+  }
 
-  const user = await requireSessionUser();
-  await withRlsUserContext(user.id, async () => {
-    const existingItems = await listItemsForHousehold({
-      userId: user.id,
-      householdId: scope.householdId,
-    });
-    const match = existingItems.find(
-      (item) => item.name.trim().toLowerCase() === parsed.item.toLowerCase(),
-    );
-
-    let targetItemId = match?.id;
-    if (!targetItemId) {
-      const created = await createItem({
+  try {
+    const user = await requireSessionUser();
+    await withRlsUserContext(user.id, async () => {
+      const existingItems = await listItemsForHousehold({
         userId: user.id,
-        householdId: scope.householdId,
-        name: parsed.item,
+        householdId: scope.data.householdId,
       });
-      targetItemId = created.id;
-    }
+      const match = existingItems.find(
+        (item) =>
+          item.name.trim().toLowerCase() === parsed.data.item.toLowerCase(),
+      );
 
-    await upsertContainerItem({
-      userId: user.id,
-      householdId: scope.householdId,
-      containerId: scope.boxId,
-      itemId: targetItemId,
-      quantity: parsed.quantity,
-      note: parsed.note,
+      let targetItemId = match?.id;
+      if (!targetItemId) {
+        const created = await createItem({
+          userId: user.id,
+          householdId: scope.data.householdId,
+          name: parsed.data.item,
+        });
+        targetItemId = created.id;
+      }
+
+      await upsertContainerItem({
+        userId: user.id,
+        householdId: scope.data.householdId,
+        containerId: scope.data.boxId,
+        itemId: targetItemId,
+        quantity: parsed.data.quantity,
+        note: parsed.data.note,
+      });
     });
-  });
+  } catch (error) {
+    console.error("Failed to add item to box", error);
+    return { ok: false as const, error: "Unable to add item" } satisfies ActionFail;
+  }
 
-  revalidatePath(boxPath(scope.locale, scope.boxId));
-  revalidatePath(`/${scope.locale}/items`);
+  revalidatePath(boxPath(scope.data.locale, scope.data.boxId));
+  revalidatePath(`/${scope.data.locale}/items`);
+  return { ok: true as const } satisfies ActionOk;
 }
 
 export async function updateBoxTagsFormAction(
   scopeInput: unknown,
   formData: FormData,
 ) {
-  const scope = boxScopeSchema.parse(scopeInput);
-  const parsed = updateBoxTagsSchema.parse({
+  const scope = boxScopeSchema.safeParse(scopeInput);
+  if (!scope.success) {
+    return { ok: false as const, error: "Invalid request context" } satisfies ActionFail;
+  }
+
+  const parsed = updateBoxTagsSchema.safeParse({
     tagNames: getFormString(formData, "tagNames"),
   });
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: "Invalid tag payload",
+      fieldErrors: zodToFieldErrors(parsed.error, ["tagNames"] as const),
+    } satisfies ActionFail<"tagNames">;
+  }
 
-  const user = await requireSessionUser();
-  await withRlsUserContext(user.id, async () => {
-    const tagIds: string[] = [];
-    for (const name of parsed.tagNames) {
-      const tag = await createTag({
+  try {
+    const user = await requireSessionUser();
+    await withRlsUserContext(user.id, async () => {
+      const tagIds: string[] = [];
+      for (const name of parsed.data.tagNames) {
+        const tag = await createTag({
+          userId: user.id,
+          householdId: scope.data.householdId,
+          name,
+        });
+        tagIds.push(tag.id);
+      }
+
+      await setContainerTags({
         userId: user.id,
-        householdId: scope.householdId,
-        name,
+        householdId: scope.data.householdId,
+        containerId: scope.data.boxId,
+        tagIds,
       });
-      tagIds.push(tag.id);
-    }
-
-    await setContainerTags({
-      userId: user.id,
-      householdId: scope.householdId,
-      containerId: scope.boxId,
-      tagIds,
     });
-  });
+  } catch (error) {
+    console.error("Failed to update box tags", error);
+    return { ok: false as const, error: "Unable to update tags" } satisfies ActionFail;
+  }
 
-  revalidatePath(boxPath(scope.locale, scope.boxId));
+  revalidatePath(boxPath(scope.data.locale, scope.data.boxId));
+  return { ok: true as const } satisfies ActionOk;
 }
 
 export async function setBoxArchivedFormAction(
   scopeInput: unknown,
   formData: FormData,
 ) {
-  const scope = boxRoomScopeSchema.parse(scopeInput);
-  const parsed = archiveBoxSchema.parse({
+  const scope = boxRoomScopeSchema.safeParse(scopeInput);
+  if (!scope.success) {
+    return { ok: false as const, error: "Invalid request context" } satisfies ActionFail;
+  }
+
+  const parsed = archiveBoxSchema.safeParse({
     archived: getFormString(formData, "archived"),
   });
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: "Invalid archive payload",
+      fieldErrors: zodToFieldErrors(parsed.error, ["archived"] as const),
+    } satisfies ActionFail<"archived">;
+  }
 
-  const user = await requireSessionUser();
-  await withRlsUserContext(user.id, async () =>
-    setContainerArchived({
-      userId: user.id,
-      householdId: scope.householdId,
-      containerId: scope.boxId,
-      archived: parsed.archived,
-    }),
-  );
+  try {
+    const user = await requireSessionUser();
+    await withRlsUserContext(user.id, async () =>
+      setContainerArchived({
+        userId: user.id,
+        householdId: scope.data.householdId,
+        containerId: scope.data.boxId,
+        archived: parsed.data.archived,
+      }),
+    );
+  } catch (error) {
+    console.error("Failed to archive box", error);
+    return { ok: false as const, error: "Unable to update box" } satisfies ActionFail;
+  }
 
-  revalidatePath(boxPath(scope.locale, scope.boxId));
-  revalidatePath(`/${scope.locale}/rooms/${scope.roomId}`);
+  revalidatePath(boxPath(scope.data.locale, scope.data.boxId));
+  revalidatePath(`/${scope.data.locale}/rooms/${scope.data.roomId}`);
+  return { ok: true as const } satisfies ActionOk;
 }
 
 export async function renameBoxItemFormAction(
   scopeInput: unknown,
   formData: FormData,
 ) {
-  const scope = boxScopeSchema.parse(scopeInput);
-  const parsed = renameBoxItemSchema.parse({
+  const scope = boxScopeSchema.safeParse(scopeInput);
+  if (!scope.success) {
+    return { ok: false as const, error: "Invalid request context" } satisfies ActionFail;
+  }
+
+  const parsed = renameBoxItemSchema.safeParse({
     itemId: getFormString(formData, "itemId"),
     name: getFormString(formData, "name"),
   });
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: "Invalid rename payload",
+      fieldErrors: zodToFieldErrors(parsed.error, ["itemId", "name"] as const),
+    } satisfies ActionFail<"itemId" | "name">;
+  }
 
-  const user = await requireSessionUser();
-  await withRlsUserContext(user.id, async () =>
-    updateItemName({
-      userId: user.id,
-      householdId: scope.householdId,
-      itemId: parsed.itemId,
-      name: parsed.name,
-    }),
-  );
+  try {
+    const user = await requireSessionUser();
+    await withRlsUserContext(user.id, async () =>
+      updateItemName({
+        userId: user.id,
+        householdId: scope.data.householdId,
+        itemId: parsed.data.itemId,
+        name: parsed.data.name,
+      }),
+    );
+  } catch (error) {
+    console.error("Failed to rename box item", error);
+    return { ok: false as const, error: "Unable to rename item" } satisfies ActionFail;
+  }
 
-  revalidatePath(boxPath(scope.locale, scope.boxId));
-  revalidatePath(`/${scope.locale}/items`);
+  revalidatePath(boxPath(scope.data.locale, scope.data.boxId));
+  revalidatePath(`/${scope.data.locale}/items`);
+  return { ok: true as const } satisfies ActionOk;
 }
 
 export async function updateBoxItemQuantityFormAction(
   scopeInput: unknown,
   formData: FormData,
 ) {
-  const scope = boxScopeSchema.parse(scopeInput);
-  const parsed = updateBoxItemQuantitySchema.parse({
+  const scope = boxScopeSchema.safeParse(scopeInput);
+  if (!scope.success) {
+    return { ok: false as const, error: "Invalid request context" } satisfies ActionFail;
+  }
+
+  const parsed = updateBoxItemQuantitySchema.safeParse({
     containerItemId: getFormString(formData, "containerItemId"),
     quantity: getFormString(formData, "quantity"),
   });
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: "Invalid quantity payload",
+      fieldErrors: zodToFieldErrors(
+        parsed.error,
+        ["containerItemId", "quantity"] as const,
+      ),
+    } satisfies ActionFail<"containerItemId" | "quantity">;
+  }
 
-  const user = await requireSessionUser();
-  await withRlsUserContext(user.id, async () =>
-    updateContainerItemQuantity({
-      userId: user.id,
-      householdId: scope.householdId,
-      containerItemId: parsed.containerItemId,
-      quantity: parsed.quantity,
-    }),
-  );
+  try {
+    const user = await requireSessionUser();
+    await withRlsUserContext(user.id, async () =>
+      updateContainerItemQuantity({
+        userId: user.id,
+        householdId: scope.data.householdId,
+        containerItemId: parsed.data.containerItemId,
+        quantity: parsed.data.quantity,
+      }),
+    );
+  } catch (error) {
+    console.error("Failed to update box item quantity", error);
+    return {
+      ok: false as const,
+      error: "Unable to update quantity",
+    } satisfies ActionFail;
+  }
 
-  revalidatePath(boxPath(scope.locale, scope.boxId));
+  revalidatePath(boxPath(scope.data.locale, scope.data.boxId));
+  return { ok: true as const } satisfies ActionOk;
 }
 
 export async function removeBoxItemFormAction(
   scopeInput: unknown,
   formData: FormData,
 ) {
-  const scope = boxScopeSchema.parse(scopeInput);
-  const parsed = removeBoxItemSchema.parse({
+  const scope = boxScopeSchema.safeParse(scopeInput);
+  if (!scope.success) {
+    return { ok: false as const, error: "Invalid request context" } satisfies ActionFail;
+  }
+
+  const parsed = removeBoxItemSchema.safeParse({
     containerItemId: getFormString(formData, "containerItemId"),
   });
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: "Invalid remove payload",
+      fieldErrors: zodToFieldErrors(parsed.error, ["containerItemId"] as const),
+    } satisfies ActionFail<"containerItemId">;
+  }
 
-  const user = await requireSessionUser();
-  await withRlsUserContext(user.id, async () =>
-    deleteContainerItem({
-      userId: user.id,
-      householdId: scope.householdId,
-      containerItemId: parsed.containerItemId,
-    }),
-  );
+  try {
+    const user = await requireSessionUser();
+    await withRlsUserContext(user.id, async () =>
+      deleteContainerItem({
+        userId: user.id,
+        householdId: scope.data.householdId,
+        containerItemId: parsed.data.containerItemId,
+      }),
+    );
+  } catch (error) {
+    console.error("Failed to remove box item", error);
+    return { ok: false as const, error: "Unable to remove item" } satisfies ActionFail;
+  }
 
-  revalidatePath(boxPath(scope.locale, scope.boxId));
+  revalidatePath(boxPath(scope.data.locale, scope.data.boxId));
+  return { ok: true as const } satisfies ActionOk;
 }
 
 export async function deleteBoxFormAction(scopeInput: unknown) {
-  const scope = boxRoomScopeSchema.parse(scopeInput);
-  const user = await requireSessionUser();
+  const scope = boxRoomScopeSchema.safeParse(scopeInput);
+  if (!scope.success) {
+    return { ok: false as const, error: "Invalid request context" } satisfies ActionFail;
+  }
 
-  await withRlsUserContext(user.id, async () =>
-    deleteContainer({
-      userId: user.id,
-      householdId: scope.householdId,
-      containerId: scope.boxId,
-    }),
-  );
+  try {
+    const user = await requireSessionUser();
+    await withRlsUserContext(user.id, async () =>
+      deleteContainer({
+        userId: user.id,
+        householdId: scope.data.householdId,
+        containerId: scope.data.boxId,
+      }),
+    );
+  } catch (error) {
+    console.error("Failed to delete box", error);
+    return { ok: false as const, error: "Unable to delete box" } satisfies ActionFail;
+  }
 
-  redirect(`/${scope.locale}/rooms/${scope.roomId}`);
+  redirect(`/${scope.data.locale}/rooms/${scope.data.roomId}`);
+  return { ok: true as const } satisfies ActionOk;
 }

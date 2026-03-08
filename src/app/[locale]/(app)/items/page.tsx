@@ -88,11 +88,11 @@ export default async function ItemsPage({
   const bulkAddAction = bulkAddItemsFormAction.bind(null, {
     locale,
     householdId: activeHouseholdId,
-  });
+  }) as unknown as (formData: FormData) => Promise<void>;
   const mergeItemsAction = mergeItemsFormAction.bind(null, {
     locale,
     householdId: activeHouseholdId,
-  });
+  }) as unknown as (formData: FormData) => Promise<void>;
 
   const duplicates = items.reduce<Record<string, ItemsVirtualizedRow[]>>(
     (acc, row) => {

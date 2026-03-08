@@ -2,7 +2,7 @@ import "server-only";
 
 import crypto from "node:crypto";
 import Stripe from "stripe";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { dbAdmin as db, schema } from "../db";
 
@@ -10,6 +10,7 @@ const { subscriptions, users, webhookEvents } = schema;
 
 export type WebhookStatus =
   (typeof schema.webhookStatusEnum.enumValues)[number];
+export type FinalWebhookStatus = Exclude<WebhookStatus, "processing">;
 
 export function hashPayload(rawBody: string) {
   return crypto.createHash("sha256").update(rawBody).digest("hex");
@@ -88,6 +89,67 @@ export async function upsertSubscriptionFromStripe({
     });
 }
 
+export async function claimWebhookEvent({
+  eventId,
+  type,
+  created,
+  payloadHash,
+}: {
+  eventId: string;
+  type: string;
+  created: number;
+  payloadHash?: string;
+}): Promise<
+  | { claimed: true; status: "processing" }
+  | { claimed: false; status: WebhookStatus }
+> {
+  const createdAt = new Date(created * 1000);
+  const inserted = await db
+    .insert(webhookEvents)
+    .values({
+      stripeEventId: eventId,
+      type,
+      created: createdAt,
+      processedAt: null,
+      payloadHash,
+      status: "processing",
+      error: null,
+    })
+    .onConflictDoNothing()
+    .returning({ status: webhookEvents.status });
+
+  if (inserted[0]) {
+    return { claimed: true, status: "processing" };
+  }
+
+  const retried = await db
+    .update(webhookEvents)
+    .set({
+      status: "processing",
+      processedAt: null,
+      payloadHash,
+      error: null,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(webhookEvents.stripeEventId, eventId),
+        eq(webhookEvents.status, "failed"),
+      ),
+    )
+    .returning({ status: webhookEvents.status });
+
+  if (retried[0]) {
+    return { claimed: true, status: "processing" };
+  }
+
+  const existing = await getWebhookEventStatus(eventId);
+  return {
+    claimed: false,
+    status: existing?.status ?? "processing",
+  };
+}
+
 export async function markEventProcessed({
   eventId,
   type,
@@ -100,7 +162,7 @@ export async function markEventProcessed({
   eventId: string;
   type: string;
   created: number;
-  status: WebhookStatus;
+  status: FinalWebhookStatus;
   processedAt?: Date;
   payloadHash?: string;
   error?: string | null;

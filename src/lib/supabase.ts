@@ -1,193 +1,224 @@
+import "server-only";
+
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import type { Session as SupabaseSession, User as SupabaseUser } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import type { NextRequest, NextResponse } from "next/server";
 
-const ACCESS_COOKIE = "supabase_access_token";
-const REFRESH_COOKIE = "supabase_refresh_token";
-const EXPIRES_COOKIE = "supabase_expires_at";
+import { createSupabaseAnonClient } from "@/lib/supabaseServer";
 
-export type SupabaseUser = {
-  id: string;
-  email?: string;
-  user_metadata?: Record<string, unknown> & {
-    name?: string;
-    full_name?: string;
-    company?: string;
-    stripe_customer_id?: string;
-  };
-};
+export type { SupabaseSession, SupabaseUser };
 
-export type SupabaseSession = {
-  access_token: string;
-  refresh_token: string;
-  expires_in: number;
-  expires_at?: number;
-  token_type: string;
-  user?: SupabaseUser;
-};
+const LEGACY_AUTH_COOKIES = [
+  "supabase_access_token",
+  "supabase_refresh_token",
+  "supabase_expires_at",
+] as const;
+const REMEMBER_ME_COOKIE = "supabase_remember_me";
+const AUTH_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
 
 function getSupabaseEnv() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
   const anonKey =
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+
   if (!url || !anonKey) {
     throw new Error("Supabase environment variables are missing");
   }
+
   return { url, anonKey };
 }
 
-async function supabaseRequest<T>(
-  path: string,
-  init: RequestInit & { accessToken?: string } = {},
-): Promise<T> {
+function isSecureCookie() {
+  return (
+    process.env.NODE_ENV === "production" ||
+    process.env.NEXT_PUBLIC_SITE_URL?.startsWith("https://") ||
+    process.env.NEXT_PUBLIC_APP_URL?.startsWith("https://") ||
+    process.env.APP_URL?.startsWith("https://")
+  );
+}
+
+function rememberMeToCookieOptions(rememberMe: boolean): CookieOptions {
+  return {
+    path: "/",
+    sameSite: "lax",
+    secure: isSecureCookie(),
+    httpOnly: true,
+    ...(rememberMe ? { maxAge: AUTH_COOKIE_MAX_AGE } : {}),
+  };
+}
+
+function normalizeCookieOptions(options: CookieOptions | undefined): CookieOptions {
+  return {
+    path: options?.path ?? "/",
+    sameSite: options?.sameSite ?? "lax",
+    secure: options?.secure ?? isSecureCookie(),
+    httpOnly: options?.httpOnly ?? true,
+    ...(typeof options?.maxAge === "number" ? { maxAge: options.maxAge } : {}),
+    ...(typeof options?.expires !== "undefined" ? { expires: options.expires } : {}),
+    ...(typeof options?.domain === "string" ? { domain: options.domain } : {}),
+    ...(typeof options?.priority !== "undefined" ? { priority: options.priority } : {}),
+    ...(typeof options?.partitioned !== "undefined"
+      ? { partitioned: options.partitioned }
+      : {}),
+  };
+}
+
+function readRememberMeValue(rawValue: string | undefined) {
+  return rawValue !== "0";
+}
+
+async function resolveRememberMePreference(explicit?: boolean) {
+  if (typeof explicit === "boolean") {
+    return explicit;
+  }
+
+  const store = await cookies();
+  return readRememberMeValue(store.get(REMEMBER_ME_COOKIE)?.value);
+}
+
+async function setRememberMePreference(rememberMe: boolean) {
+  const store = await cookies();
+  store.set(
+    REMEMBER_ME_COOKIE,
+    rememberMe ? "1" : "0",
+    rememberMeToCookieOptions(rememberMe),
+  );
+}
+
+export async function clearLegacySupabaseCookies() {
+  const store = await cookies();
+  for (const cookieName of LEGACY_AUTH_COOKIES) {
+    store.delete(cookieName);
+  }
+}
+
+async function clearRememberMePreference() {
+  const store = await cookies();
+  store.delete(REMEMBER_ME_COOKIE);
+}
+
+export async function createSupabaseServerClient(options?: {
+  rememberMe?: boolean;
+}) {
+  const store = await cookies();
+  const rememberMe = await resolveRememberMePreference(options?.rememberMe);
   const { url, anonKey } = getSupabaseEnv();
-  const headers = new Headers(init.headers);
-  headers.set("apikey", anonKey);
-  headers.set("Content-Type", "application/json");
-  if (init.accessToken) {
-    headers.set("Authorization", `Bearer ${init.accessToken}`);
-  }
 
-  const response = await fetch(`${url}${path}`, {
-    ...init,
-    headers,
-    cache: "no-store",
+  return createServerClient(url, anonKey, {
+    cookieOptions: rememberMeToCookieOptions(rememberMe),
+    cookies: {
+      getAll() {
+        return store.getAll().map(({ name, value }) => ({ name, value }));
+      },
+      setAll(cookiesToSet) {
+        try {
+          for (const cookie of cookiesToSet) {
+            store.set(
+              cookie.name,
+              cookie.value,
+              normalizeCookieOptions(cookie.options),
+            );
+          }
+        } catch {
+          // Server components cannot mutate cookies. Middleware handles refreshes.
+        }
+      },
+    },
   });
+}
 
-  const contentType = response.headers.get("content-type");
-  const payload =
-    contentType && contentType.includes("application/json")
-      ? await response.json()
-      : await response.text();
+export function createSupabaseMiddlewareClient(
+  request: NextRequest,
+  response: NextResponse,
+) {
+  const rememberMe = readRememberMeValue(
+    request.cookies.get(REMEMBER_ME_COOKIE)?.value,
+  );
+  const { url, anonKey } = getSupabaseEnv();
 
-  if (!response.ok) {
-    const message =
-      typeof payload === "string"
-        ? payload
-        : (payload &&
-            (payload.error_description || payload.error || payload.message)) ||
-          "Supabase request failed";
-    throw new Error(message);
-  }
-
-  return payload as T;
+  return createServerClient(url, anonKey, {
+    cookieOptions: rememberMeToCookieOptions(rememberMe),
+    cookies: {
+      getAll() {
+        return request.cookies.getAll().map(({ name, value }) => ({ name, value }));
+      },
+      setAll(cookiesToSet) {
+        for (const cookie of cookiesToSet) {
+          request.cookies.set(cookie.name, cookie.value);
+          response.cookies.set(
+            cookie.name,
+            cookie.value,
+            normalizeCookieOptions(cookie.options),
+          );
+        }
+      },
+    },
+  });
 }
 
 export async function signUpWithSupabase({
   email,
   password,
   data,
+  rememberMe = true,
 }: {
   email: string;
   password: string;
   data?: Record<string, unknown>;
-}): Promise<{ user?: SupabaseUser; session?: SupabaseSession }> {
-  return supabaseRequest<{ user?: SupabaseUser; session?: SupabaseSession }>(
-    "/auth/v1/signup",
-    {
-      method: "POST",
-      body: JSON.stringify({ email, password, data }),
-    },
-  );
+  rememberMe?: boolean;
+}): Promise<{ user?: SupabaseUser; session?: SupabaseSession | null }> {
+  const supabase = await createSupabaseServerClient({ rememberMe });
+  const { data: result, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data },
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  await clearLegacySupabaseCookies();
+  await setRememberMePreference(rememberMe);
+
+  return { user: result.user ?? undefined, session: result.session };
 }
 
 export async function signInWithPassword({
   email,
   password,
+  rememberMe = true,
 }: {
   email: string;
   password: string;
+  rememberMe?: boolean;
 }): Promise<SupabaseSession> {
-  return supabaseRequest<SupabaseSession>(
-    "/auth/v1/token?grant_type=password",
-    {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    },
-  );
-}
-
-export async function refreshSupabaseSession(
-  refreshToken: string,
-): Promise<SupabaseSession> {
-  return supabaseRequest<SupabaseSession>(
-    "/auth/v1/token?grant_type=refresh_token",
-    {
-      method: "POST",
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    },
-  );
-}
-
-export async function fetchSupabaseUser(
-  accessToken: string,
-): Promise<SupabaseUser> {
-  return supabaseRequest<SupabaseUser>("/auth/v1/user", {
-    method: "GET",
-    accessToken,
+  const supabase = await createSupabaseServerClient({ rememberMe });
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
   });
+
+  if (error || !data.session) {
+    throw error ?? new Error("Supabase sign-in returned no session");
+  }
+
+  await clearLegacySupabaseCookies();
+  await setRememberMePreference(rememberMe);
+
+  return data.session;
 }
 
-export async function supabaseSignOut(accessToken: string) {
-  await supabaseRequest("/auth/v1/logout", {
-    method: "POST",
-    accessToken,
-  });
-}
+export async function supabaseSignOut() {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.auth.signOut();
+  if (error) {
+    throw error;
+  }
 
-export function calculateExpiryEpoch(expiresIn: number): number {
-  return Math.floor(Date.now() / 1000) + expiresIn;
-}
-
-export async function persistSession(
-  session: SupabaseSession,
-  options?: { rememberMe?: boolean },
-) {
-  const rememberMe = options?.rememberMe ?? true;
-  const expiry = session.expires_at || calculateExpiryEpoch(session.expires_in);
-  const isSecure =
-    process.env.NODE_ENV === "production" ||
-    process.env.NEXT_PUBLIC_SITE_URL?.startsWith("https://") ||
-    process.env.NEXT_PUBLIC_APP_URL?.startsWith("https://") ||
-    process.env.APP_URL?.startsWith("https://");
-  const cookieStore = await cookies();
-  cookieStore.set(ACCESS_COOKIE, session.access_token, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    secure: isSecure,
-    maxAge: rememberMe ? session.expires_in : undefined,
-  });
-  cookieStore.set(REFRESH_COOKIE, session.refresh_token, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    secure: isSecure,
-    maxAge: rememberMe ? 60 * 60 * 24 * 30 : undefined,
-  });
-  cookieStore.set(EXPIRES_COOKIE, String(expiry), {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    secure: isSecure,
-    maxAge: rememberMe ? 60 * 60 * 24 * 30 : undefined,
-  });
-}
-
-export async function clearSupabaseCookies() {
-  const store = await cookies();
-  store.delete(ACCESS_COOKIE);
-  store.delete(REFRESH_COOKIE);
-  store.delete(EXPIRES_COOKIE);
-}
-
-export async function getStoredTokens() {
-  const store = await cookies();
-  const accessToken = store.get(ACCESS_COOKIE)?.value;
-  const refreshToken = store.get(REFRESH_COOKIE)?.value;
-  const expiresRaw = store.get(EXPIRES_COOKIE)?.value;
-  const expiresAt = expiresRaw ? Number(expiresRaw) : undefined;
-
-  if (!accessToken || !refreshToken || !expiresAt) return null;
-  return { accessToken, refreshToken, expiresAt };
+  await clearLegacySupabaseCookies();
+  await clearRememberMePreference();
 }
 
 export async function sendSupabasePasswordReset({
@@ -197,10 +228,14 @@ export async function sendSupabasePasswordReset({
   email: string;
   redirectTo: string;
 }) {
-  return supabaseRequest("/auth/v1/recover", {
-    method: "POST",
-    body: JSON.stringify({ email, redirect_to: redirectTo }),
+  const supabase = createSupabaseAnonClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo,
   });
+
+  if (error) {
+    throw error;
+  }
 }
 
 export async function updateSupabasePassword({
@@ -210,10 +245,20 @@ export async function updateSupabasePassword({
   accessToken: string;
   password: string;
 }) {
-  return supabaseRequest("/auth/v1/user", {
+  const { url, anonKey } = getSupabaseEnv();
+  const response = await fetch(`${url}/auth/v1/user`, {
     method: "PUT",
-    accessToken,
+    headers: {
+      apikey: anonKey,
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify({ password }),
+    cache: "no-store",
   });
-}
 
+  if (!response.ok) {
+    const payload = await response.text();
+    throw new Error(payload || "Supabase password update failed");
+  }
+}

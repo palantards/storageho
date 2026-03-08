@@ -3,6 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import {
+  type ActionFail,
+  type ActionOk,
+  zodToFieldErrors,
+} from "@/lib/forms/action-result";
 import { requireSessionUser } from "@/lib/inventory/auth";
 import { parseQuickAddText } from "@/lib/inventory/quick-add";
 import {
@@ -39,54 +44,96 @@ export async function bulkAddItemsFormAction(
   scopeInput: unknown,
   formData: FormData,
 ) {
-  const scope = itemLibraryScopeSchema.parse(scopeInput);
-  const parsed = bulkItemTextSchema.parse({
-    bulkText: getFormString(formData, "bulkText"),
-  });
-  const entries = parseQuickAddText(parsed.bulkText);
-
-  if (!entries.length) {
-    throw new Error("Add at least one item.");
+  const scope = itemLibraryScopeSchema.safeParse(scopeInput);
+  if (!scope.success) {
+    return { ok: false as const, error: "Invalid request context" } satisfies ActionFail;
   }
 
-  const user = await requireSessionUser();
-  await withRlsUserContext(user.id, async () => {
-    for (const entry of entries) {
-      const item = await findOrCreateItemByName({
-        userId: user.id,
-        householdId: scope.householdId,
-        name: entry.name,
-      });
-      await findOrCreateItemByName({
-        userId: user.id,
-        householdId: scope.householdId,
-        name: item.name,
-      });
-    }
+  const parsed = bulkItemTextSchema.safeParse({
+    bulkText: getFormString(formData, "bulkText"),
   });
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: "Invalid bulk item payload",
+      fieldErrors: zodToFieldErrors(parsed.error, ["bulkText"] as const),
+    } satisfies ActionFail<"bulkText">;
+  }
 
-  revalidatePath(itemLibraryPath(scope.locale));
+  const entries = parseQuickAddText(parsed.data.bulkText);
+
+  if (!entries.length) {
+    return {
+      ok: false as const,
+      error: "Add at least one item",
+      fieldErrors: { bulkText: "Add at least one item" },
+    } satisfies ActionFail<"bulkText">;
+  }
+
+  try {
+    const user = await requireSessionUser();
+    await withRlsUserContext(user.id, async () => {
+      for (const entry of entries) {
+        const item = await findOrCreateItemByName({
+          userId: user.id,
+          householdId: scope.data.householdId,
+          name: entry.name,
+        });
+        await findOrCreateItemByName({
+          userId: user.id,
+          householdId: scope.data.householdId,
+          name: item.name,
+        });
+      }
+    });
+  } catch (error) {
+    console.error("Failed to bulk add items", error);
+    return { ok: false as const, error: "Unable to add items" } satisfies ActionFail;
+  }
+
+  revalidatePath(itemLibraryPath(scope.data.locale));
+  return { ok: true as const } satisfies ActionOk;
 }
 
 export async function mergeItemsFormAction(
   scopeInput: unknown,
   formData: FormData,
 ) {
-  const scope = itemLibraryScopeSchema.parse(scopeInput);
-  const parsed = mergeLibraryItemsSchema.parse({
+  const scope = itemLibraryScopeSchema.safeParse(scopeInput);
+  if (!scope.success) {
+    return { ok: false as const, error: "Invalid request context" } satisfies ActionFail;
+  }
+
+  const parsed = mergeLibraryItemsSchema.safeParse({
     sourceItemId: getFormString(formData, "sourceItemId"),
     targetItemId: getFormString(formData, "targetItemId"),
   });
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: "Invalid merge payload",
+      fieldErrors: zodToFieldErrors(
+        parsed.error,
+        ["sourceItemId", "targetItemId"] as const,
+      ),
+    } satisfies ActionFail<"sourceItemId" | "targetItemId">;
+  }
 
-  const user = await requireSessionUser();
-  await withRlsUserContext(user.id, async () =>
-    mergeItems({
-      userId: user.id,
-      householdId: scope.householdId,
-      sourceItemId: parsed.sourceItemId,
-      targetItemId: parsed.targetItemId,
-    }),
-  );
+  try {
+    const user = await requireSessionUser();
+    await withRlsUserContext(user.id, async () =>
+      mergeItems({
+        userId: user.id,
+        householdId: scope.data.householdId,
+        sourceItemId: parsed.data.sourceItemId,
+        targetItemId: parsed.data.targetItemId,
+      }),
+    );
+  } catch (error) {
+    console.error("Failed to merge items", error);
+    return { ok: false as const, error: "Unable to merge items" } satisfies ActionFail;
+  }
 
-  revalidatePath(itemLibraryPath(scope.locale));
+  revalidatePath(itemLibraryPath(scope.data.locale));
+  return { ok: true as const } satisfies ActionOk;
 }

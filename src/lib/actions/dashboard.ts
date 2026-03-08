@@ -3,6 +3,11 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import {
+  type ActionFail,
+  type ActionOk,
+  zodToFieldErrors,
+} from "@/lib/forms/action-result";
 import { requireSessionUser } from "@/lib/inventory/auth";
 import {
   createHousehold,
@@ -20,21 +25,38 @@ export async function createHouseholdFormAction(
   scopeInput: unknown,
   formData: FormData,
 ) {
-  const scope = dashboardScopeSchema.parse(scopeInput);
-  const parsed = createHouseholdSchema.parse({
+  const scope = dashboardScopeSchema.safeParse(scopeInput);
+  if (!scope.success) {
+    return { ok: false as const, error: "Invalid request context" } satisfies ActionFail;
+  }
+
+  const parsed = createHouseholdSchema.safeParse({
     name: getFormString(formData, "name"),
   });
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: "Invalid household payload",
+      fieldErrors: zodToFieldErrors(parsed.error, ["name"] as const),
+    } satisfies ActionFail<"name">;
+  }
 
-  const user = await requireSessionUser();
-  await withRlsUserContext(user.id, async () => {
-    const household = await createHousehold({
-      userId: user.id,
-      name: parsed.name,
-      language: scope.locale,
+  try {
+    const user = await requireSessionUser();
+    await withRlsUserContext(user.id, async () => {
+      const household = await createHousehold({
+        userId: user.id,
+        name: parsed.data.name,
+        language: scope.data.locale,
+      });
+
+      await setActiveHousehold(user.id, household.id);
     });
+  } catch (error) {
+    console.error("Failed to create household", error);
+    return { ok: false as const, error: "Unable to create household" } satisfies ActionFail;
+  }
 
-    await setActiveHousehold(user.id, household.id);
-  });
-
-  redirect(`/${scope.locale}/dashboard`);
+  redirect(`/${scope.data.locale}/dashboard`);
+  return { ok: true as const } satisfies ActionOk;
 }

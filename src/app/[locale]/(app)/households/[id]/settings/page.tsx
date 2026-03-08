@@ -55,15 +55,15 @@ export default async function HouseholdSettingsPage({
   const updateLanguageAction = updateHouseholdLanguageFormAction.bind(null, {
     locale,
     householdId,
-  });
+  }) as unknown as (formData: FormData) => Promise<void>;
   const inviteAction = inviteHouseholdMemberFormAction.bind(null, {
     locale,
     householdId,
-  });
+  }) as unknown as (formData: FormData) => Promise<void>;
   const updateRoleAction = updateHouseholdMemberFormAction.bind(null, {
     locale,
     householdId,
-  });
+  }) as unknown as (formData: FormData) => Promise<void>;
 
   return (
     <PageFrame className="space-y-6">

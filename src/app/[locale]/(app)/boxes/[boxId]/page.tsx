@@ -84,39 +84,39 @@ export default async function BoxPage({
     locale,
     householdId: activeHouseholdId,
     boxId,
-  });
+  }) as unknown as (formData: FormData) => Promise<void>;
   const updateTagsAction = updateBoxTagsFormAction.bind(null, {
     locale,
     householdId: activeHouseholdId,
     boxId,
-  });
+  }) as unknown as (formData: FormData) => Promise<void>;
   const archiveBoxAction = setBoxArchivedFormAction.bind(null, {
     locale,
     householdId: activeHouseholdId,
     boxId,
     roomId: row.room.id,
-  });
+  }) as unknown as (formData: FormData) => Promise<void>;
   const updateItemNameAction = renameBoxItemFormAction.bind(null, {
     locale,
     householdId: activeHouseholdId,
     boxId,
-  });
+  }) as unknown as (formData: FormData) => Promise<void>;
   const updateQuantityAction = updateBoxItemQuantityFormAction.bind(null, {
     locale,
     householdId: activeHouseholdId,
     boxId,
-  });
+  }) as unknown as (formData: FormData) => Promise<void>;
   const removeItemAction = removeBoxItemFormAction.bind(null, {
     locale,
     householdId: activeHouseholdId,
     boxId,
-  });
+  }) as unknown as (formData: FormData) => Promise<void>;
   const deleteBoxAction = deleteBoxFormAction.bind(null, {
     locale,
     householdId: activeHouseholdId,
     boxId,
     roomId: row.room.id,
-  });
+  }) as unknown as (formData: FormData) => Promise<void>;
 
   const [
     containerItems,

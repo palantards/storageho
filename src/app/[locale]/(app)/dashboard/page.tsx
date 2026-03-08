@@ -25,7 +25,9 @@ export default async function DashboardPage({
   const context = await getInventoryContext(locale);
   const userId = context.user.id;
   const active = context.activeMembership;
-  const createHouseholdAction = createHouseholdFormAction.bind(null, { locale });
+  const createHouseholdAction = createHouseholdFormAction.bind(null, {
+    locale,
+  }) as unknown as (formData: FormData) => Promise<void>;
 
   if (!active) {
     return (

@@ -3,12 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getStripe } from "@/lib/stripe/server";
 import {
+  claimWebhookEvent,
   findUserByStripeCustomerId,
-  getWebhookEventStatus,
   hashPayload,
   markEventProcessed,
   upsertSubscriptionFromStripe,
-  type WebhookStatus,
+  type FinalWebhookStatus,
 } from "@/server/stripe/webhookHandlers";
 
 export const runtime = "nodejs";
@@ -44,12 +44,25 @@ export async function POST(req: NextRequest) {
   }
 
   const payloadHash = hashPayload(rawBody);
-  const existing = await getWebhookEventStatus(event.id);
-  if (existing?.status === "processed" || existing?.status === "ignored") {
-    return NextResponse.json({ received: true, status: existing.status });
+  const claim = await claimWebhookEvent({
+    eventId: event.id,
+    type: event.type,
+    created: event.created,
+    payloadHash,
+  });
+
+  if (!claim.claimed) {
+    if (claim.status === "processing") {
+      return NextResponse.json(
+        { error: "Webhook event is already being processed" },
+        { status: 409 },
+      );
+    }
+
+    return NextResponse.json({ received: true, status: claim.status });
   }
 
-  let status: WebhookStatus = "processed";
+  let status: FinalWebhookStatus = "processed";
   let errorMessage: string | undefined;
 
   try {
@@ -79,7 +92,9 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ received: true, status });
 }
 
-async function handleStripeEvent(event: Stripe.Event): Promise<WebhookStatus> {
+async function handleStripeEvent(
+  event: Stripe.Event,
+): Promise<FinalWebhookStatus> {
   switch (event.type) {
     case "checkout.session.completed":
       return handleCheckoutSessionCompleted(
@@ -99,7 +114,7 @@ async function handleStripeEvent(event: Stripe.Event): Promise<WebhookStatus> {
 
 async function handleCheckoutSessionCompleted(
   session: Stripe.Checkout.Session,
-): Promise<WebhookStatus> {
+): Promise<FinalWebhookStatus> {
   const stripe = getStripe();
   const customerId = getCustomerId(session.customer);
   const subscriptionId = getSubscriptionId(session.subscription);
@@ -128,7 +143,7 @@ async function handleCheckoutSessionCompleted(
 
 async function handleSubscriptionEvent(
   subscription: Stripe.Subscription,
-): Promise<WebhookStatus> {
+): Promise<FinalWebhookStatus> {
   const customerId = getCustomerId(subscription.customer);
   if (!customerId) {
     throw new Error("Subscription event missing customer");
@@ -149,7 +164,7 @@ async function handleSubscriptionEvent(
 }
 async function handleInvoiceEvent(
   invoice: Stripe.Invoice,
-): Promise<WebhookStatus> {
+): Promise<FinalWebhookStatus> {
   const stripe = getStripe();
   const customerId =
     typeof invoice.customer === "string"

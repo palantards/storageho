@@ -8,7 +8,7 @@ export type ActionFail<T extends string = string> = {
   fieldErrors?: FieldErrors<T>
 }
 
-export type ActionOk<T extends Record<string, unknown> = Record<string, never>> = {
+export type ActionOk<T extends Record<string, unknown> = {}> = {
   ok: true
 } & T
 

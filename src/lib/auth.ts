@@ -6,14 +6,11 @@ import { getOrCreateStripeCustomerId } from "@/lib/billing/customer";
 import { ensureUserRecord } from "@/lib/user-sync";
 import { dbAdmin as db, schema } from "@/server/db";
 import {
-  fetchSupabaseUser,
-  getStoredTokens,
-  persistSession,
-  refreshSupabaseSession,
+  createSupabaseServerClient,
   signInWithPassword,
   signUpWithSupabase,
   supabaseSignOut,
-  SupabaseUser,
+  type SupabaseUser,
 } from "./supabase";
 
 export interface SessionUser {
@@ -58,45 +55,20 @@ function isMissingRelation(error: unknown): boolean {
   return getPgCode(error) === "42P01";
 }
 
-function isCookieMutationError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error ?? "");
-  return message.includes(
-    "Cookies can only be modified in a Server Action or Route Handler",
-  );
-}
-
 const globalForLegacyUsers = globalThis as unknown as {
   __legacyUsersTableAvailable?: boolean;
 };
 
 export async function getSession(): Promise<Session | null> {
-  const tokens = await getStoredTokens();
-  if (!tokens) return null;
-
-  const now = Math.floor(Date.now() / 1000);
-  let accessToken = tokens.accessToken;
-  let expiresAt = tokens.expiresAt;
-
-  if (expiresAt <= now && tokens.refreshToken) {
-    try {
-      const refreshed = await refreshSupabaseSession(tokens.refreshToken);
-      try {
-        await persistSession(refreshed);
-      } catch (error) {
-        if (!isCookieMutationError(error)) {
-          throw error;
-        }
-      }
-      accessToken = refreshed.access_token;
-      expiresAt = refreshed.expires_at || expiresAt;
-    } catch (error) {
-      console.error("Failed to refresh Supabase session", error);
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.auth.getUser();
+    if (error) {
+      console.error("Unable to fetch Supabase user", error);
       return null;
     }
-  }
 
-  try {
-    const user = await fetchSupabaseUser(accessToken);
+    const user = data.user;
     if (!user.email) return null;
 
     const metadata = user.user_metadata;
@@ -219,8 +191,7 @@ export async function loginWithSupabase({
   rememberMe?: boolean;
 }): Promise<{ ok: boolean; errorKey?: string }> {
   try {
-    const session = await signInWithPassword({ email, password });
-    await persistSession(session, { rememberMe });
+    await signInWithPassword({ email, password, rememberMe });
     return { ok: true };
   } catch (error) {
     console.error("Login failed", error);
@@ -242,11 +213,8 @@ export async function registerWithSupabase({
       email,
       password,
       data: { ...metadata, email_confirm: false },
+      rememberMe: true,
     });
-
-    if (result.session) {
-      await persistSession(result.session);
-    }
 
     return { user: result.user ?? null };
   } catch (error) {
@@ -255,13 +223,11 @@ export async function registerWithSupabase({
   }
 }
 
-export async function signOutSupabase(accessToken?: string) {
-  if (accessToken) {
-    try {
-      await supabaseSignOut(accessToken);
-    } catch (error) {
-      console.error("Failed to revoke Supabase session", error);
-    }
+export async function signOutSupabase() {
+  try {
+    await supabaseSignOut();
+  } catch (error) {
+    console.error("Failed to revoke Supabase session", error);
   }
 }
 

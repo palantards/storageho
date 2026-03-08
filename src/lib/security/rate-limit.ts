@@ -1,5 +1,6 @@
 import "server-only";
 
+import crypto from "node:crypto";
 import { sql } from "drizzle-orm";
 
 import { dbAdmin } from "@/server/db/admin";
@@ -17,6 +18,14 @@ const RATE_LIMIT_PRUNE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const globalForRateLimit = globalThis as unknown as {
   rateLimitLastPrunedAt?: number;
 };
+
+function getRateLimitHashSecret() {
+  return (
+    process.env.RATE_LIMIT_HASH_SECRET ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    "storageho-rate-limit-dev"
+  );
+}
 
 function bucketStartFor(now: Date, windowSec: number) {
   const windowMs = windowSec * 1000;
@@ -39,6 +48,13 @@ function maybePruneExpiredBuckets() {
     .catch((error) => {
       console.error("Failed to prune request rate limits", error);
     });
+}
+
+function hashRateLimitIdentifier(scope: string, identifier: string) {
+  return crypto
+    .createHmac("sha256", getRateLimitHashSecret())
+    .update(`${scope}:${identifier}`)
+    .digest("hex");
 }
 
 export async function consumeRateLimit(input: {
@@ -66,6 +82,7 @@ export async function consumeRateLimit(input: {
   const now = input.now ?? new Date();
   const bucketStart = bucketStartFor(now, input.windowSec);
   const bucketEndMs = bucketStart.getTime() + input.windowSec * 1000;
+  const hashedIdentifier = hashRateLimitIdentifier(scope, identifier);
 
   const result = await dbAdmin.execute<{ count: number }>(sql`
     insert into public.request_rate_limits (
@@ -78,7 +95,7 @@ export async function consumeRateLimit(input: {
     )
     values (
       ${scope},
-      ${identifier},
+      ${hashedIdentifier},
       ${bucketStart},
       1,
       now(),
