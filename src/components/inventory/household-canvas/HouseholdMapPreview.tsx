@@ -54,12 +54,17 @@ export function HouseholdMapPreview({
     );
   }
 
+  const ROOM_ACCENT_COLORS = ["#60a5fa","#34d399","#a78bfa","#fbbf24","#f87171","#2dd4bf"];
+
   const groups = buildReadOnlyMapGroups({
     locationId,
     rooms,
     containers,
     unassignedLabel: tt("app.canvasSetup.unassigned", "Unassigned"),
   });
+
+  const totalRooms = groups.length;
+  const totalBoxes = groups.reduce((sum, g) => sum + g.containers.length, 0);
 
   return (
     <div
@@ -71,20 +76,27 @@ export function HouseholdMapPreview({
         actions={<span className="text-xs text-muted-foreground">{floorName}</span>}
       />
 
+      {groups.length > 0 ? (
+        <div className="text-xs text-muted-foreground">
+          {totalRooms} {tt("app.canvasSetup.roomsLabel", "rooms")} · {totalBoxes} {tt("app.canvasSetup.boxesLabel", "boxes")}
+        </div>
+      ) : null}
+
       {groups.length === 0 ? (
         <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
           {tt("app.canvasSetup.noRoomsOrContainers", "No rooms or containers on this floor yet.")}
         </div>
       ) : (
         <div className="grid gap-3 lg:grid-cols-2">
-          {groups.map((group) => (
+          {groups.map((group, index) => (
             <section
               key={group.roomId}
-              className={`rounded-md border bg-background p-3 ${
+              className={`rounded-md border border-l-[3px] bg-background p-3 ${
                 selectedRoomId === group.roomId
                   ? "border-primary ring-1 ring-primary/50"
                   : ""
-              }`}
+              } ${canSelectSetupMapRoom(group.roomId) ? "cursor-pointer hover:bg-muted/30 transition-colors" : ""}`}
+              style={{ borderLeftColor: ROOM_ACCENT_COLORS[index % ROOM_ACCENT_COLORS.length] }}
               data-testid="household-map-room-group"
               onClick={() => {
                 if (canSelectSetupMapRoom(group.roomId)) {
@@ -120,16 +132,18 @@ export function HouseholdMapPreview({
                     <button
                       key={container.id}
                       type="button"
-                      className="rounded border px-2 py-2 text-left text-xs hover:border-primary/60"
+                      className={`cursor-pointer rounded border bg-muted/50 px-2 py-2 text-left text-xs transition hover:bg-muted/80 hover:border-primary/60${container.code ? " relative pb-4" : ""}`}
                       onClick={(event) => {
                         event.stopPropagation();
                         onOpenBox?.(container.id);
                       }}
                     >
                       <div className="truncate font-medium">{container.name}</div>
-                      <div className="truncate text-muted-foreground">
-                        {container.code || tt("app.canvasSetup.noCode", "No code")}
-                      </div>
+                      {container.code ? (
+                        <span className="absolute bottom-1 right-1 font-mono text-[10px] text-muted-foreground">
+                          {container.code}
+                        </span>
+                      ) : null}
                     </button>
                   ))}
                 </div>

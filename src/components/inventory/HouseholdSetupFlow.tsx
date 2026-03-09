@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Home } from "lucide-react";
 import { toast } from "sonner";
 
 import { HouseholdMapPreview } from "@/components/inventory/household-canvas/HouseholdMapPreview";
@@ -760,38 +761,31 @@ export function HouseholdSetupFlow({
   function renderTools(withTestIds: boolean) {
     return (
       <div className="space-y-4">
-        <SectionDivider title={tt("app.canvasSetup.toolsTitle", "Setup panel")} />
-        <div className="text-xs text-muted-foreground">
-          {selectedFloor?.name ||
-            tt("app.canvasSetup.noFloorSelected", "No floor selected")}
-        </div>
-        <div className="text-xs text-muted-foreground">
-          {tt(
-            "app.canvasSetup.toolsSubtitle",
-            "Follow the steps to select a room and create containers.",
-          )}
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold">{tt("app.canvasSetup.toolsTitle", "Setup panel")}</span>
+          {selectedFloor ? (
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{selectedFloor.name}</span>
+          ) : null}
         </div>
 
         <div
           className="space-y-3 border-t border-border/60 pt-3"
           aria-label={tt("app.canvasSetup.step2", "Step 2: Rooms")}
         >
-          <SectionDivider
-            title={tt("app.canvasSetup.step2", "Step 2: Rooms")}
-            actions={
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowRoomCreate((current) => !current)}
-                disabled={!selectedFloor}
-              >
-                {showRoomCreate
-                  ? tt("app.canvasSetup.hideNewRoom", "Hide add room")
-                  : tt("app.canvasSetup.showNewRoom", "Add room")}
-              </Button>
-            }
-          />
+          <div className="flex items-center gap-2">
+            <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+              !selectedFloor ? "bg-muted text-muted-foreground" : selectableRooms.length > 0 ? "bg-primary text-primary-foreground" : "bg-primary/20 text-primary"
+            }`}>
+              {selectableRooms.length > 0 ? "✓" : "2"}
+            </div>
+            <span className={`text-sm font-medium ${!selectedFloor ? "text-muted-foreground" : ""}`}>
+              {tt("app.canvasSetup.step2", "Step 2: Rooms")}
+            </span>
+            <div className="flex-1" />
+            <Button type="button" variant="ghost" size="sm" onClick={() => setShowRoomCreate((c) => !c)} disabled={!selectedFloor}>
+              {showRoomCreate ? tt("app.canvasSetup.hideNewRoom", "Hide add room") : tt("app.canvasSetup.showNewRoom", "Add room")}
+            </Button>
+          </div>
           {!selectedFloor ? (
             <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
               {tt(
@@ -872,7 +866,16 @@ export function HouseholdSetupFlow({
           className="space-y-3 border-t border-border/60 pt-3"
           aria-label={tt("app.canvasSetup.step3", "Step 3: Container")}
         >
-          <SectionDivider title={tt("app.canvasSetup.step3", "Step 3: Container")} />
+          <div className="flex items-center gap-2">
+            <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+              !selectedFloor ? "bg-muted text-muted-foreground" : mapContainers.length > 0 ? "bg-primary text-primary-foreground" : "bg-primary/20 text-primary"
+            }`}>
+              {mapContainers.length > 0 ? "✓" : "3"}
+            </div>
+            <span className={`text-sm font-medium ${!selectedFloor ? "text-muted-foreground" : ""}`}>
+              {tt("app.canvasSetup.step3", "Step 3: Container")}
+            </span>
+          </div>
           {!selectedFloor ? (
             <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
               {tt(
@@ -940,91 +943,147 @@ export function HouseholdSetupFlow({
     <div className="space-y-4 pb-20 lg:pb-0">
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         <section className="space-y-4">
-          <div className="space-y-3">
-            <SectionDivider
-              title={tt("app.canvasSetup.step1", "Step 1: Floors")}
-              description={tt(
-                "app.canvasSetup.step1Hint",
-                "Pick or create a floor before adding rooms and containers.",
-              )}
-              actions={
+          {floors.length === 0 ? (
+            <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed bg-muted/20 py-14 px-8 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                <Home className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <div>
+                <div className="text-base font-semibold">Your canvas is empty</div>
+                <div className="mt-1 text-sm text-muted-foreground">Start by naming your first floor — e.g. "Ground floor" or "Garage".</div>
+              </div>
+              <div className="flex w-full max-w-sm gap-2">
+                <Input
+                  value={floorName}
+                  onChange={(e) => { setFloorName(e.target.value); if (floorNameError) setFloorNameError(null); if (floorError) setFloorError(null); }}
+                  placeholder={tt("app.canvasSetup.newFloorName", "New floor name")}
+                  aria-invalid={floorNameError ? true : undefined}
+                  onKeyDown={(e) => { if (e.key === "Enter") void createFloor(); }}
+                />
                 <Button
                   type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowFloorCreate((current) => !current)}
+                  loading={busyAction === "floor"}
+                  loadingText={tt("app.canvasSetup.adding", "Adding...")}
+                  disabled={busyAction !== null}
+                  onClick={createFloor}
                 >
-                  {showFloorCreate
-                    ? tt("app.canvasSetup.hideNewFloor", "Hide add floor")
-                    : tt("app.canvasSetup.showNewFloor", "Add floor")}
+                  {tt("app.canvasSetup.addFloor", "Add floor")}
                 </Button>
-              }
-            />
-            <Select
-              value={selectedFloorId}
-              onValueChange={(value) => {
-                void handleFloorChange(value);
-              }}
-            >
-              <SelectTrigger className="h-9 w-full">
-                <SelectValue
-                  placeholder={tt("app.canvasSetup.selectFloor", "Select floor")}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE}>
-                  {tt("app.canvasSetup.selectFloor", "Select floor")}
-                </SelectItem>
-                {floors.map((floor) => (
-                  <SelectItem key={floor.id} value={floor.id}>
-                    {floor.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {showFloorCreate ? (
-              <div className="space-y-2">
-                <div className="flex gap-2">
-                  <Input
-                    value={floorName}
-                    onChange={(event) => {
-                      setFloorName(event.target.value);
-                      if (floorNameError) setFloorNameError(null);
-                      if (floorError) setFloorError(null);
-                    }}
-                    placeholder={tt("app.canvasSetup.newFloorName", "New floor name")}
-                    aria-invalid={floorNameError ? true : undefined}
-                  />
-                  <Button
-                    type="button"
-                    loading={busyAction === "floor"}
-                    loadingText={tt("app.canvasSetup.adding", "Adding...")}
-                    disabled={busyAction !== null}
-                    onClick={createFloor}
-                  >
-                    {tt("app.canvasSetup.addFloor", "+ Floor")}
-                  </Button>
-                </div>
-                <FormFieldError error={floorNameError} />
-                <FormSubmitError error={floorError} title="Unable to create floor" />
               </div>
-            ) : null}
-          </div>
+              <FormFieldError error={floorNameError} />
+              <FormSubmitError error={floorError} title="Unable to create floor" />
+            </div>
+          ) : (
+            <>
+              <div className="space-y-3">
+                <SectionDivider
+                  title={tt("app.canvasSetup.step1", "Step 1: Floors")}
+                  description={tt(
+                    "app.canvasSetup.step1Hint",
+                    "Pick or create a floor before adding rooms and containers.",
+                  )}
+                  actions={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowFloorCreate((current) => !current)}
+                    >
+                      {showFloorCreate
+                        ? tt("app.canvasSetup.hideNewFloor", "Hide add floor")
+                        : tt("app.canvasSetup.showNewFloor", "Add floor")}
+                    </Button>
+                  }
+                />
+                {floors.length > 5 ? (
+                  <Select
+                    value={selectedFloorId}
+                    onValueChange={(value) => {
+                      void handleFloorChange(value);
+                    }}
+                  >
+                    <SelectTrigger className="h-9 w-full">
+                      <SelectValue
+                        placeholder={tt("app.canvasSetup.selectFloor", "Select floor")}
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE}>
+                        {tt("app.canvasSetup.selectFloor", "Select floor")}
+                      </SelectItem>
+                      {floors.map((floor) => (
+                        <SelectItem key={floor.id} value={floor.id}>
+                          {floor.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {floors.map((floor) => (
+                      <button
+                        key={floor.id}
+                        type="button"
+                        onClick={() => void handleFloorChange(floor.id)}
+                        className={`rounded-full border px-3 py-1 text-sm font-medium transition ${
+                          selectedFloorId === floor.id
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border bg-muted text-muted-foreground hover:bg-muted/80"
+                        }`}
+                      >
+                        {floor.name}
+                      </button>
+                    ))}
+                    {floors.length === 0 ? (
+                      <span className="text-sm text-muted-foreground">{tt("app.canvasSetup.selectFloor", "Select floor")}</span>
+                    ) : null}
+                  </div>
+                )}
+                {showFloorCreate ? (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <Input
+                        value={floorName}
+                        onChange={(event) => {
+                          setFloorName(event.target.value);
+                          if (floorNameError) setFloorNameError(null);
+                          if (floorError) setFloorError(null);
+                        }}
+                        placeholder={tt("app.canvasSetup.newFloorName", "New floor name")}
+                        aria-invalid={floorNameError ? true : undefined}
+                      />
+                      <Button
+                        type="button"
+                        loading={busyAction === "floor"}
+                        loadingText={tt("app.canvasSetup.adding", "Adding...")}
+                        disabled={busyAction !== null}
+                        onClick={createFloor}
+                      >
+                        {tt("app.canvasSetup.addFloor", "+ Floor")}
+                      </Button>
+                    </div>
+                    <FormFieldError error={floorNameError} />
+                    <FormSubmitError error={floorError} title="Unable to create floor" />
+                  </div>
+                ) : null}
+              </div>
 
-          <HouseholdMapPreview
-            floorName={
-              selectedFloor?.name ||
-              tt("app.canvasSetup.noFloorSelected", "No floor selected")
-            }
-            locationId={selectedLocationId}
-            rooms={mapRooms}
-            containers={mapContainers}
-            selectedRoomId={selectedRoomId === NONE ? null : selectedRoomId}
-            onSelectRoom={handleMapRoomSelect}
-            onOpenBox={(containerId) => {
-              router.push(`/${locale}/boxes/${containerId}`);
-            }}
-          />
+              <HouseholdMapPreview
+                floorName={
+                  selectedFloor?.name ||
+                  tt("app.canvasSetup.noFloorSelected", "No floor selected")
+                }
+                locationId={selectedLocationId}
+                rooms={mapRooms}
+                containers={mapContainers}
+                selectedRoomId={selectedRoomId === NONE ? null : selectedRoomId}
+                onSelectRoom={handleMapRoomSelect}
+                onOpenBox={(containerId) => {
+                  router.push(`/${locale}/boxes/${containerId}`);
+                }}
+              />
+            </>
+          )}
         </section>
 
         <aside className="hidden lg:sticky lg:top-20 lg:block lg:border-l lg:border-border/60 lg:pl-4">
@@ -1038,7 +1097,11 @@ export function HouseholdSetupFlow({
           size="sm"
           onClick={() => setIsToolsOpenMobile(true)}
         >
-          {tt("app.canvasSetup.openTools", "Add container")}
+          {!selectedFloor
+            ? tt("app.canvasSetup.getStarted", "Get started")
+            : selectableRooms.length === 0
+            ? tt("app.canvasSetup.showNewRoom", "Add room")
+            : tt("app.canvasSetup.openTools", "Add container")}
         </Button>
       </div>
 
