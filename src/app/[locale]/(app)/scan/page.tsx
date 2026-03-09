@@ -12,9 +12,10 @@ import {
 } from "@/lib/inventory/service";
 import { withRlsUserContext } from "@/server/db/tenant";
 import { BoxSuggestionsPanel } from "@/components/inventory/BoxSuggestionsPanel";
+import { ErrorState } from "@/components/inventory/ErrorState";
 import { MoveItemDialog } from "@/components/inventory/MoveItemDialog";
-import { ScanModePanel } from "@/components/inventory/ScanModePanel";
 import { PageFrame } from "@/components/inventory/PageFrame";
+import { ScanModePanel } from "@/components/inventory/ScanModePanel";
 import { SectionDivider } from "@/components/inventory/SectionDivider";
 import { Button } from "@/components/ui/button";
 
@@ -32,9 +33,7 @@ export default async function ScanModePage({
   const householdId = context.activeMembership?.household.id;
 
   if (!householdId) {
-    return (
-      <div className="text-sm text-muted-foreground">No active household.</div>
-    );
+    return <ErrorState title="No active household." />;
   }
 
   const rooms = await withRlsUserContext(userId, async () =>
@@ -136,6 +135,7 @@ export default async function ScanModePage({
             roomName: entry.room.name,
             locationName: entry.location.name,
             code: entry.container.code,
+            photoCount: entry.photoCount,
           }))}
           activeBox={
             activeBox

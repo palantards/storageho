@@ -24,9 +24,11 @@ import {
   listPhotoSuggestions,
 } from "@/lib/inventory/service";
 import { ActivityFeed } from "@/components/inventory/ActivityFeed";
+import { BoxAddItemPanel } from "@/components/inventory/BoxAddItemPanel";
 import { BoxSuggestionsPanel } from "@/components/inventory/BoxSuggestionsPanel";
 import { ContainerItemRow } from "@/components/inventory/ContainerItemRow";
-import { ItemAutocomplete } from "@/components/inventory/ItemAutocomplete";
+import { EmptyState } from "@/components/inventory/EmptyState";
+import { ErrorState } from "@/components/inventory/ErrorState";
 import { MoveItemDialog } from "@/components/inventory/MoveItemDialog";
 import { PageFrame } from "@/components/inventory/PageFrame";
 import { PhotoUploader } from "@/components/inventory/PhotoUploader";
@@ -34,17 +36,10 @@ import { QRCodeRenderer } from "@/components/inventory/QRCodeRenderer";
 import { SectionDivider } from "@/components/inventory/SectionDivider";
 import { SignedImage } from "@/components/inventory/SignedImage";
 import { TagChips } from "@/components/inventory/TagChips";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { HelpCircle } from "lucide-react";
 import { withRlsUserContext } from "@/server/db/tenant";
 
 const appUrl =
@@ -63,7 +58,7 @@ export default async function BoxPage({
   const householdId = context.activeMembership?.household.id;
 
   if (!householdId) {
-    return <div className="text-sm text-muted-foreground">No active household.</div>;
+    return <ErrorState title="No active household." />;
   }
   const activeHouseholdId = householdId;
 
@@ -76,7 +71,7 @@ export default async function BoxPage({
   );
 
   if (!row) {
-    return <div className="text-sm text-muted-foreground">Box not found.</div>;
+    return <ErrorState title="Box not found." />;
   }
 
   const absoluteDeepLink = `${appUrl}/${locale}/boxes/${boxId}`;
@@ -177,13 +172,17 @@ export default async function BoxPage({
   return (
     <PageFrame className="space-y-5" padded>
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div className="space-y-1">
-          <div className="text-2xl font-semibold">{row.container.name}</div>
-          <div className="text-sm text-muted-foreground">
-            {row.location.name} → {row.room.name}
+        <div className="space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="text-2xl font-semibold">{row.container.name}</div>
+            {row.container.code ? (
+              <Badge variant="outline" className="font-mono text-xs">
+                {row.container.code}
+              </Badge>
+            ) : null}
           </div>
           <div className="text-sm text-muted-foreground">
-            Code: {row.container.code || "-"} · Deep link: {absoluteDeepLink}
+            {row.location.name} → {row.room.name}
           </div>
           <TagChips
             tags={containerTags.map((tagRow) => ({
@@ -209,69 +208,25 @@ export default async function BoxPage({
           <TabsTrigger className="w-full text-xs sm:text-sm" value="suggestions">
             Suggestions
           </TabsTrigger>
-          <TabsTrigger className="w-full text-xs sm:text-sm" value="activity">
-            Activity
-          </TabsTrigger>
           <TabsTrigger className="w-full text-xs sm:text-sm" value="settings">
             Settings
+          </TabsTrigger>
+          <TabsTrigger className="w-full text-xs sm:text-sm" value="activity">
+            Activity
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="contents" className="space-y-4">
           <SectionDivider
             title="Add item"
-            description="Select an existing item or type a new name to create and add."
+            description="Use Form mode for precise control, or Quick-add to type multiple items at once."
           />
-          <form action={addItemUnifiedAction} className="grid gap-3">
-            <div className="grid gap-1">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="item-name" className="text-xs font-medium text-muted-foreground">
-                  Name
-                </Label>
-                <TooltipProvider delayDuration={200}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        className="inline-flex h-5 w-5 items-center justify-center text-muted-foreground hover:text-foreground"
-                        aria-label="Add item help"
-                      >
-                        <HelpCircle className="h-4 w-4" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-xs text-xs">
-                      Choose from suggestions or type. If the name doesn&apos;t match an existing item,
-                      a new one will be created.
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-              <ItemAutocomplete
-                name="item"
-                items={itemLibrary.map((it) => ({ id: it.id, name: it.name }))}
-                placeholder="e.g. Power bank"
-              />
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="grid gap-1">
-                <Label htmlFor="item-qty" className="text-xs font-medium text-muted-foreground">
-                  Quantity
-                </Label>
-                <Input id="item-qty" type="number" min={1} defaultValue={1} name="quantity" />
-              </div>
-              <div className="grid gap-1">
-                <Label htmlFor="item-note" className="text-xs font-medium text-muted-foreground">
-                  Note
-                </Label>
-                <Input id="item-note" name="note" placeholder="Optional note" />
-              </div>
-            </div>
-
-            <Button type="submit" className="w-fit">
-              Add to box
-            </Button>
-          </form>
+          <BoxAddItemPanel
+            householdId={activeHouseholdId}
+            containerId={boxId}
+            itemLibrary={itemLibrary.map((it) => ({ id: it.id, name: it.name }))}
+            addAction={addItemUnifiedAction}
+          />
 
           <SectionDivider
             title="Items in this box"
@@ -279,7 +234,7 @@ export default async function BoxPage({
           />
           <div className="space-y-2">
             {containerItems.length === 0 ? (
-              <div className="text-sm text-muted-foreground">No items in this box.</div>
+              <EmptyState title="No items in this box." description="Add your first item using the form above." />
             ) : (
               containerItems.map((entry) => (
                 <ContainerItemRow
@@ -322,15 +277,10 @@ export default async function BoxPage({
         </TabsContent>
 
         <TabsContent value="photos" className="space-y-4">
-          <div className="flex flex-wrap items-end justify-between gap-2">
-            <div>
-              <div className="text-base font-semibold">Photos</div>
-              <div className="text-sm text-muted-foreground">
-                Upload and manage box photos.
-              </div>
-            </div>
-            <div className="text-xs text-muted-foreground">{photos.length} photo(s)</div>
-          </div>
+          <SectionDivider
+            title="Photos"
+            description={`${photos.length} photo${photos.length === 1 ? "" : "s"} · Upload and manage box photos.`}
+          />
 
           <PhotoUploader
             householdId={householdId}
@@ -340,9 +290,11 @@ export default async function BoxPage({
           />
 
           {photos.length === 0 ? (
-            <div className="rounded-lg border border-dashed bg-muted/20 p-6 text-sm text-muted-foreground">
-              No photos yet. Add your first photo from the upload area above.
-            </div>
+            <EmptyState
+              variant="dashed"
+              title="No photos yet."
+              description="Add your first photo from the upload area above."
+            />
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
               {photos.map((photo) => (
@@ -359,13 +311,10 @@ export default async function BoxPage({
         </TabsContent>
 
         <TabsContent value="suggestions" className="space-y-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="text-base font-semibold">AI capture suggestions</div>
-            <div className="text-xs text-muted-foreground">
-              {photos.length} photo(s) | {pendingSuggestionsCount} pending |{" "}
-              {acceptedSuggestionsCount} accepted | {rejectedSuggestionsCount} rejected
-            </div>
-          </div>
+          <SectionDivider
+            title="AI capture suggestions"
+            description={`${photos.length} photo(s) · ${pendingSuggestionsCount} pending · ${acceptedSuggestionsCount} accepted · ${rejectedSuggestionsCount} rejected`}
+          />
           <BoxSuggestionsPanel
             householdId={householdId}
             containerId={boxId}

@@ -2,6 +2,7 @@ import type { Locale } from "@/i18n/config";
 import { getInventoryContext } from "@/lib/inventory/page-context";
 import { listFloors } from "@/lib/inventory/service";
 import { withRlsUserContext } from "@/server/db/tenant";
+import { ErrorState } from "@/components/inventory/ErrorState";
 import { PageFrame } from "@/components/inventory/PageFrame";
 import { SectionDivider } from "@/components/inventory/SectionDivider";
 import { Button } from "@/components/ui/button";
@@ -25,9 +26,7 @@ export default async function ExportPage({
   const householdId = context.activeMembership?.household.id;
 
   if (!householdId) {
-    return (
-      <div className="text-sm text-muted-foreground">No active household.</div>
-    );
+    return <ErrorState title="No active household." />;
   }
 
   const floors = await withRlsUserContext(userId, async () =>
@@ -75,6 +74,20 @@ export default async function ExportPage({
           Export CSV
         </Button>
       </form>
+
+      <div className="rounded-lg border bg-muted/30 p-4 text-sm">
+        <div className="mb-2 font-medium text-foreground">What&apos;s included</div>
+        <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-muted-foreground sm:grid-cols-3">
+          {["Floor", "Room", "Container name", "Container code", "Item name", "Quantity", "Note", "Tags"].map(
+            (col) => (
+              <div key={col} className="flex items-center gap-1.5">
+                <div className="h-1.5 w-1.5 rounded-full bg-primary/50" />
+                {col}
+              </div>
+            ),
+          )}
+        </div>
+      </div>
     </PageFrame>
   );
 }

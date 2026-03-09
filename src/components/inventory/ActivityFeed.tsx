@@ -151,7 +151,7 @@ function renderMetadataPills(
           <Link
             key={key}
             href={href}
-            className="transition hover:-translate-y-0.5 hover:shadow-sm"
+            className="transition hover:opacity-75"
           >
             {pill}
           </Link>
@@ -167,28 +167,28 @@ function renderBadge(actionType: string) {
   switch (actionType) {
     case "created":
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
           <CheckCircle2 className="h-3 w-3" />
           Created
         </span>
       );
     case "deleted":
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700 dark:bg-rose-900/40 dark:text-rose-200">
+        <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-medium text-rose-700 dark:bg-rose-900/40 dark:text-rose-200">
           <Trash2 className="h-3 w-3" />
           Deleted
         </span>
       );
     case "photo_added":
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
+        <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
           <Camera className="h-3 w-3" />
           Photo
         </span>
       );
     case "membership_updated":
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
+        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
           <BadgeCheck className="h-3 w-3" />
           Membership
         </span>
@@ -196,6 +196,21 @@ function renderBadge(actionType: string) {
     default:
       return null;
   }
+}
+
+const TIME_GROUPS = ["Today", "Yesterday", "This week", "Older"] as const;
+type TimeGroup = (typeof TIME_GROUPS)[number];
+
+function getTimeGroup(date: Date | null): TimeGroup {
+  if (!date) return "Older";
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffHours = diffMs / (1000 * 60 * 60);
+  const diffDays = diffHours / 24;
+  if (diffHours < 24) return "Today";
+  if (diffDays < 2) return "Yesterday";
+  if (diffDays < 7) return "This week";
+  return "Older";
 }
 
 export function ActivityFeed({
@@ -233,46 +248,66 @@ export function ActivityFeed({
     );
   }
 
-  return (
-    <div className="space-y-3">
-      {normalized.map((item) => (
-        <div
-          key={item.id}
-          className="rounded-lg border bg-card p-4 shadow-sm transition hover:border-foreground/20"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-muted text-foreground/80">
-                {renderIcon(item.entityType)}
-              </div>
-              <div>
-                <div className="flex items-center gap-2 text-sm font-semibold leading-tight">
-                  <span>{formatTitle(item)}</span>
-                  {item.actionType ? renderBadge(item.actionType) : null}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {item.createdAt
-                    ? (() => {
-                        try {
-                          return formatDistanceToNow(item.createdAt, {
-                            addSuffix: true,
-                          });
-                        } catch {
-                          return "Time unknown";
-                        }
-                      })()
-                    : "Time unknown"}
-                </div>
-              </div>
-            </div>
-          </div>
+  const grouped = TIME_GROUPS.reduce<Record<TimeGroup, Activity[]>>(
+    (acc, g) => ({ ...acc, [g]: [] }),
+    {} as Record<TimeGroup, Activity[]>,
+  );
+  for (const item of normalized) {
+    grouped[getTimeGroup(item.createdAt)].push(item);
+  }
 
-          {renderMetadataPills(
-            item.metadata,
-            locale,
-            item.entityType,
-            item.entityId,
-          )}
+  return (
+    <div className="space-y-6">
+      {TIME_GROUPS.filter((g) => grouped[g].length > 0).map((group) => (
+        <div key={group} className="space-y-2">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {group}
+            </span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+          <div className="space-y-2">
+            {grouped[group].map((item) => (
+              <div
+                key={item.id}
+                className="rounded-lg border bg-card p-4 transition hover:bg-muted/30"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-muted text-foreground/80">
+                      {renderIcon(item.entityType)}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 text-sm font-semibold leading-tight">
+                        <span>{formatTitle(item)}</span>
+                        {item.actionType ? renderBadge(item.actionType) : null}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {item.createdAt
+                          ? (() => {
+                              try {
+                                return formatDistanceToNow(item.createdAt, {
+                                  addSuffix: true,
+                                });
+                              } catch {
+                                return "Time unknown";
+                              }
+                            })()
+                          : "Time unknown"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {renderMetadataPills(
+                  item.metadata,
+                  locale,
+                  item.entityType,
+                  item.entityId,
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       ))}
     </div>

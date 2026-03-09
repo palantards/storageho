@@ -33,6 +33,7 @@ type BoxOption = {
   roomName: string;
   locationName: string;
   code: string | null;
+  photoCount?: number;
 };
 
 type ActiveBox = {
@@ -103,6 +104,12 @@ export function ScanModePanel({
     if (!quickAddError) return;
     toast.error(quickAddError);
   }, [quickAddError]);
+
+  useEffect(() => {
+    if (!quickAddSuccess) return;
+    const timer = setTimeout(() => setQuickAddSuccess(""), 3000);
+    return () => clearTimeout(timer);
+  }, [quickAddSuccess]);
 
   const activeIndex = useMemo(
     () => recentBoxes.findIndex((box) => box.id === activeBox?.id),
@@ -360,10 +367,17 @@ export function ScanModePanel({
                 }`}
                 onClick={() => openBox(box.id)}
               >
-                <div className="font-medium">{box.name}</div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="font-medium">{box.name}</div>
+                  {box.photoCount && box.photoCount > 0 ? (
+                    <span className="flex-shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                      {box.photoCount} 📷
+                    </span>
+                  ) : null}
+                </div>
                 <div className="text-xs text-muted-foreground">
                   {box.locationName} / {box.roomName}
-                  {box.code ? ` - ${box.code}` : ""}
+                  {box.code ? ` · ${box.code}` : ""}
                 </div>
               </button>
             ))
@@ -383,7 +397,7 @@ export function ScanModePanel({
 
           <div className="space-y-3">
             <div>
-              <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <div className="mb-2 text-xs font-medium text-muted-foreground">
                 1) Add photos
               </div>
               <PhotoUploader
@@ -396,7 +410,7 @@ export function ScanModePanel({
 
             <div>
               <div className="mb-2 flex items-center justify-between gap-2">
-                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <div className="text-xs font-medium text-muted-foreground">
                   2) Quick add by text/voice
                 </div>
                 <Button type="button" variant="ghost" size="sm" onClick={startVoiceCapture}>
@@ -444,7 +458,9 @@ export function ScanModePanel({
                         }
                         return;
                       }
-                      setQuickAddSuccess(`Added ${result.processed || 0} entries.`);
+                      const added = result.processed || 0;
+                      toast.success(`Added ${added} ${added === 1 ? "item" : "items"} to ${activeBox.name}`);
+                      setQuickAddSuccess(`Added ${added} ${added === 1 ? "item" : "items"}.`);
                       setQuickText("");
                       router.refresh();
                     } catch (error) {

@@ -3567,12 +3567,20 @@ export async function listRecentContainers(
       container: schema.containers,
       room: schema.rooms,
       location: schema.householdFloors,
+      photoCount: count(schema.photos.id),
     })
     .from(schema.containers)
     .innerJoin(schema.rooms, eq(schema.rooms.id, schema.containers.roomId))
     .innerJoin(
       schema.householdFloors,
       eq(schema.householdFloors.id, schema.rooms.locationId),
+    )
+    .leftJoin(
+      schema.photos,
+      and(
+        eq(schema.photos.entityType, "container"),
+        eq(schema.photos.entityId, schema.containers.id),
+      ),
     )
     .where(
       and(
@@ -3581,6 +3589,7 @@ export async function listRecentContainers(
         input.roomId ? eq(schema.containers.roomId, input.roomId) : undefined,
       ),
     )
+    .groupBy(schema.containers.id, schema.rooms.id, schema.householdFloors.id)
     .orderBy(desc(schema.containers.updatedAt), schema.containers.name)
     .limit(limit);
 }

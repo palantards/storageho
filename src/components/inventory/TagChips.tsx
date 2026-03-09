@@ -11,8 +11,11 @@ export function TagChips({ tags }: { tags: TagChip[] }) {
       {tags.map((tag) => (
         <span
           key={tag.id}
-          className="rounded border px-2 py-1 text-xs"
-          style={{ color: tag.color || undefined }}
+          className={`rounded border px-2 py-1 text-xs ${!tag.color ? "bg-muted/60" : ""}`}
+          style={{
+            color: tag.color || undefined,
+            backgroundColor: tag.color ? tag.color + "15" : undefined,
+          }}
         >
           {tag.name}
         </span>

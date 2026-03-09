@@ -1,8 +1,10 @@
 import { revalidatePath } from "next/cache";
 
 import { EmptyState } from "@/components/inventory/EmptyState";
+import { ErrorState } from "@/components/inventory/ErrorState";
 import { PageFrame } from "@/components/inventory/PageFrame";
 import { SectionDivider } from "@/components/inventory/SectionDivider";
+import { StatCard } from "@/components/inventory/StatCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -43,7 +45,7 @@ export default async function HouseholdSettingsPage({
   );
 
   if (!household) {
-    return <div className="text-sm text-muted-foreground">Household not found.</div>;
+    return <ErrorState title="Household not found." />;
   }
 
   const [usage, members] = await withRlsUserContext(userId, async () =>
@@ -72,18 +74,11 @@ export default async function HouseholdSettingsPage({
         <div className="text-sm text-muted-foreground">{household.name}</div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
-        {[
-          { label: "Containers", value: usage.containers },
-          { label: "Items", value: usage.items },
-          { label: "Photos", value: usage.photos },
-          { label: "Members", value: members.length },
-        ].map((metric) => (
-          <div key={metric.label} className="rounded-md border bg-muted/40 p-3">
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">{metric.label}</div>
-            <div className="text-xl font-semibold">{metric.value}</div>
-          </div>
-        ))}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="Containers" value={usage.containers} />
+        <StatCard label="Items" value={usage.items} />
+        <StatCard label="Photos" value={usage.photos} />
+        <StatCard label="Members" value={members.length} />
       </div>
 
       <div className="space-y-3">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 export function VirtualizedList<T>({
@@ -22,11 +22,15 @@ export function VirtualizedList<T>({
     overscan: 8,
   });
 
-  const totalSize = useMemo(() => virtualizer.getTotalSize(), [virtualizer]);
+  const totalSize = virtualizer.getTotalSize();
   const items = virtualizer.getVirtualItems();
 
   return (
-    <div ref={parentRef} className="max-h-[60vh] overflow-auto rounded-md border">
+    <div
+      ref={parentRef}
+      className="overflow-auto rounded-md border"
+      style={{ height: totalSize, maxHeight: "60vh" }}
+    >
       <div style={{ height: totalSize, position: "relative" }}>
         {items.map((item) => (
           <div

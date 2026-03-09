@@ -1,7 +1,10 @@
 import Link from "next/link";
 
-import { SectionDivider } from "@/components/inventory/SectionDivider";
+import { ContainerActionsDropdown } from "@/components/inventory/ContainerActionsDropdown";
+import { EmptyState } from "@/components/inventory/EmptyState";
+import { ErrorState } from "@/components/inventory/ErrorState";
 import { PageFrame } from "@/components/inventory/PageFrame";
+import { SectionDivider } from "@/components/inventory/SectionDivider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -44,7 +47,7 @@ export default async function RoomPage({
   const householdId = context.activeMembership?.household.id;
 
   if (!householdId) {
-    return <div className="text-sm text-muted-foreground">No active household.</div>;
+    return <ErrorState title="No active household." />;
   }
   const activeHouseholdId = householdId;
 
@@ -57,7 +60,7 @@ export default async function RoomPage({
   );
 
   if (!room) {
-    return <div className="text-sm text-muted-foreground">Room not found.</div>;
+    return <ErrorState title="Room not found." />;
   }
   const createContainerAction = createRoomContainerFormAction.bind(null, {
     locale,
@@ -101,37 +104,45 @@ export default async function RoomPage({
 
   return (
     <PageFrame className="space-y-6">
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        <div className="text-base font-semibold">{room.name}</div>
-        <Link
-          href={`/${locale}/households/${activeHouseholdId}/canvas`}
-          className="rounded border px-2 py-1 underline-offset-2 hover:underline"
-        >
-          Household canvas
-        </Link>
-        <Link href={`/${locale}/rooms/${roomId}`} className="underline-offset-2 hover:underline">
-          Active
-        </Link>
-        <Link
-          href={`/${locale}/rooms/${roomId}?archived=1`}
-          className="underline-offset-2 hover:underline"
-        >
-          Include archived
-        </Link>
-        {tags.slice(0, 8).map((tag) => (
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="text-2xl font-semibold">{room.name}</div>
+            <div className="text-sm text-muted-foreground">
+              <Link
+                href={`/${locale}/households/${activeHouseholdId}/canvas`}
+                className="hover:underline underline-offset-2"
+              >
+                Household canvas
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground">Filter:</span>
           <Link
-            key={tag.id}
-            href={`/${locale}/rooms/${roomId}?tag=${tag.id}`}
-            className="rounded border px-2 py-1"
+            href={`/${locale}/rooms/${roomId}`}
+            className="rounded border bg-muted/60 px-2 py-1 text-xs hover:bg-muted transition-colors"
           >
-            {tag.name}
+            Active
           </Link>
-        ))}
-        <form action={deleteRoomAction} className="ml-auto">
-          <Button type="submit" variant="destructive" size="sm">
-            Delete room
-          </Button>
-        </form>
+          <Link
+            href={`/${locale}/rooms/${roomId}?archived=1`}
+            className="rounded border bg-muted/60 px-2 py-1 text-xs hover:bg-muted transition-colors"
+          >
+            Include archived
+          </Link>
+          {tags.slice(0, 8).map((tag) => (
+            <Link
+              key={tag.id}
+              href={`/${locale}/rooms/${roomId}?tag=${tag.id}`}
+              className="rounded border bg-muted/60 px-2 py-1 text-xs hover:bg-muted transition-colors"
+            >
+              {tag.name}
+            </Link>
+          ))}
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -189,48 +200,53 @@ export default async function RoomPage({
       <div className="space-y-3">
         <SectionDivider title="Containers" />
         {containers.length === 0 ? (
-          <div className="text-sm text-muted-foreground">No containers found.</div>
+          <EmptyState title="No containers found." description="Add your first container using the form above." />
         ) : (
           <div className="space-y-2">
             {containers.map((entry) => (
               <div
                 key={entry.container.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3"
+                className="flex items-center justify-between gap-3 rounded-md border p-3 transition hover:bg-muted/30"
               >
-                <div>
+                <div className="min-w-0 flex-1">
                   <div className="font-medium">{entry.container.name}</div>
                   <div className="text-xs text-muted-foreground">
-                    code: {entry.container.code || "-"} · {entry.itemCount} item rows ·{" "}
-                    {entry.photoCount} photos · {entry.container.archivedAt ? "archived" : "active"}
+                    {entry.container.code ? (
+                      <span className="mr-2 rounded border bg-muted/60 px-1.5 py-0.5 font-mono">
+                        {entry.container.code}
+                      </span>
+                    ) : null}
+                    {entry.itemCount} items · {entry.photoCount} photos
+                    {entry.container.archivedAt ? (
+                      <span className="ml-2 text-amber-600 dark:text-amber-400">archived</span>
+                    ) : null}
                   </div>
                 </div>
-                <div className="flex flex-wrap justify-end gap-2">
+                <div className="flex items-center gap-1">
                   <Button asChild size="sm" variant="outline">
                     <Link href={`/${locale}/boxes/${entry.container.id}`}>Open box</Link>
                   </Button>
-                  <Button asChild size="sm" variant="outline">
-                    <Link href={`/${locale}/rooms/${roomId}/map?focus=container:${entry.container.id}`}>
-                      Show on map
-                    </Link>
-                  </Button>
-                  <form action={archiveContainerAction}>
-                    <input type="hidden" name="containerId" value={entry.container.id} />
-                    <input type="hidden" name="archived" value={entry.container.archivedAt ? "0" : "1"} />
-                    <Button type="submit" size="sm" variant="secondary">
-                      {entry.container.archivedAt ? "Restore" : "Archive"}
-                    </Button>
-                  </form>
-                  <form action={deleteContainerAction}>
-                    <input type="hidden" name="containerId" value={entry.container.id} />
-                    <Button type="submit" size="sm" variant="destructive">
-                      Delete
-                    </Button>
-                  </form>
+                  <ContainerActionsDropdown
+                    containerId={entry.container.id}
+                    mapHref={`/${locale}/rooms/${roomId}/map?focus=container:${entry.container.id}`}
+                    isArchived={!!entry.container.archivedAt}
+                    archiveAction={archiveContainerAction}
+                    deleteAction={deleteContainerAction}
+                  />
                 </div>
               </div>
             ))}
           </div>
         )}
+      </div>
+
+      <div className="space-y-3">
+        <SectionDivider title="Danger zone" />
+        <form action={deleteRoomAction}>
+          <Button type="submit" variant="destructive" size="sm">
+            Delete room
+          </Button>
+        </form>
       </div>
     </PageFrame>
   );

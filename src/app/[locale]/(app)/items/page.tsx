@@ -2,6 +2,7 @@ import Link from "next/link";
 import { revalidatePath } from "next/cache";
 
 import { EmptyState } from "@/components/inventory/EmptyState";
+import { ItemsFilterForm } from "@/components/inventory/ItemsFilterForm";
 import {
   ItemsVirtualizedList,
   type ItemsVirtualizedRow,
@@ -9,7 +10,6 @@ import {
 import { PageFrame } from "@/components/inventory/PageFrame";
 import { SectionDivider } from "@/components/inventory/SectionDivider";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -130,33 +130,9 @@ export default async function ItemsPage({
 
       <div className="space-y-3">
         <SectionDivider title="Filters" />
-        <form className="grid gap-2 md:grid-cols-[2fr_1fr]">
-          <Input
-            name="q"
-            placeholder="Search items"
-            defaultValue={search.q || ""}
-            className="w-full"
-          />
-          <Select name="tag" defaultValue={search.tag || "all"}>
-            <SelectTrigger>
-              <SelectValue placeholder="All tags" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All tags</SelectItem>
-              {tags.map((tag) => (
-                <SelectItem key={tag.id} value={tag.id}>
-                  {tag.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <div className="md:col-span-2 flex gap-2">
-            <Button type="submit">Apply</Button>
-            <Button type="button" variant="outline" asChild>
-              <Link href={`/${locale}/items`}>Reset</Link>
-            </Button>
-          </div>
-        </form>
+        <ItemsFilterForm
+          tags={tags.map((t) => ({ id: t.id, name: t.name }))}
+        />
       </div>
 
       <div className="space-y-3">

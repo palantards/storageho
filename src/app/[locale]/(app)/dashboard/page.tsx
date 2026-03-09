@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Map, Package, QrCode, Settings } from "lucide-react";
 
 import { ActivityFeed } from "@/components/inventory/ActivityFeed";
 import { PageFrame } from "@/components/inventory/PageFrame";
 import { SectionDivider } from "@/components/inventory/SectionDivider";
+import { StatCard } from "@/components/inventory/StatCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -77,43 +79,71 @@ export default async function DashboardPage({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: "Containers", value: usage.containers },
-          { label: "Items", value: usage.items },
-          { label: "Photos", value: usage.photos },
-          { label: "Rooms", value: usage.rooms ?? 0 },
-        ].map((metric) => (
-          <div
-            key={metric.label}
-            className="rounded-xl border bg-gradient-to-br from-muted/40 to-muted p-4 shadow-sm"
-          >
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">
-              {metric.label}
-            </div>
-            <div className="text-2xl font-semibold">{metric.value}</div>
-          </div>
-        ))}
+        <StatCard
+          label="Containers"
+          value={usage.containers}
+          href={`/${locale}/households/${householdId}/canvas`}
+        />
+        <StatCard label="Items" value={usage.items} href={`/${locale}/items`} />
+        <StatCard label="Photos" value={usage.photos} />
+        <StatCard
+          label="Rooms"
+          value={usage.rooms ?? 0}
+          href={`/${locale}/households/${householdId}/canvas`}
+        />
       </div>
 
-      <div className="space-y-2">
-        <SectionDivider title="Household" />
-        <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline">
-            <Link href={`/${locale}/households/${householdId}/canvas`}>
-              Household canvas
-            </Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href={`/${locale}/households/${householdId}/settings`}>
-              Household settings
-            </Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href={`/${locale}/items`}>Items library</Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href={`/${locale}/scan`}>Scan mode</Link>
-          </Button>
+      <div className="space-y-3">
+        <SectionDivider title="Quick access" />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Link
+            href={`/${locale}/households/${householdId}/canvas`}
+            className="group flex flex-col gap-2 rounded-xl border bg-card p-4 transition hover:-translate-y-0.5 hover:shadow-sm hover:ring-1 hover:ring-primary/20"
+          >
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:text-primary">
+              <Map className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold">Household canvas</div>
+              <div className="text-xs text-muted-foreground">Map floors, rooms and boxes</div>
+            </div>
+          </Link>
+          <Link
+            href={`/${locale}/scan`}
+            className="group flex flex-col gap-2 rounded-xl border bg-card p-4 transition hover:-translate-y-0.5 hover:shadow-sm hover:ring-1 hover:ring-primary/20"
+          >
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:text-primary">
+              <QrCode className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold">Scan mode</div>
+              <div className="text-xs text-muted-foreground">Scan box QR and quick-add items</div>
+            </div>
+          </Link>
+          <Link
+            href={`/${locale}/items`}
+            className="group flex flex-col gap-2 rounded-xl border bg-card p-4 transition hover:-translate-y-0.5 hover:shadow-sm hover:ring-1 hover:ring-primary/20"
+          >
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:text-primary">
+              <Package className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold">Items library</div>
+              <div className="text-xs text-muted-foreground">Browse and manage all items</div>
+            </div>
+          </Link>
+          <Link
+            href={`/${locale}/households/${householdId}/settings`}
+            className="group flex flex-col gap-2 rounded-xl border bg-card p-4 transition hover:-translate-y-0.5 hover:shadow-sm hover:ring-1 hover:ring-primary/20"
+          >
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:text-primary">
+              <Settings className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold">Household settings</div>
+              <div className="text-xs text-muted-foreground">Members, usage and options</div>
+            </div>
+          </Link>
         </div>
       </div>
 

@@ -146,7 +146,17 @@ export function PhotoUploader({
         }}
       />
 
-      <div className="rounded-xl border border-dashed bg-muted/20 p-4">
+      <div
+        role="button"
+        tabIndex={0}
+        className="cursor-pointer rounded-xl border border-dashed bg-muted/20 p-4 transition hover:border-primary/50 hover:bg-muted/40"
+        onClick={() => !uploading && fileInputRef.current?.click()}
+        onKeyDown={(e) => {
+          if ((e.key === "Enter" || e.key === " ") && !uploading) {
+            fileInputRef.current?.click();
+          }
+        }}
+      >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
             <div className="rounded-lg border bg-background p-2 text-muted-foreground">
@@ -166,7 +176,10 @@ export function PhotoUploader({
             disabled={uploading}
             loading={uploading}
             loadingText="Uploading..."
-            onClick={() => fileInputRef.current?.click()}
+            onClick={(e) => {
+              e.stopPropagation();
+              fileInputRef.current?.click();
+            }}
           >
             Add Photos
           </Button>

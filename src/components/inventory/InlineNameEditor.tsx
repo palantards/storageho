@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Pencil } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -26,9 +28,10 @@ export function InlineNameEditor({
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="text-left text-sm font-semibold hover:text-primary cursor-pointer"
+        className="group flex items-center gap-1 text-left text-sm font-semibold hover:text-primary cursor-pointer"
       >
         {name}
+        <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
       </button>
     );
   }

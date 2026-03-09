@@ -23,7 +23,7 @@ export function ContainerItemRow({
   rightSlot,
 }: Props) {
   return (
-    <div className="flex flex-col gap-2 rounded-md border p-3 md:flex-row md:items-center md:justify-between">
+    <div className="flex flex-col gap-2 rounded-md border p-3 transition hover:bg-muted/60 md:flex-row md:items-center md:justify-between">
       <div className="space-y-2 md:flex-1">
         <InlineNameEditor name={name} itemId={itemId} onSubmit={onRename} />
 

@@ -18,18 +18,12 @@ import {
   getPlanLabel,
   getPlanPrice,
 } from "@/config/billing";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { PageFrame } from "@/components/inventory/PageFrame";
+import { SectionDivider } from "@/components/inventory/SectionDivider";
 import { Button } from "@/components/ui/button";
 import { localizedHref } from "@/i18n/routing";
 import { findDbUserBySupabaseId } from "@/lib/users";
+import { cn } from "@/lib/utils";
 
 const fallbackUrl =
   process.env.APP_URL ||
@@ -160,121 +154,133 @@ export default async function ProfileSubscriptionPage({
   const canCheckout = stripeConfigured;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("profile.subscription.cardTitle")}</CardTitle>
-        <CardDescription>
-          {t("profile.subscription.cardSubtitle")}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid gap-4">
-          {showPendingSuccess && (
-            <Alert>
-              <AlertTitle>
-                {t("profile.subscription.checkoutSuccessPendingTitle")}
-              </AlertTitle>
-              <AlertDescription className="flex flex-col gap-3">
-                <span>
-                  {t("profile.subscription.checkoutSuccessPendingDescription")}
-                </span>
-                <form action={refreshSubscriptionAction}>
-                  <Button type="submit" size="sm" variant="outline">
-                    {t("profile.subscription.refreshStatusCta")}
-                  </Button>
-                </form>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {showConfirmedSuccess && (
-            <Alert>
-              <AlertTitle>
-                {t("profile.subscription.checkoutSuccessTitle")}
-              </AlertTitle>
-              <AlertDescription>
-                {t("profile.subscription.checkoutSuccessDescription", {
-                  status: state.statusLabel,
-                })}
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {showCancel && (
-            <Alert variant="destructive">
-              <AlertTitle>
-                {t("profile.subscription.checkoutCancelTitle")}
-              </AlertTitle>
-              <AlertDescription>
-                {t("profile.subscription.checkoutCancelDescription")}
-              </AlertDescription>
-            </Alert>
-          )}
-
-          <div className="grid gap-2 rounded-[var(--radius-md)] border border-border p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-sm font-medium">{state.planLabel}</div>
-                <div className="text-xs text-muted-foreground">
-                  {t("profile.subscription.planHint")}
-                </div>
-              </div>
-              <Badge variant="default">{state.statusLabel}</Badge>
-            </div>
-
-            <div className="grid gap-2 pt-2 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">
-                  {t("profile.subscription.renewalLabel")}
-                </span>
-                <span>{state.renewalDate}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">
-                  {t("profile.subscription.statusLabel")}
-                </span>
-                <span>{state.statusLabel}</span>
-              </div>
-            </div>
+    <PageFrame className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="text-2xl font-semibold">
+            {t("profile.subscription.cardTitle")}
           </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <form action={portalAction}>
-              <Button
-                type="submit"
-                variant="secondary"
-                disabled={!canManageBilling}
-              >
-                {t("profile.subscription.manage")}
-              </Button>
-            </form>
-
-            <div className="flex flex-wrap gap-2">
-              {planDefinitions.map((plan) => {
-                const priceId = getPriceIdForPlan(plan.id);
-                const missingPrice = !priceId;
-                return (
-                  <form
-                    action={checkoutAction}
-                    key={plan.id}
-                    title={missingPrice ? t("pricing.missingPrice") : undefined}
-                  >
-                    <input type="hidden" name="plan" value={plan.id} />
-                    <Button
-                      type="submit"
-                      variant="outline"
-                      disabled={!priceId || !canCheckout}
-                    >
-                      {t("pricing.cta")}: {getPlanLabel(plan, t)} ·{" "}
-                      {getPlanPrice(plan, t)}
-                    </Button>
-                  </form>
-                );
-              })}
-            </div>
+          <div className="text-sm text-muted-foreground">
+            {t("profile.subscription.cardSubtitle")}
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+
+      {showPendingSuccess && (
+        <div className="flex flex-col gap-3 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm dark:border-emerald-900/50 dark:bg-emerald-900/20">
+          <div className="font-medium text-emerald-800 dark:text-emerald-200">
+            {t("profile.subscription.checkoutSuccessPendingTitle")}
+          </div>
+          <div className="text-emerald-700 dark:text-emerald-300">
+            {t("profile.subscription.checkoutSuccessPendingDescription")}
+          </div>
+          <form action={refreshSubscriptionAction}>
+            <Button type="submit" size="sm" variant="outline">
+              {t("profile.subscription.refreshStatusCta")}
+            </Button>
+          </form>
+        </div>
+      )}
+
+      {showConfirmedSuccess && (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm dark:border-emerald-900/50 dark:bg-emerald-900/20">
+          <div className="font-medium text-emerald-800 dark:text-emerald-200">
+            {t("profile.subscription.checkoutSuccessTitle")}
+          </div>
+          <div className="mt-1 text-emerald-700 dark:text-emerald-300">
+            {t("profile.subscription.checkoutSuccessDescription", {
+              status: state.statusLabel,
+            })}
+          </div>
+        </div>
+      )}
+
+      {showCancel && (
+        <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm dark:border-rose-900/50 dark:bg-rose-900/20">
+          <div className="font-medium text-rose-800 dark:text-rose-200">
+            {t("profile.subscription.checkoutCancelTitle")}
+          </div>
+          <div className="mt-1 text-rose-700 dark:text-rose-300">
+            {t("profile.subscription.checkoutCancelDescription")}
+          </div>
+        </div>
+      )}
+
+      <SectionDivider title="Current plan" />
+
+      <div className="grid gap-2 rounded-[var(--radius-md)] border p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-medium">{state.planLabel}</div>
+            <div className="text-xs text-muted-foreground">
+              {t("profile.subscription.planHint")}
+            </div>
+          </div>
+          <span
+            className={cn(
+              "inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium",
+              state.subscriptionExists
+                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                : "bg-muted text-muted-foreground",
+            )}
+          >
+            {state.statusLabel}
+          </span>
+        </div>
+
+        <div className="grid gap-2 pt-2 text-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">
+              {t("profile.subscription.renewalLabel")}
+            </span>
+            <span>{state.renewalDate}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">
+              {t("profile.subscription.statusLabel")}
+            </span>
+            <span>{state.statusLabel}</span>
+          </div>
+        </div>
+      </div>
+
+      <SectionDivider title="Billing actions" />
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <form action={portalAction}>
+          <Button
+            type="submit"
+            variant="secondary"
+            disabled={!canManageBilling}
+          >
+            {t("profile.subscription.manage")}
+          </Button>
+        </form>
+
+        <div className="flex flex-wrap gap-2">
+          {planDefinitions.map((plan) => {
+            const priceId = getPriceIdForPlan(plan.id);
+            const missingPrice = !priceId;
+            return (
+              <form
+                action={checkoutAction}
+                key={plan.id}
+                title={missingPrice ? t("pricing.missingPrice") : undefined}
+              >
+                <input type="hidden" name="plan" value={plan.id} />
+                <Button
+                  type="submit"
+                  variant="outline"
+                  disabled={!priceId || !canCheckout}
+                >
+                  {t("pricing.cta")}: {getPlanLabel(plan, t)} ·{" "}
+                  {getPlanPrice(plan, t)}
+                </Button>
+              </form>
+            );
+          })}
+        </div>
+      </div>
+    </PageFrame>
   );
 }

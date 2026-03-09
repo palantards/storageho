@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ErrorState } from "@/components/inventory/ErrorState";
 import { HouseholdSetupFlow } from "@/components/inventory/HouseholdSetupFlow";
 import { PageFrame } from "@/components/inventory/PageFrame";
 import { Button } from "@/components/ui/button";
@@ -38,7 +39,7 @@ export default async function HouseholdCanvasPage({
   );
 
   if (!household) {
-    return <div className="text-sm text-muted-foreground">Household not found.</div>;
+    return <ErrorState title="Household not found." />;
   }
 
   await withRlsUserContext(userId, async () =>
