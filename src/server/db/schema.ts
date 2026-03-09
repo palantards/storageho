@@ -127,6 +127,11 @@ export const users = pgTable(
     isAdmin: boolean("is_admin").notNull().default(false),
     isFlagged: boolean("is_flagged").notNull().default(false),
     isBlocked: boolean("is_blocked").notNull().default(false),
+    // Profile columns — migrated from profiles table
+    displayName: text("display_name"),
+    name: text("name"),
+    company: text("company"),
+    locale: text("locale"),
     ...timestampColumns(),
   },
   (table) => ({
@@ -140,6 +145,7 @@ export const users = pgTable(
   }),
 );
 
+// @deprecated — migrate to users table
 // Profiles are auth.users-linked via userId.
 export const profiles = pgTable(
   "profiles",

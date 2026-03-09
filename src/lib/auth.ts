@@ -45,19 +45,6 @@ function deriveUserName({
     : email.split("@")[0] || "User";
 }
 
-function getPgCode(error: unknown): string | undefined {
-  if (!error || typeof error !== "object") return undefined;
-  const withCause = error as { cause?: { code?: string }; code?: string };
-  return withCause.cause?.code ?? withCause.code;
-}
-
-function isMissingRelation(error: unknown): boolean {
-  return getPgCode(error) === "42P01";
-}
-
-const globalForLegacyUsers = globalThis as unknown as {
-  __legacyUsersTableAvailable?: boolean;
-};
 
 export async function getSession(): Promise<Session | null> {
   try {
@@ -79,64 +66,53 @@ export async function getSession(): Promise<Session | null> {
         ? metadata.stripe_customer_id
         : undefined;
 
-    let dbUser: Awaited<ReturnType<typeof ensureUserRecord>> | null = null;
-    const legacyUsersAvailable =
-      globalForLegacyUsers.__legacyUsersTableAvailable ?? true;
+    const fallbackName = deriveUserName({ email: user.email, metadata });
 
-    if (legacyUsersAvailable) {
+    const existingUser = await db.query.users.findFirst({
+      where: eq(schema.users.supabaseUserId, user.id),
+    });
+
+    const dbUser = await ensureUserRecord(
+      {
+        id: user.id,
+        email: user.email,
+        stripeCustomerId:
+          existingUser?.stripeCustomerId ?? metadataStripeCustomerId,
+        isAdmin: existingUser?.isAdmin,
+      },
+      // Seed profile fields from metadata only when not already stored
+      !existingUser?.displayName && !existingUser?.name
+        ? { displayName: fallbackName, company: metadataCompany ?? undefined }
+        : undefined,
+    );
+
+    if (dbUser.isBlocked) {
+      console.log(`Blocked user ${dbUser.email} attempted login.`);
+      return null; // no session returned
+    }
+
+    if (process.env.STRIPE_SECRET_KEY && !dbUser.stripeCustomerId) {
       try {
-        const existingUser = await db.query.users.findFirst({
-          where: eq(schema.users.supabaseUserId, user.id),
-        });
-
-        dbUser = await ensureUserRecord({
-          id: user.id,
+        const newCustomerId = await getOrCreateStripeCustomerId({
+          supabaseUserId: user.id,
           email: user.email,
-          stripeCustomerId:
-            existingUser?.stripeCustomerId ?? metadataStripeCustomerId,
-          isAdmin: existingUser?.isAdmin,
+          name: (metadata?.name as string | undefined) ?? undefined,
+          company: metadataCompany,
         });
-
-        if (dbUser.isBlocked) {
-          console.log(`Blocked user ${dbUser.email} attempted login.`);
-          return null; // no session returned
-        }
-
-        if (process.env.STRIPE_SECRET_KEY && !dbUser.stripeCustomerId) {
-          try {
-            const newCustomerId = await getOrCreateStripeCustomerId({
-              supabaseUserId: user.id,
-              email: user.email,
-              name: (metadata?.name as string | undefined) ?? undefined,
-              company: metadataCompany,
-            });
-            dbUser.stripeCustomerId = newCustomerId;
-          } catch (error) {
-            console.error(
-              "Failed to create Stripe customer for user",
-              user.id,
-              error,
-            );
-          }
-        }
+        dbUser.stripeCustomerId = newCustomerId;
       } catch (error) {
-        if (isMissingRelation(error)) {
-          // Supabase-first installs may not have the legacy `users` table.
-          globalForLegacyUsers.__legacyUsersTableAvailable = false;
-          dbUser = null;
-        } else {
-          throw error;
-        }
+        console.error(
+          "Failed to create Stripe customer for user",
+          user.id,
+          error,
+        );
       }
     }
 
-    const fallbackName = deriveUserName({ email: user.email, metadata });
+    // Keep profiles table in sync for backward compatibility
     const existingProfile = await db.query.profiles.findFirst({
       where: eq(schema.profiles.userId, user.id),
-      columns: {
-        userId: true,
-        displayName: true,
-      },
+      columns: { userId: true, displayName: true },
     });
 
     if (!existingProfile) {
@@ -150,13 +126,20 @@ export async function getSession(): Promise<Session | null> {
       `);
     }
 
+    const resolvedName = (
+      dbUser.displayName ??
+      dbUser.name ??
+      existingProfile?.displayName ??
+      fallbackName
+    ).trim();
+
     return {
       user: {
         id: user.id,
         dbUserId: dbUser?.id,
         email: dbUser?.email ?? user.email,
-        name: (existingProfile?.displayName || fallbackName).trim(),
-        company: metadataCompany,
+        name: resolvedName,
+        company: dbUser.company ?? metadataCompany,
         stripeCustomerId: dbUser?.stripeCustomerId ?? metadataStripeCustomerId,
         isAdmin: !!dbUser?.isAdmin,
       },
