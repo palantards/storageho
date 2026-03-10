@@ -8,7 +8,8 @@ import { BrandStyles } from "@/components/brand/BrandStyles";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { PwaRegister } from "@/components/pwa/PwaRegister";
 import { Toaster } from "@/components/ui/sonner";
-
+import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Analytics } from "@vercel/analytics/next";
 export async function generateStaticParams() {
   return locales.map((locale) => ({ locale }));
 }
@@ -28,6 +29,8 @@ export default async function LocaleLayout({
 
   return (
     <ThemeProvider>
+      <SpeedInsights />
+      <Analytics />
       <I18nProvider locale={locale} messages={messages}>
         <BrandStyles />
         <PwaRegister />
