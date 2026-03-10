@@ -68,15 +68,6 @@ function readRememberMeValue(rawValue: string | undefined) {
   return rawValue !== "0";
 }
 
-async function resolveRememberMePreference(explicit?: boolean) {
-  if (typeof explicit === "boolean") {
-    return explicit;
-  }
-
-  const store = await cookies();
-  return readRememberMeValue(store.get(REMEMBER_ME_COOKIE)?.value);
-}
-
 async function setRememberMePreference(rememberMe: boolean) {
   const store = await cookies();
   store.set(
@@ -102,7 +93,10 @@ export async function createSupabaseServerClient(options?: {
   rememberMe?: boolean;
 }) {
   const store = await cookies();
-  const rememberMe = await resolveRememberMePreference(options?.rememberMe);
+  const rememberMe =
+    typeof options?.rememberMe === "boolean"
+      ? options.rememberMe
+      : readRememberMeValue(store.get(REMEMBER_ME_COOKIE)?.value);
   const { url, anonKey } = getSupabaseEnv();
 
   return createServerClient(url, anonKey, {

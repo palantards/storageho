@@ -50,16 +50,21 @@ function deriveUserName({
 export const getSession = cache(async (): Promise<Session | null> => {
   try {
     const supabase = await createSupabaseServerClient();
-    const { data, error } = await supabase.auth.getUser();
-    if (error) {
-      console.error("Unable to fetch Supabase user", error);
+    const { data: claimsData, error } = await supabase.auth.getClaims();
+    if (error || !claimsData?.claims?.sub) {
+      console.error("Unable to fetch Supabase claims", error);
       return null;
     }
 
-    const user = data.user;
-    if (!user.email) return null;
+    const claims = claimsData.claims;
+    const userId = claims.sub;
+    const email = typeof claims.email === "string" ? claims.email : null;
+    if (!email) return null;
 
-    const metadata = user.user_metadata;
+    const metadata =
+      claims.user_metadata && typeof claims.user_metadata === "object"
+        ? (claims.user_metadata as Record<string, unknown>)
+        : undefined;
     const metadataCompany =
       typeof metadata?.company === "string" ? metadata.company : undefined;
     const metadataStripeCustomerId =
@@ -67,10 +72,10 @@ export const getSession = cache(async (): Promise<Session | null> => {
         ? metadata.stripe_customer_id
         : undefined;
 
-    const fallbackName = deriveUserName({ email: user.email, metadata });
+    const fallbackName = deriveUserName({ email, metadata });
 
     const existingUser = await db.query.users.findFirst({
-      where: eq(schema.users.supabaseUserId, user.id),
+      where: eq(schema.users.supabaseUserId, userId),
     });
 
     let dbUser = existingUser;
@@ -78,8 +83,8 @@ export const getSession = cache(async (): Promise<Session | null> => {
     if (!dbUser) {
       dbUser = await ensureUserRecord(
         {
-          id: user.id,
-          email: user.email,
+          id: userId,
+          email,
           stripeCustomerId: metadataStripeCustomerId,
           isAdmin: existingUser?.isAdmin,
         },
@@ -95,8 +100,8 @@ export const getSession = cache(async (): Promise<Session | null> => {
         updatedAt?: Date;
       } = {};
 
-      if (dbUser.email !== user.email) {
-        userUpdate.email = user.email;
+      if (dbUser.email !== email) {
+        userUpdate.email = email;
       }
 
       if (!dbUser.stripeCustomerId && metadataStripeCustomerId) {
@@ -131,8 +136,8 @@ export const getSession = cache(async (): Promise<Session | null> => {
     if (process.env.STRIPE_SECRET_KEY && !dbUser.stripeCustomerId) {
       try {
         const newCustomerId = await getOrCreateStripeCustomerId({
-          supabaseUserId: user.id,
-          email: user.email,
+          supabaseUserId: userId,
+          email,
           name: (metadata?.name as string | undefined) ?? undefined,
           company: metadataCompany,
         });
@@ -140,41 +145,46 @@ export const getSession = cache(async (): Promise<Session | null> => {
       } catch (error) {
         console.error(
           "Failed to create Stripe customer for user",
-          user.id,
+          userId,
           error,
         );
       }
     }
 
-    // Keep profiles table in sync for backward compatibility
-    const existingProfile = await db.query.profiles.findFirst({
-      where: eq(schema.profiles.userId, user.id),
-      columns: { userId: true, displayName: true },
-    });
+    let profileDisplayName: string | null = null;
 
-    if (!existingProfile) {
-      await db.execute(sql`
-        insert into public.profiles (user_id, display_name)
-        values (${user.id}, ${fallbackName})
-        on conflict (user_id) do update
-        set
-          display_name = coalesce(public.profiles.display_name, excluded.display_name),
-          updated_at = now()
-      `);
+    if (!dbUser.displayName && !dbUser.name) {
+      const existingProfile = await db.query.profiles.findFirst({
+        where: eq(schema.profiles.userId, userId),
+        columns: { userId: true, displayName: true },
+      });
+
+      profileDisplayName = existingProfile?.displayName ?? null;
+
+      if (!existingProfile) {
+        await db.execute(sql`
+          insert into public.profiles (user_id, display_name)
+          values (${userId}, ${fallbackName})
+          on conflict (user_id) do update
+          set
+            display_name = coalesce(public.profiles.display_name, excluded.display_name),
+            updated_at = now()
+        `);
+      }
     }
 
     const resolvedName = (
       dbUser.displayName ??
       dbUser.name ??
-      existingProfile?.displayName ??
+      profileDisplayName ??
       fallbackName
     ).trim();
 
     return {
       user: {
-        id: user.id,
+        id: userId,
         dbUserId: dbUser?.id,
-        email: dbUser?.email ?? user.email,
+        email: dbUser?.email ?? email,
         name: resolvedName,
         company: dbUser.company ?? metadataCompany,
         stripeCustomerId: dbUser?.stripeCustomerId ?? metadataStripeCustomerId,

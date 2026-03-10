@@ -95,11 +95,13 @@ export async function middleware(request: NextRequest) {
           })(),
         );
 
-  try {
-    const supabase = createSupabaseMiddlewareClient(request, response);
-    await supabase.auth.getUser();
-  } catch (error) {
-    console.error("Failed to refresh Supabase SSR session", error);
+  if (hasSessionCookie) {
+    try {
+      const supabase = createSupabaseMiddlewareClient(request, response);
+      await supabase.auth.getSession();
+    } catch (error) {
+      console.error("Failed to refresh Supabase SSR session", error);
+    }
   }
 
   return response;

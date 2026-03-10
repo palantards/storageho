@@ -391,6 +391,7 @@ export const itemTags = pgTable(
   },
   (table) => ({
     householdIdx: index("item_tags_household_idx").on(table.householdId),
+    tagItemIdx: index("item_tags_tag_item_idx").on(table.tagId, table.itemId),
     uniqueIdx: uniqueIndex("item_tags_unique_idx").on(table.itemId, table.tagId),
   }),
 );
@@ -414,6 +415,10 @@ export const containerTags = pgTable(
   },
   (table) => ({
     householdIdx: index("container_tags_household_idx").on(table.householdId),
+    tagContainerIdx: index("container_tags_tag_container_idx").on(
+      table.tagId,
+      table.containerId,
+    ),
     uniqueIdx: uniqueIndex("container_tags_unique_idx").on(
       table.containerId,
       table.tagId,
@@ -559,6 +564,9 @@ export const photoSuggestions = pgTable(
     householdIdx: index("photo_suggestions_household_idx").on(table.householdId),
     photoIdx: index("photo_suggestions_photo_idx").on(table.photoId),
     containerIdx: index("photo_suggestions_container_idx").on(table.containerId),
+    resolvedItemIdx: index("photo_suggestions_resolved_item_idx").on(
+      table.resolvedItemId,
+    ),
     statusIdx: index("photo_suggestions_status_idx").on(
       table.householdId,
       table.status,
@@ -758,6 +766,7 @@ export const ticketVotes = pgTable(
     pk: primaryKey({
       columns: [table.userId, table.ticketId],
     }),
+    ticketIdIdx: index("ticket_votes_ticket_id_idx").on(table.ticketId),
   }),
 );
 
