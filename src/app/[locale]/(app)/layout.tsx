@@ -6,6 +6,8 @@ import { AppShell } from "@/components/shell/AppShell";
 import { getActiveMembershipContext } from "@/lib/inventory/service";
 import { withRlsUserContext } from "@/server/db/tenant";
 
+export const dynamic = "force-dynamic";
+
 export default async function AppLayout({
   children,
   params,

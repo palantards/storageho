@@ -1,4 +1,6 @@
 // file: src/app/[locale]/(app)/admin/page.tsx
+import { notFound } from "next/navigation";
+
 import type { Locale } from "@/i18n/config";
 import { getAdminStats, getUsers } from "@/lib/admin/users";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
@@ -11,7 +13,9 @@ export default async function AdminDashboardPage({
 }) {
   void params;
   const guard = await requireAdmin();
-  if (!guard.ok) throw new Error("Forbidden");
+  if (!guard.ok) {
+    notFound();
+  }
 
   const adminStats = await getAdminStats();
   const users = await getUsers({ offset: 0, limit: 30 });

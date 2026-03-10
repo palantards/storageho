@@ -130,7 +130,6 @@ export function AppShell({
                 sidebarCollapsed && "flex-col border-none px-0 py-0",
               )}
             >
-              <ThemeToggle />
               <UserMenu locale={locale} user={user} />
             </div>
           </div>
@@ -178,8 +177,7 @@ export function AppShell({
                           activeHouseholdId={activeHouseholdId}
                           memberships={householdMemberships}
                         />
-                        <div className="flex items-center justify-between gap-2 rounded-md border px-2 py-1">
-                          <ThemeToggle />
+                        <div className="flex items-center justify-end gap-2 rounded-md border px-2 py-1">
                           <UserMenu locale={locale} user={user} />
                         </div>
                       </div>
@@ -196,9 +194,7 @@ export function AppShell({
 
               <div className="flex items-center gap-2">
                 <GlobalSearchBar householdId={activeHouseholdId} />
-                <div className="md:hidden">
-                  <ThemeToggle />
-                </div>
+                <ThemeToggle />
                 <Button asChild variant="outline" size="sm" className="md:hidden">
                   <Link href={localizedHref(locale, "/scan")} className="inline-flex items-center gap-1">
                     <ScanIcon className="h-4 w-4" />
@@ -215,4 +211,3 @@ export function AppShell({
     </div>
   );
 }
-

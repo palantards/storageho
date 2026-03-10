@@ -64,7 +64,6 @@ export default async function DashboardPage({
 
   return (
     <PageFrame className="space-y-6">
-      <Logo size={100} />
       <PageHeader
         title="Dashboard"
         description="Track your household inventory at a glance."
