@@ -150,6 +150,18 @@ async function assertMembership(input: Queryable) {
 
   let membershipPromise: Promise<Membership | null>;
 
+  const loadMembership = async () => {
+    const membership = await db.query.householdMembers.findFirst({
+      where: and(
+        eq(schema.householdMembers.userId, input.userId),
+        eq(schema.householdMembers.householdId, input.householdId),
+        eq(schema.householdMembers.status, "active"),
+      ),
+    });
+
+    return membership ?? null;
+  };
+
   if (scopedTx) {
     let txCache = membershipLookupCache.get(scopedTx as object);
     if (!txCache) {
@@ -159,23 +171,11 @@ async function assertMembership(input: Queryable) {
 
     membershipPromise =
       txCache.get(cacheKey) ??
-      db.query.householdMembers.findFirst({
-        where: and(
-          eq(schema.householdMembers.userId, input.userId),
-          eq(schema.householdMembers.householdId, input.householdId),
-          eq(schema.householdMembers.status, "active"),
-        ),
-      });
+      loadMembership();
 
     txCache.set(cacheKey, membershipPromise);
   } else {
-    membershipPromise = db.query.householdMembers.findFirst({
-      where: and(
-        eq(schema.householdMembers.userId, input.userId),
-        eq(schema.householdMembers.householdId, input.householdId),
-        eq(schema.householdMembers.status, "active"),
-      ),
-    });
+    membershipPromise = loadMembership();
   }
 
   const membership = await membershipPromise;
