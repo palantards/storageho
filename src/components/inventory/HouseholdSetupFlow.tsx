@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Home } from "lucide-react";
-import { toast } from "sonner";
 
 import { HouseholdMapPreview } from "@/components/inventory/household-canvas/HouseholdMapPreview";
 import { PhotoUploader } from "@/components/inventory/PhotoUploader";
@@ -153,13 +152,6 @@ export function HouseholdSetupFlow({
   };
 
   useBusyCursor(busyAction !== null || suggestionBusyId !== null || pendingAnalyze);
-
-  useEffect(() => {
-    const nextError =
-      floorError || roomError || containerError || quickAddError || suggestionError;
-    if (!nextError) return;
-    toast.error(nextError);
-  }, [floorError, roomError, containerError, quickAddError, suggestionError]);
 
   const selectedFloor =
     selectedFloorId === NONE
@@ -759,13 +751,45 @@ export function HouseholdSetupFlow({
   }
 
   function renderTools(withTestIds: boolean) {
+    const step1Done = floors.length > 0 && selectedFloorId !== NONE;
+    const step2Done = selectableRooms.length > 0;
+    const step3Done = createdContainer !== null;
+    const currentStep = !step1Done ? 1 : !step2Done ? 2 : !step3Done ? 3 : 4;
+
+    const progressSteps = [
+      { label: tt("app.canvasSetup.step1Short", "Floor"), done: step1Done, active: currentStep === 1 },
+      { label: tt("app.canvasSetup.step2Short", "Room"), done: step2Done, active: currentStep === 2 },
+      { label: tt("app.canvasSetup.step3Short", "Box"), done: step3Done, active: currentStep === 3 },
+      { label: tt("app.canvasSetup.step4Short", "Items"), done: false, active: currentStep === 4 },
+    ];
+
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="space-y-3">
           <span className="text-sm font-semibold">{tt("app.canvasSetup.toolsTitle", "Setup panel")}</span>
-          {selectedFloor ? (
-            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{selectedFloor.name}</span>
-          ) : null}
+          <div className="flex items-end">
+            {progressSteps.map((step, i) => (
+              <Fragment key={step.label}>
+                <div className="flex flex-col items-center gap-1">
+                  <div className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold transition-colors ${
+                    step.done
+                      ? "bg-primary text-primary-foreground"
+                      : step.active
+                      ? "bg-primary/15 text-primary ring-1 ring-inset ring-primary/40"
+                      : "bg-muted text-muted-foreground"
+                  }`}>
+                    {step.done ? "✓" : i + 1}
+                  </div>
+                  <span className={`text-[10px] leading-none ${step.done || step.active ? "text-foreground" : "text-muted-foreground"}`}>
+                    {step.label}
+                  </span>
+                </div>
+                {i < progressSteps.length - 1 && (
+                  <div className={`mx-1 mb-4 h-px flex-1 transition-colors ${step.done ? "bg-primary" : "bg-border"}`} />
+                )}
+              </Fragment>
+            ))}
+          </div>
         </div>
 
         <div
@@ -933,7 +957,17 @@ export function HouseholdSetupFlow({
           )}
         </div>
 
-        <div className="border-t border-border/60 pt-3">
+        <div className="space-y-3 border-t border-border/60 pt-3">
+          <div className="flex items-center gap-2">
+            <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+              step3Done ? "bg-primary/15 text-primary ring-1 ring-inset ring-primary/40" : "bg-muted text-muted-foreground"
+            }`}>
+              4
+            </div>
+            <span className={`text-sm font-medium ${step3Done ? "" : "text-muted-foreground"}`}>
+              {tt("app.canvasSetup.step4", "Step 4: Items")}
+            </span>
+          </div>
           {renderPostCreatePanel(withTestIds)}
         </div>
       </div>

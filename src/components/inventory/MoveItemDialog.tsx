@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -54,11 +53,6 @@ export function MoveItemDialog({
   const [formError, setFormError] = useState<string | null>(null);
 
   useBusyCursor(pending);
-
-  useEffect(() => {
-    if (!formError) return;
-    toast.error(formError);
-  }, [formError]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

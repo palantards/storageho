@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { ImagePlus } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { FormSubmitError } from "@/components/ui/form-feedback";
@@ -68,11 +67,6 @@ export function PhotoUploader({
   const [formError, setFormError] = useState<string | null>(null);
 
   useBusyCursor(uploading);
-
-  useEffect(() => {
-    if (!formError) return;
-    toast.error(formError);
-  }, [formError]);
 
   return (
     <div className="space-y-3">

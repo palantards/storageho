@@ -3,8 +3,8 @@ const SHELL_ASSETS = [
   "/",
   "/en",
   "/en/dashboard",
-  "/brand/icon.svg",
-  "/brand/logo.svg",
+  "/brand/icon.png",
+  "/brand/logo.png",
 ];
 
 function isCacheableRequest(request) {

@@ -19,6 +19,7 @@ import {
   getPlanPrice,
 } from "@/config/billing";
 import { PageFrame } from "@/components/inventory/PageFrame";
+import { PageHeader } from "@/components/inventory/PageHeader";
 import { SectionDivider } from "@/components/inventory/SectionDivider";
 import { Button } from "@/components/ui/button";
 import { localizedHref } from "@/i18n/routing";
@@ -155,16 +156,10 @@ export default async function ProfileSubscriptionPage({
 
   return (
     <PageFrame className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="text-2xl font-semibold">
-            {t("profile.subscription.cardTitle")}
-          </div>
-          <div className="text-sm text-muted-foreground">
-            {t("profile.subscription.cardSubtitle")}
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title={t("profile.subscription.cardTitle")}
+        description={t("profile.subscription.cardSubtitle")}
+      />
 
       {showPendingSuccess && (
         <div className="flex flex-col gap-3 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm dark:border-emerald-900/50 dark:bg-emerald-900/20">

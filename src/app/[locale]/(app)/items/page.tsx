@@ -8,6 +8,7 @@ import {
   type ItemsVirtualizedRow,
 } from "@/components/inventory/ItemsVirtualizedList";
 import { PageFrame } from "@/components/inventory/PageFrame";
+import { PageHeader } from "@/components/inventory/PageHeader";
 import { SectionDivider } from "@/components/inventory/SectionDivider";
 import { Button } from "@/components/ui/button";
 import {
@@ -114,19 +115,15 @@ export default async function ItemsPage({
 
   return (
     <PageFrame className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="text-2xl font-semibold">Items</div>
-          <div className="text-sm text-muted-foreground">
-            Search, bulk add, and manage item placements across your household.
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <PageHeader
+        title="Items"
+        description="Search, bulk add, and manage item placements across your household."
+        actions={
           <Button asChild variant="outline" size="sm">
             <Link href={`/${locale}/dashboard`}>Back to dashboard</Link>
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       <div className="space-y-3">
         <SectionDivider title="Filters" />
@@ -239,7 +236,7 @@ export default async function ItemsPage({
             placements.map((row) => (
               <div key={row.containerItem.id} className="rounded-md border p-3">
                 <div className="font-medium">
-                  {row.location.name} {"->"} {row.room.name} {"->"}{" "}
+                  {row.location.name} → {row.room.name} →{" "}
                   {row.container.name}
                 </div>
                 <div className="text-xs text-muted-foreground">

@@ -15,6 +15,7 @@ import { BoxSuggestionsPanel } from "@/components/inventory/BoxSuggestionsPanel"
 import { ErrorState } from "@/components/inventory/ErrorState";
 import { MoveItemDialog } from "@/components/inventory/MoveItemDialog";
 import { PageFrame } from "@/components/inventory/PageFrame";
+import { PageHeader } from "@/components/inventory/PageHeader";
 import { ScanModePanel } from "@/components/inventory/ScanModePanel";
 import { SectionDivider } from "@/components/inventory/SectionDivider";
 import { Button } from "@/components/ui/button";
@@ -104,20 +105,15 @@ export default async function ScanModePage({
 
   return (
     <PageFrame className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="text-2xl font-semibold">Scan Mode</div>
-          <div className="text-sm text-muted-foreground">
-            Scan a box QR to open its session, capture photos, quick add, move
-            items, and move on.
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <PageHeader
+        title="Scan Mode"
+        description="Scan a box QR to open its session, capture photos, quick add, move items, and move on."
+        actions={
           <Button asChild variant="outline" size="sm">
             <Link href={`/${locale}/dashboard`}>Back to dashboard</Link>
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <ScanModePanel

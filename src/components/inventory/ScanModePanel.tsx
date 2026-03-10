@@ -96,16 +96,6 @@ export function ScanModePanel({
   useBusyCursor(pendingQuickAdd || pendingScanStart);
 
   useEffect(() => {
-    if (!scanError) return;
-    toast.error(scanError);
-  }, [scanError]);
-
-  useEffect(() => {
-    if (!quickAddError) return;
-    toast.error(quickAddError);
-  }, [quickAddError]);
-
-  useEffect(() => {
     if (!quickAddSuccess) return;
     const timer = setTimeout(() => setQuickAddSuccess(""), 3000);
     return () => clearTimeout(timer);

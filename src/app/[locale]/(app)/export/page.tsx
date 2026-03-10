@@ -4,6 +4,7 @@ import { listFloors } from "@/lib/inventory/service";
 import { withRlsUserContext } from "@/server/db/tenant";
 import { ErrorState } from "@/components/inventory/ErrorState";
 import { PageFrame } from "@/components/inventory/PageFrame";
+import { PageHeader } from "@/components/inventory/PageHeader";
 import { SectionDivider } from "@/components/inventory/SectionDivider";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,19 +41,15 @@ export default async function ExportPage({
 
   return (
     <PageFrame className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="text-2xl font-semibold">Export CSV</div>
-          <div className="text-sm text-muted-foreground">
-            Download household data filtered by floor.
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <PageHeader
+        title="Export CSV"
+        description="Download household data filtered by floor."
+        actions={
           <Button asChild variant="outline" size="sm">
             <Link href={`/${locale}/dashboard`}>Back to dashboard</Link>
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       <form action="/api/export" method="GET" className="space-y-3">
         <SectionDivider title="Choose scope" />

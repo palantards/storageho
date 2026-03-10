@@ -224,4 +224,3 @@ export const brand: BrandConfig = {
     },
   },
 } as const;
-

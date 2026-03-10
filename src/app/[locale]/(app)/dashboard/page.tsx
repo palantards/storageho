@@ -4,6 +4,8 @@ import { Map, Package, QrCode, Settings } from "lucide-react";
 
 import { ActivityFeed } from "@/components/inventory/ActivityFeed";
 import { PageFrame } from "@/components/inventory/PageFrame";
+import { PageHeader } from "@/components/inventory/PageHeader";
+import { QuickAccessCard } from "@/components/inventory/QuickAccessCard";
 import { SectionDivider } from "@/components/inventory/SectionDivider";
 import { StatCard } from "@/components/inventory/StatCard";
 import { Button } from "@/components/ui/button";
@@ -12,11 +14,9 @@ import { Label } from "@/components/ui/label";
 import type { Locale } from "@/i18n/config";
 import { createHouseholdFormAction } from "@/lib/actions/dashboard";
 import { getInventoryContext } from "@/lib/inventory/page-context";
-import {
-  getUsageHints,
-  listActivity,
-} from "@/lib/inventory/service";
+import { getUsageHints, listActivity } from "@/lib/inventory/service";
 import { withRlsUserContext } from "@/server/db/tenant";
+import { Logo } from "@/components/brand/Logo";
 
 export default async function DashboardPage({
   params,
@@ -64,19 +64,16 @@ export default async function DashboardPage({
 
   return (
     <PageFrame className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="text-2xl font-semibold">Dashboard</div>
-          <div className="text-sm text-muted-foreground">
-            Track your household inventory at a glance.
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <Logo size={100} />
+      <PageHeader
+        title="Dashboard"
+        description="Track your household inventory at a glance."
+        actions={
           <Button asChild variant="secondary">
             <Link href={`/${locale}/onboarding`}>New household</Link>
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
@@ -96,54 +93,30 @@ export default async function DashboardPage({
       <div className="space-y-3">
         <SectionDivider title="Quick access" />
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Link
+          <QuickAccessCard
             href={`/${locale}/households/${householdId}/canvas`}
-            className="group flex flex-col gap-2 rounded-xl border bg-card p-4 transition hover:-translate-y-0.5 hover:shadow-sm hover:ring-1 hover:ring-primary/20"
-          >
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:text-primary">
-              <Map className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="text-sm font-semibold">Household canvas</div>
-              <div className="text-xs text-muted-foreground">Map floors, rooms and boxes</div>
-            </div>
-          </Link>
-          <Link
+            icon={<Map className="h-5 w-5" />}
+            title="Household canvas"
+            description="Map floors, rooms and boxes"
+          />
+          <QuickAccessCard
             href={`/${locale}/scan`}
-            className="group flex flex-col gap-2 rounded-xl border bg-card p-4 transition hover:-translate-y-0.5 hover:shadow-sm hover:ring-1 hover:ring-primary/20"
-          >
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:text-primary">
-              <QrCode className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="text-sm font-semibold">Scan mode</div>
-              <div className="text-xs text-muted-foreground">Scan box QR and quick-add items</div>
-            </div>
-          </Link>
-          <Link
+            icon={<QrCode className="h-5 w-5" />}
+            title="Scan mode"
+            description="Scan box QR and quick-add items"
+          />
+          <QuickAccessCard
             href={`/${locale}/items`}
-            className="group flex flex-col gap-2 rounded-xl border bg-card p-4 transition hover:-translate-y-0.5 hover:shadow-sm hover:ring-1 hover:ring-primary/20"
-          >
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:text-primary">
-              <Package className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="text-sm font-semibold">Items library</div>
-              <div className="text-xs text-muted-foreground">Browse and manage all items</div>
-            </div>
-          </Link>
-          <Link
+            icon={<Package className="h-5 w-5" />}
+            title="Items library"
+            description="Browse and manage all items"
+          />
+          <QuickAccessCard
             href={`/${locale}/households/${householdId}/settings`}
-            className="group flex flex-col gap-2 rounded-xl border bg-card p-4 transition hover:-translate-y-0.5 hover:shadow-sm hover:ring-1 hover:ring-primary/20"
-          >
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:text-primary">
-              <Settings className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="text-sm font-semibold">Household settings</div>
-              <div className="text-xs text-muted-foreground">Members, usage and options</div>
-            </div>
-          </Link>
+            icon={<Settings className="h-5 w-5" />}
+            title="Household settings"
+            description="Members, usage and options"
+          />
         </div>
       </div>
 

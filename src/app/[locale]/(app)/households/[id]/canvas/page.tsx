@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ErrorState } from "@/components/inventory/ErrorState";
 import { HouseholdSetupFlow } from "@/components/inventory/HouseholdSetupFlow";
 import { PageFrame } from "@/components/inventory/PageFrame";
+import { PageHeader } from "@/components/inventory/PageHeader";
 import { Button } from "@/components/ui/button";
 import type { Locale } from "@/i18n/config";
 import { getMessages } from "@/i18n/getMessages";
@@ -74,24 +75,20 @@ export default async function HouseholdCanvasPage({
 
   return (
     <PageFrame className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="text-2xl font-semibold">
-            {`${t("nav.canvas", "Canvas")}: ${household.name}`}
-          </div>
-          <div className="text-sm text-muted-foreground">
-            {t(
-              "app.canvasSetup.pageDescription",
-              "Map-first setup: pick a floor, create rooms and containers from tools, and review the live read-only preview.",
-            )}
-          </div>
-        </div>
-        <Button asChild variant="outline" size="sm">
-          <Link href={`/${locale}/dashboard`}>
-            {t("app.canvasSetup.backToDashboard", "Back to dashboard")}
-          </Link>
-        </Button>
-      </div>
+      <PageHeader
+        title={`${t("nav.canvas", "Canvas")}: ${household.name}`}
+        description={t(
+          "app.canvasSetup.pageDescription",
+          "Map-first setup: pick a floor, create rooms and containers from tools, and review the live read-only preview.",
+        )}
+        actions={
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/${locale}/dashboard`}>
+              {t("app.canvasSetup.backToDashboard", "Back to dashboard")}
+            </Link>
+          </Button>
+        }
+      />
 
       <HouseholdSetupFlow
         locale={locale}

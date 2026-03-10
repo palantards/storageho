@@ -196,6 +196,9 @@ export function AppShell({
 
               <div className="flex items-center gap-2">
                 <GlobalSearchBar householdId={activeHouseholdId} />
+                <div className="md:hidden">
+                  <ThemeToggle />
+                </div>
                 <Button asChild variant="outline" size="sm" className="md:hidden">
                   <Link href={localizedHref(locale, "/scan")} className="inline-flex items-center gap-1">
                     <ScanIcon className="h-4 w-4" />

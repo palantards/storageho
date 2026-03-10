@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 export function Logo({
   variant = "icon",
-  size = 28, // treat as height
+  size = 28,
   className,
 }: {
   variant?: "full" | "icon";
@@ -15,19 +15,24 @@ export function Logo({
   const src = variant === "icon" ? brand.logo.icon : brand.logo.full;
   const alt = brand.name;
 
-  const common = cn("block shrink-0 filter invert-0 dark:invert", className);
-
   if (variant === "icon") {
     return (
-      <Image
-        src={src}
-        alt={alt}
-        width={size}
-        height={size}
-        className={common}
+      <span
+        className={cn(
+          "inline-flex shrink-0 items-center justify-center rounded-[var(--radius-md)]",
+          className,
+        )}
         style={{ width: size, height: size }}
-        priority
-      />
+      >
+        <Image
+          src={src}
+          alt={alt}
+          width={size}
+          height={size}
+          style={{ width: size, height: size }}
+          priority
+        />
+      </span>
     );
   }
 
@@ -37,10 +42,9 @@ export function Logo({
       alt={alt}
       width={size * 6}
       height={size}
-      className={cn(common, "w-auto")}
+      className={cn("block shrink-0 w-auto", className)}
       style={{ height: size, width: "auto" }}
       priority
     />
   );
 }
-
