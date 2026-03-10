@@ -2,14 +2,13 @@ import Link from "next/link";
 import { Map, Package, QrCode, Settings } from "lucide-react";
 
 import { ActivityFeed } from "@/components/inventory/ActivityFeed";
+import { CreateHouseholdForm } from "@/components/inventory/CreateHouseholdForm";
 import { PageFrame } from "@/components/inventory/PageFrame";
 import { PageHeader } from "@/components/inventory/PageHeader";
 import { QuickAccessCard } from "@/components/inventory/QuickAccessCard";
 import { SectionDivider } from "@/components/inventory/SectionDivider";
 import { StatCard } from "@/components/inventory/StatCard";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import type { Locale } from "@/i18n/config";
 import { createHouseholdFormAction } from "@/lib/actions/dashboard";
 import { getInventoryShellContext } from "@/lib/inventory/page-context";
@@ -25,9 +24,14 @@ export default async function DashboardPage({
   const context = await getInventoryShellContext(locale);
   const userId = context.user.id;
   const active = context.activeMembership;
-  const createHouseholdAction = createHouseholdFormAction.bind(null, {
-    locale,
-  }) as unknown as (formData: FormData) => Promise<void>;
+
+  async function createHouseholdAction(
+    _prev: { ok?: boolean; error?: string; fieldErrors?: { name?: string } },
+    formData: FormData,
+  ) {
+    "use server";
+    return createHouseholdFormAction({ locale }, formData);
+  }
 
   if (!active) {
     return (
@@ -40,13 +44,7 @@ export default async function DashboardPage({
             Household is your shared workspace for home + storage inventory.
           </div>
         </div>
-        <form action={createHouseholdAction} className="grid gap-3">
-          <Label htmlFor="name">Household name</Label>
-          <Input id="name" name="name" placeholder="Home" required />
-          <Button type="submit" className="w-fit">
-            Create household
-          </Button>
-        </form>
+        <CreateHouseholdForm action={createHouseholdAction} />
       </PageFrame>
     );
   }

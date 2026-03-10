@@ -451,38 +451,32 @@ export async function createHousehold(input: {
   const name = input.name.trim();
   if (!name) throw new Error("Name required");
   const language = input.language?.trim() || "en";
+  const householdId = crypto.randomUUID();
 
   return db.transaction(async (tx) => {
-    const [household] = await tx
-      .insert(schema.households)
-      .values({
-        name,
-        language,
-        createdBy: input.userId,
-      })
-      .returning();
-
-    await tx
-      .insert(schema.householdMembers)
-      .values({
-        householdId: household.id,
-        userId: input.userId,
-        role: "owner",
-        status: "active",
-        invitedBy: input.userId,
-      })
-      .onConflictDoNothing();
+    await tx.insert(schema.households).values({
+      id: householdId,
+      name,
+      language,
+      createdBy: input.userId,
+    });
 
     await tx.insert(schema.activityLog).values({
-      householdId: household.id,
+      householdId,
       actorUserId: input.userId,
       actionType: "created",
       entityType: "household",
-      entityId: household.id,
+      entityId: householdId,
       metadata: { name },
     });
 
-    return household;
+    return {
+      id: householdId,
+      name,
+      language,
+      createdAt: new Date(),
+      createdBy: input.userId,
+    };
   });
 }
 
