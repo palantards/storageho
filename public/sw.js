@@ -1,4 +1,4 @@
-const CACHE_NAME = "storageho-shell-v3";
+const CACHE_NAME = "stowlio-shell-v3";
 const SHELL_ASSETS = [
   "/",
   "/en",

@@ -5,13 +5,15 @@ const tinyPng = Buffer.from(
   "base64",
 );
 
-test("signup -> onboarding -> scan -> suggestions -> search -> map", async ({ page }) => {
+test("signup -> onboarding -> scan -> suggestions -> search -> map", async ({
+  page,
+}) => {
   const suffix = Date.now();
   const email = process.env.E2E_EMAIL || `v2-smoke+${suffix}@example.com`;
   const password = process.env.E2E_PASSWORD || "SmokePass123!";
 
   await page.goto("/en/register");
-  await page.getByLabel("Name").fill("StorageHo V2 User");
+  await page.getByLabel("Name").fill("Stowlio V2 User");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: /create account/i }).click();
@@ -19,13 +21,15 @@ test("signup -> onboarding -> scan -> suggestions -> search -> map", async ({ pa
 
   await page.goto("/en/onboarding");
 
-  const createHouseholdButton = page.getByRole("button", { name: "Create household" });
+  const createHouseholdButton = page.getByRole("button", {
+    name: "Create household",
+  });
   if (await createHouseholdButton.isVisible()) {
     await page.getByLabel("Household name").fill("V2 Household");
     await createHouseholdButton.click();
   }
 
-  await expect(page.getByText("StorageHo onboarding")).toBeVisible();
+  await expect(page.getByText("Stowlio onboarding")).toBeVisible();
 
   const locationForm = page.locator("form").filter({
     has: page.getByPlaceholder("Basement storage"),
@@ -48,14 +52,11 @@ test("signup -> onboarding -> scan -> suggestions -> search -> map", async ({ pa
   await page.getByRole("button", { name: "Add to box" }).click();
   await expect(page.getByText(/Added .* entries/)).toBeVisible();
 
-  await page
-    .locator("input[type='file']")
-    .first()
-    .setInputFiles({
-      name: "box.png",
-      mimeType: "image/png",
-      buffer: tinyPng,
-    });
+  await page.locator("input[type='file']").first().setInputFiles({
+    name: "box.png",
+    mimeType: "image/png",
+    buffer: tinyPng,
+  });
 
   await page.request.get("/api/jobs/run?limit=10");
   await page.reload();
@@ -78,7 +79,10 @@ test("signup -> onboarding -> scan -> suggestions -> search -> map", async ({ pa
   await page.getByRole("link", { name: "Open room map" }).click();
 
   await expect(page.getByText(/Room map:/)).toBeVisible();
-  await page.getByRole("button", { name: /Place|Move/ }).first().click();
+  await page
+    .getByRole("button", { name: /Place|Move/ })
+    .first()
+    .click();
   await expect(page.getByText("Placement saved.")).toBeVisible();
 
   await page.goto("/en/canvas");
@@ -96,7 +100,9 @@ test("signup -> onboarding -> scan -> suggestions -> search -> map", async ({ pa
   await page.getByPlaceholder("Container name").fill("Canvas Flow Box");
   await page.getByTestId("setup-create-container").click();
   await expect(page.getByTestId("setup-post-create-panel")).toBeVisible();
-  await expect(page.getByText("Container created: Canvas Flow Box")).toBeVisible();
+  await expect(
+    page.getByText("Container created: Canvas Flow Box"),
+  ).toBeVisible();
 
   await page
     .getByTestId("setup-post-create-panel")

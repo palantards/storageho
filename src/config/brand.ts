@@ -69,7 +69,7 @@ export type BrandConfig = {
 };
 
 export const brand: BrandConfig = {
-  name: "StorageHo",
+  name: "Stowlio",
   logo: {
     full: "/brand/logo.svg",
     icon: "/brand/icon.svg",

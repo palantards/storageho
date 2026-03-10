@@ -1,6 +1,6 @@
 {
   "brand": {
-    "logoAlt": "StorageHo"
+    "logoAlt": "Stowlio"
   },
   "nav": {
     "features": "Funktioner",
@@ -56,7 +56,7 @@
     },
     "hero": {
       "title": "Ha koll på exakt var allt finns.",
-      "subtitle": "StorageHo ger hushållet en delad inventarie för hem och förråd: platser, rum, lådor, saker, bilder, QR-etiketter och flytthistorik.",
+      "subtitle": "Stowlio ger hushållet en delad inventarie för hem och förråd: platser, rum, lådor, saker, bilder, QR-etiketter och flytthistorik.",
       "primary": "Börja organisera",
       "secondary": "Utforska funktioner"
     },
@@ -89,7 +89,7 @@
         "b": "Lade till bild på Låda Vinterutrustning",
         "c": "Bjöd in partner som viewer"
       },
-      "imageAlt": "Diagram som visar hur StorageHo fungerar fr?n hush?ll till platser, rum, l?dor och saker."
+      "imageAlt": "Diagram som visar hur Stowlio fungerar fr?n hush?ll till platser, rum, l?dor och saker."
     }
   },
   "auth": {
@@ -385,7 +385,7 @@
     "missingPrice": "Planen är inte tillgänglig just nu. Kontakta support för att aktivera betalning."
   },
   "features": {
-    "title": "Allt som ingår i StorageHo",
+    "title": "Allt som ingår i Stowlio",
     "items": [
       {
         "title": "Delade hushåll-workspaces",
@@ -425,7 +425,7 @@
       },
       {
         "title": "Aktivitetshistorik + PWA",
-        "desc": "Se vem som ändrade vad, och använd StorageHo snabbt på mobilen i förrådet."
+        "desc": "Se vem som ändrade vad, och använd Stowlio snabbt på mobilen i förrådet."
       }
     ]
   },

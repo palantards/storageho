@@ -6,7 +6,7 @@ import { brand } from "@/config/brand";
 export const metadata: Metadata = {
   title: brand.name,
   description:
-    "StorageHo helps households organize floors, rooms, boxes, items, photos, and QR labels in one private inventory app.",
+    "Stowlio helps households organize floors, rooms, boxes, items, photos, and QR labels in one private inventory app.",
 };
 
 export const viewport: Viewport = {
@@ -24,4 +24,3 @@ export default function RootLayout({
     </html>
   );
 }
-

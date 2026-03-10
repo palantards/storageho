@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { Map, Package, QrCode, Settings } from "lucide-react";
 
 import { ActivityFeed } from "@/components/inventory/ActivityFeed";
@@ -14,9 +13,8 @@ import { Label } from "@/components/ui/label";
 import type { Locale } from "@/i18n/config";
 import { createHouseholdFormAction } from "@/lib/actions/dashboard";
 import { getInventoryContext } from "@/lib/inventory/page-context";
-import { getUsageHints, listActivity } from "@/lib/inventory/service";
+import { getDashboardOverview } from "@/lib/inventory/service";
 import { withRlsUserContext } from "@/server/db/tenant";
-import { Logo } from "@/components/brand/Logo";
 
 export default async function DashboardPage({
   params,
@@ -55,11 +53,12 @@ export default async function DashboardPage({
 
   const householdId = active.household.id;
 
-  const [activity, usage] = await withRlsUserContext(userId, async () =>
-    Promise.all([
-      listActivity({ userId, householdId, limit: 12 }),
-      getUsageHints({ userId, householdId }),
-    ]),
+  const { activity, usage } = await withRlsUserContext(userId, async () =>
+    getDashboardOverview({
+      userId,
+      householdId,
+      activityLimit: 12,
+    }),
   );
 
   return (

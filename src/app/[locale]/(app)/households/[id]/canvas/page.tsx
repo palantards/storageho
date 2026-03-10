@@ -32,51 +32,56 @@ export default async function HouseholdCanvasPage({
   const context = await getInventoryContext(locale);
   const userId = context.user.id;
 
-  const household = await withRlsUserContext(userId, async () =>
-    getHouseholdById({
+  const pageData = await withRlsUserContext(userId, async () => {
+    const household = await getHouseholdById({
       userId,
       householdId,
-    }),
-  );
+    });
 
-  if (!household) {
+    if (!household) {
+      return null;
+    }
+
+    await ensureHouseholdFloorsInitialized({
+      userId,
+      householdId,
+    });
+
+    const [floors, rooms, containers] = await Promise.all([
+      listHouseholdFloors({
+        userId,
+        householdId,
+      }),
+      listRoomsWithFloor({
+        userId,
+        householdId,
+        includeSystem: true,
+        limit: 5000,
+      }),
+      listContainersWithRoomFloor({
+        userId,
+        householdId,
+        includeArchived: false,
+        limit: 5000,
+      }),
+    ]);
+
+    return {
+      household,
+      floors,
+      rooms,
+      containers,
+    };
+  });
+
+  if (!pageData) {
     return <ErrorState title="Household not found." />;
   }
-
-  await withRlsUserContext(userId, async () =>
-    ensureHouseholdFloorsInitialized({
-      userId,
-      householdId,
-    }),
-  );
-
-  const [floors, rooms, containers] = await withRlsUserContext(
-    userId,
-    async () =>
-      Promise.all([
-        listHouseholdFloors({
-          userId,
-          householdId,
-        }),
-        listRoomsWithFloor({
-          userId,
-          householdId,
-          includeSystem: true,
-          limit: 5000,
-        }),
-        listContainersWithRoomFloor({
-          userId,
-          householdId,
-          includeArchived: false,
-          limit: 5000,
-        }),
-      ]),
-  );
 
   return (
     <PageFrame className="space-y-6">
       <PageHeader
-        title={`${t("nav.canvas", "Canvas")}: ${household.name}`}
+        title={`${t("nav.canvas", "Canvas")}: ${pageData.household.name}`}
         description={t(
           "app.canvasSetup.pageDescription",
           "Map-first setup: pick a floor, create rooms and containers from tools, and review the live read-only preview.",
@@ -93,20 +98,20 @@ export default async function HouseholdCanvasPage({
       <HouseholdSetupFlow
         locale={locale}
         householdId={householdId}
-        floors={floors.map((floor) => ({
+        floors={pageData.floors.map((floor) => ({
           id: floor.id,
           name: floor.name,
           locationId: floor.id,
           sortOrder: Number(floor.sortOrder ?? 0),
         }))}
-        rooms={rooms.map((row) => ({
+        rooms={pageData.rooms.map((row) => ({
           id: row.room.id,
           name: row.room.name,
           locationId: row.location.id,
           locationName: row.location.name,
           isSystem: Boolean(row.room.isSystem),
         }))}
-        containers={containers.map((row) => ({
+        containers={pageData.containers.map((row) => ({
           id: row.container.id,
           name: row.container.name,
           code: row.container.code,
@@ -119,4 +124,3 @@ export default async function HouseholdCanvasPage({
     </PageFrame>
   );
 }
-

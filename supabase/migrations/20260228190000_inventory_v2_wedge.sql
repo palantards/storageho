@@ -1,5 +1,5 @@
 -- 20260228190000_inventory_v2_wedge.sql
--- StorageHo V2 wedge: onboarding preferences, AI jobs/suggestions/search docs, and spatial map placement.
+-- Stowlio V2 wedge: onboarding preferences, AI jobs/suggestions/search docs, and spatial map placement.
 
 create extension if not exists vector;
 create extension if not exists pg_trgm;

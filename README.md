@@ -1,6 +1,6 @@
-## StorageHo (Supabase-first, V2)
+## Stowlio (Supabase-first, V2)
 
-StorageHo is a shared household + storage inventory app built on:
+Stowlio is a shared household + storage inventory app built on:
 
 - Next.js App Router + TypeScript
 - Supabase Auth + Postgres + Storage (private bucket)

@@ -37,51 +37,53 @@ export default async function ScanModePage({
     return <ErrorState title="No active household." />;
   }
 
-  const rooms = await withRlsUserContext(userId, async () =>
-    listRoomsWithFloor({
+  const {
+    selectedRoomId,
+    rooms,
+    recentBoxes,
+    activeBox,
+    itemsInBox,
+    moveTargets,
+    suggestions,
+  } = await withRlsUserContext(userId, async () => {
+    const rooms = await listRoomsWithFloor({
       userId,
       householdId,
-    }),
-  );
+    });
 
-  const selectedRoomId =
-    (search.roomId && rooms.some((entry) => entry.room.id === search.roomId)
-      ? search.roomId
-      : context.preferences?.activeRoomId &&
-          rooms.some(
-            (entry) => entry.room.id === context.preferences?.activeRoomId,
-          )
-        ? context.preferences.activeRoomId
-        : rooms[0]?.room.id) || undefined;
+    const selectedRoomId =
+      (search.roomId && rooms.some((entry) => entry.room.id === search.roomId)
+        ? search.roomId
+        : context.preferences?.activeRoomId &&
+            rooms.some(
+              (entry) => entry.room.id === context.preferences?.activeRoomId,
+            )
+          ? context.preferences.activeRoomId
+          : rooms[0]?.room.id) || undefined;
 
-  const recentBoxes = await withRlsUserContext(userId, async () =>
-    listRecentContainers({
+    const recentBoxes = await listRecentContainers({
       userId,
       householdId,
       roomId: selectedRoomId,
       limit: 16,
-    }),
-  );
+    });
 
-  const selectedBoxId =
-    (search.boxId &&
-    recentBoxes.some((entry) => entry.container.id === search.boxId)
-      ? search.boxId
-      : recentBoxes[0]?.container.id) || undefined;
+    const selectedBoxId =
+      (search.boxId &&
+      recentBoxes.some((entry) => entry.container.id === search.boxId)
+        ? search.boxId
+        : recentBoxes[0]?.container.id) || undefined;
 
-  const activeBox = selectedBoxId
-    ? await withRlsUserContext(userId, async () =>
-        getContainerById({
+    const activeBox = selectedBoxId
+      ? await getContainerById({
           userId,
           householdId,
           containerId: selectedBoxId,
-        }),
-      )
-    : null;
+        })
+      : null;
 
-  const [itemsInBox, moveTargets, suggestions] = activeBox?.container.id
-    ? await withRlsUserContext(userId, async () =>
-        Promise.all([
+    const [itemsInBox, moveTargets, suggestions] = activeBox?.container.id
+      ? await Promise.all([
           listContainerItems({
             userId,
             householdId,
@@ -99,9 +101,19 @@ export default async function ScanModePage({
             status: "pending",
             limit: 25,
           }),
-        ]),
-      )
-    : [[], [], []];
+        ])
+      : [[], [], []];
+
+    return {
+      selectedRoomId,
+      rooms,
+      recentBoxes,
+      activeBox,
+      itemsInBox,
+      moveTargets,
+      suggestions,
+    };
+  });
 
   return (
     <PageFrame className="space-y-5">

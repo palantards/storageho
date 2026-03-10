@@ -8,6 +8,8 @@ import { SmartHomeLink } from "@/components/nav/SmartHomeLink";
 import { Logo } from "@/components/brand/Logo";
 import { ProductName } from "@/components/brand/ProductName";
 
+export const dynamic = "force-dynamic";
+
 export default async function AuthLayout({
   children,
   params,

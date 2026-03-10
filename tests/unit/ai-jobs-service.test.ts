@@ -87,7 +87,7 @@ describe("inventory ai-jobs dispatch", () => {
         headers: expect.objectContaining({
           "Content-Type": "application/json",
           Authorization: "Bearer runner-token",
-          "x-storageho-dispatch-reason": "manual",
+          "x-stowlio-dispatch-reason": "manual",
         }),
       }),
     );

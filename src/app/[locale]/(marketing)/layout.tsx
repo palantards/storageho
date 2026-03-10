@@ -2,6 +2,8 @@ import type { Locale } from "@/i18n/config";
 import { MarketingHeader } from "@/components/marketing/MarketingHeader";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 
+export const dynamic = "force-dynamic";
+
 export default async function MarketingLayout({
   children,
   params,

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { revalidatePath } from "next/cache";
 
 import { EmptyState } from "@/components/inventory/EmptyState";
 import { ItemsFilterForm } from "@/components/inventory/ItemsFilterForm";
@@ -54,19 +53,36 @@ export default async function ItemsPage({
 
   const tagFilter = search.tag && search.tag !== "all" ? search.tag : undefined;
 
-  const [items, tags] = await withRlsUserContext(userId, async () =>
-    Promise.all([
-      listItems({
-        userId,
-        householdId: activeHouseholdId,
-        q: search.q,
-        tagId: tagFilter,
-      }),
-      listTags({
-        userId,
-        householdId: activeHouseholdId,
-      }),
-    ]),
+  const { items, tags, placements } = await withRlsUserContext(
+    userId,
+    async () => {
+      const [items, tags] = await Promise.all([
+        listItems({
+          userId,
+          householdId: activeHouseholdId,
+          q: search.q,
+          tagId: tagFilter,
+        }),
+        listTags({
+          userId,
+          householdId: activeHouseholdId,
+        }),
+      ]);
+
+      const placements = search.item
+        ? await listItemPlacements({
+            userId,
+            householdId: activeHouseholdId,
+            itemId: search.item,
+          })
+        : [];
+
+      return {
+        items,
+        tags,
+        placements,
+      };
+    },
   );
 
   const itemRows: ItemsVirtualizedRow[] = items.map((entry) => ({
@@ -77,15 +93,6 @@ export default async function ItemsPage({
   }));
 
   const selectedItemId = search.item;
-  const placements = selectedItemId
-    ? await withRlsUserContext(userId, async () =>
-        listItemPlacements({
-          userId,
-          householdId: activeHouseholdId,
-          itemId: selectedItemId,
-        }),
-      )
-    : [];
   const bulkAddAction = bulkAddItemsFormAction.bind(null, {
     locale,
     householdId: activeHouseholdId,

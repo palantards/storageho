@@ -1,6 +1,7 @@
 import "server-only";
 
 import { eq, sql } from "drizzle-orm";
+import { cache } from "react";
 
 import { getOrCreateStripeCustomerId } from "@/lib/billing/customer";
 import { ensureUserRecord } from "@/lib/user-sync";
@@ -46,7 +47,7 @@ function deriveUserName({
 }
 
 
-export async function getSession(): Promise<Session | null> {
+export const getSession = cache(async (): Promise<Session | null> => {
   try {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase.auth.getUser();
@@ -72,19 +73,55 @@ export async function getSession(): Promise<Session | null> {
       where: eq(schema.users.supabaseUserId, user.id),
     });
 
-    const dbUser = await ensureUserRecord(
-      {
-        id: user.id,
-        email: user.email,
-        stripeCustomerId:
-          existingUser?.stripeCustomerId ?? metadataStripeCustomerId,
-        isAdmin: existingUser?.isAdmin,
-      },
-      // Seed profile fields from metadata only when not already stored
-      !existingUser?.displayName && !existingUser?.name
-        ? { displayName: fallbackName, company: metadataCompany ?? undefined }
-        : undefined,
-    );
+    let dbUser = existingUser;
+
+    if (!dbUser) {
+      dbUser = await ensureUserRecord(
+        {
+          id: user.id,
+          email: user.email,
+          stripeCustomerId: metadataStripeCustomerId,
+          isAdmin: existingUser?.isAdmin,
+        },
+        // Seed profile fields from metadata only when not already stored
+        { displayName: fallbackName, company: metadataCompany ?? undefined },
+      );
+    } else {
+      const userUpdate: {
+        email?: string;
+        stripeCustomerId?: string;
+        displayName?: string;
+        company?: string;
+        updatedAt?: Date;
+      } = {};
+
+      if (dbUser.email !== user.email) {
+        userUpdate.email = user.email;
+      }
+
+      if (!dbUser.stripeCustomerId && metadataStripeCustomerId) {
+        userUpdate.stripeCustomerId = metadataStripeCustomerId;
+      }
+
+      if (!dbUser.displayName && !dbUser.name && fallbackName) {
+        userUpdate.displayName = fallbackName;
+      }
+
+      if (!dbUser.company && metadataCompany) {
+        userUpdate.company = metadataCompany;
+      }
+
+      if (Object.keys(userUpdate).length > 0) {
+        userUpdate.updatedAt = new Date();
+        const [updatedUser] = await db
+          .update(schema.users)
+          .set(userUpdate)
+          .where(eq(schema.users.id, dbUser.id))
+          .returning();
+
+        dbUser = updatedUser ?? dbUser;
+      }
+    }
 
     if (dbUser.isBlocked) {
       console.log(`Blocked user ${dbUser.email} attempted login.`);
@@ -148,7 +185,7 @@ export async function getSession(): Promise<Session | null> {
     console.error("Unable to fetch Supabase user", error);
     return null;
   }
-}
+});
 
 function mapSupabaseError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error ?? "");

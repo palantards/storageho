@@ -21,7 +21,7 @@ export function PwaRegister() {
                 .then((keys) =>
                   Promise.all(
                     keys
-                      .filter((key) => key.startsWith("storageho-shell-"))
+                      .filter((key) => key.startsWith("stowlio-shell-"))
                       .map((key) => caches.delete(key)),
                   ),
                 )
@@ -43,4 +43,3 @@ export function PwaRegister() {
 
   return null;
 }
-

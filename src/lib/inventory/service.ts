@@ -26,9 +26,14 @@ import {
   canManageMembers,
   canWriteInventory,
 } from "@/lib/inventory/roles";
+import { getRlsTenantTx } from "@/server/db/tenant";
 
 const ACTIVE_HOUSEHOLD_COOKIE = "active_household_id";
 const SYSTEM_UNASSIGNED_ROOM_NAME = "Unassigned";
+const membershipLookupCache = new WeakMap<
+  object,
+  Map<string, Promise<Membership | null>>
+>();
 
 type Membership = typeof schema.householdMembers.$inferSelect;
 type UserPreferencesRecord = typeof schema.userPreferences.$inferSelect;
@@ -140,13 +145,40 @@ export async function upsertUserPreferences(input: {
 }
 
 async function assertMembership(input: Queryable) {
-  const membership = await db.query.householdMembers.findFirst({
-    where: and(
-      eq(schema.householdMembers.userId, input.userId),
-      eq(schema.householdMembers.householdId, input.householdId),
-      eq(schema.householdMembers.status, "active"),
-    ),
-  });
+  const scopedTx = getRlsTenantTx();
+  const cacheKey = `${input.userId}:${input.householdId}`;
+
+  let membershipPromise: Promise<Membership | null>;
+
+  if (scopedTx) {
+    let txCache = membershipLookupCache.get(scopedTx as object);
+    if (!txCache) {
+      txCache = new Map<string, Promise<Membership | null>>();
+      membershipLookupCache.set(scopedTx as object, txCache);
+    }
+
+    membershipPromise =
+      txCache.get(cacheKey) ??
+      db.query.householdMembers.findFirst({
+        where: and(
+          eq(schema.householdMembers.userId, input.userId),
+          eq(schema.householdMembers.householdId, input.householdId),
+          eq(schema.householdMembers.status, "active"),
+        ),
+      });
+
+    txCache.set(cacheKey, membershipPromise);
+  } else {
+    membershipPromise = db.query.householdMembers.findFirst({
+      where: and(
+        eq(schema.householdMembers.userId, input.userId),
+        eq(schema.householdMembers.householdId, input.householdId),
+        eq(schema.householdMembers.status, "active"),
+      ),
+    });
+  }
+
+  const membership = await membershipPromise;
 
   if (!membership) {
     throw new Error("Forbidden");
@@ -446,6 +478,18 @@ export async function claimPendingInvitesForUser(input: {
 }) {
   const normalized = input.email.trim().toLowerCase();
   if (!normalized) return;
+
+  const pendingInvite = await db.query.householdMembers.findFirst({
+    where: and(
+      eq(schema.householdMembers.status, "invited"),
+      eq(schema.householdMembers.invitedEmail, normalized),
+    ),
+    columns: { id: true },
+  });
+
+  if (!pendingInvite) {
+    return;
+  }
 
   await db
     .update(schema.householdMembers)
@@ -2936,6 +2980,55 @@ export async function listActivity(
     )
     .orderBy(desc(schema.activityLog.createdAt))
     .limit(limit);
+}
+
+export async function getDashboardOverview(
+  input: Queryable & { activityLimit?: number },
+) {
+  await assertMembership(input);
+  const limit = Math.min(200, Math.max(1, input.activityLimit ?? 12));
+
+  const [activity, usageResult] = await Promise.all([
+    db
+      .select({
+        activity: schema.activityLog,
+        profile: schema.profiles,
+      })
+      .from(schema.activityLog)
+      .leftJoin(
+        schema.profiles,
+        eq(schema.profiles.userId, schema.activityLog.actorUserId),
+      )
+      .where(eq(schema.activityLog.householdId, input.householdId))
+      .orderBy(desc(schema.activityLog.createdAt))
+      .limit(limit),
+    db.execute<{
+      containers: number | string;
+      items: number | string;
+      photos: number | string;
+      rooms: number | string;
+    }>(sql`
+      select
+        (select count(*) from ${schema.containers} where ${schema.containers.householdId} = ${input.householdId}) as containers,
+        (select count(*) from ${schema.items} where ${schema.items.householdId} = ${input.householdId}) as items,
+        (select count(*) from ${schema.photos} where ${schema.photos.householdId} = ${input.householdId}) as photos,
+        (select count(*) from ${schema.rooms} where ${schema.rooms.householdId} = ${input.householdId}) as rooms
+    `),
+  ]);
+
+  const usageRow = usageResult.rows[0];
+  const photoCount = Number(usageRow?.photos ?? 0);
+
+  return {
+    activity,
+    usage: {
+      containers: Number(usageRow?.containers ?? 0),
+      items: Number(usageRow?.items ?? 0),
+      photos: photoCount,
+      rooms: Number(usageRow?.rooms ?? 0),
+      estimatedStorageMb: Number((photoCount * 0.35).toFixed(1)),
+    },
+  };
 }
 
 export type GlobalSearchResult = {

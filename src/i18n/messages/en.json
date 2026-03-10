@@ -1,6 +1,6 @@
 {
   "brand": {
-    "logoAlt": "StorageHo"
+    "logoAlt": "Stowlio"
   },
   "nav": {
     "features": "Features",
@@ -56,7 +56,7 @@
     },
     "hero": {
       "title": "Know exactly where everything is.",
-      "subtitle": "StorageHo gives your household one shared inventory for home and storage: locations, rooms, boxes, items, photos, QR labels, and move history.",
+      "subtitle": "Stowlio gives your household one shared inventory for home and storage: locations, rooms, boxes, items, photos, QR labels, and move history.",
       "primary": "Start organizing",
       "secondary": "Explore features"
     },
@@ -89,7 +89,7 @@
         "b": "Added photo to Winter Gear Box",
         "c": "Invited partner as viewer"
       },
-      "imageAlt": "Diagram showing how StorageHo works from household to locations, rooms, boxes, and items."
+      "imageAlt": "Diagram showing how Stowlio works from household to locations, rooms, boxes, and items."
     }
   },
   "auth": {
@@ -385,7 +385,7 @@
     ]
   },
   "features": {
-    "title": "Everything StorageHo includes",
+    "title": "Everything Stowlio includes",
     "items": [
       {
         "title": "Shared household workspaces",
@@ -425,7 +425,7 @@
       },
       {
         "title": "Activity history + PWA",
-        "desc": "Review who changed what, and use StorageHo quickly on mobile in storage areas."
+        "desc": "Review who changed what, and use Stowlio quickly on mobile in storage areas."
       }
     ]
   },

@@ -23,7 +23,7 @@ function getRateLimitHashSecret() {
   return (
     process.env.RATE_LIMIT_HASH_SECRET ||
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    "storageho-rate-limit-dev"
+    "stowlio-rate-limit-dev"
   );
 }
 
@@ -41,10 +41,12 @@ function maybePruneExpiredBuckets() {
 
   globalForRateLimit.rateLimitLastPrunedAt = now;
   void dbAdmin
-    .execute(sql`
+    .execute(
+      sql`
       delete from public.request_rate_limits
       where bucket_start < now() - (${RATE_LIMIT_RETENTION_DAYS} * interval '1 day')
-    `)
+    `,
+    )
     .catch((error) => {
       console.error("Failed to prune request rate limits", error);
     });
@@ -119,7 +121,10 @@ export async function consumeRateLimit(input: {
   };
 }
 
-export function applyRateLimitHeaders(headers: Headers, result: RateLimitResult) {
+export function applyRateLimitHeaders(
+  headers: Headers,
+  result: RateLimitResult,
+) {
   headers.set("X-RateLimit-Limit", String(result.limit));
   headers.set("X-RateLimit-Remaining", String(result.remaining));
   headers.set("Retry-After", String(result.retryAfterSec));

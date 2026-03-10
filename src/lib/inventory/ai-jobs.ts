@@ -63,7 +63,7 @@ export function dispatchAiRunner(input?: { reason?: string; limit?: number }) {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${config.token}`,
-      "x-storageho-dispatch-reason": input?.reason || "enqueue",
+      "x-stowlio-dispatch-reason": input?.reason || "enqueue",
     },
     cache: "no-store",
   }).catch((error) => {
@@ -111,10 +111,7 @@ export async function enqueueEmbeddingJob(input: {
   return job;
 }
 
-export async function claimAiJobs(input: {
-  limit?: number;
-  workerId: string;
-}) {
+export async function claimAiJobs(input: { limit?: number; workerId: string }) {
   const limit = Math.min(30, Math.max(1, input.limit ?? 8));
 
   const rows = await db.execute<AiJobRecord>(sql`
@@ -184,12 +181,16 @@ async function markJobSucceeded(jobId: string) {
 
 async function markJobFailed(job: AiJobRecord, error: unknown) {
   const attempts = (job.attemptCount ?? 1) + 1;
-  const backoffSeconds = Math.min(3600, Math.pow(2, Math.max(1, attempts)) * 10);
+  const backoffSeconds = Math.min(
+    3600,
+    Math.pow(2, Math.max(1, attempts)) * 10,
+  );
   await db
     .update(schema.aiJobs)
     .set({
       status: "failed",
-      error: error instanceof Error ? error.message.slice(0, 3000) : String(error),
+      error:
+        error instanceof Error ? error.message.slice(0, 3000) : String(error),
       runAfter: new Date(Date.now() + backoffSeconds * 1000),
       lockedAt: null,
       lockedBy: null,
@@ -216,7 +217,10 @@ async function upsertSearchDocument(input: {
       embedding: vector,
     })
     .onConflictDoUpdate({
-      target: [schema.searchDocuments.entityType, schema.searchDocuments.entityId],
+      target: [
+        schema.searchDocuments.entityType,
+        schema.searchDocuments.entityId,
+      ],
       set: {
         householdId: input.householdId,
         content: input.content,
@@ -405,7 +409,9 @@ async function processPhotoAnalyzeJob(job: AiJobRecord) {
     .createSignedUrl(parsed.originalPath, 60 * 10);
 
   if (signed.error || !signed.data?.signedUrl) {
-    throw new Error(signed.error?.message || "Unable to create signed photo URL");
+    throw new Error(
+      signed.error?.message || "Unable to create signed photo URL",
+    );
   }
 
   const analysis = await analyzePhotoWithAi({
@@ -451,13 +457,20 @@ export async function processAiJob(job: AiJobRecord) {
   }
 }
 
-export async function runAiJobBatch(input: { workerId: string; limit?: number }) {
+export async function runAiJobBatch(input: {
+  workerId: string;
+  limit?: number;
+}) {
   const jobs = await claimAiJobs({
     workerId: input.workerId,
     limit: input.limit ?? 8,
   });
 
-  const results: Array<{ id: string; status: "succeeded" | "failed"; error?: string }> = [];
+  const results: Array<{
+    id: string;
+    status: "succeeded" | "failed";
+    error?: string;
+  }> = [];
 
   for (const job of jobs) {
     try {
@@ -544,6 +557,3 @@ export async function runEmbeddingUpsertNow(input: {
   });
   return { deleted: false };
 }
-
-
-

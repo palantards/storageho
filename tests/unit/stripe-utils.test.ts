@@ -21,7 +21,7 @@ describe("stripe utilities", () => {
           name: "Person",
           metadata: {
             supabase_user_id: "user-1",
-            company: "StorageHo",
+            company: "Stowlio",
           },
         },
       ],
@@ -43,7 +43,7 @@ describe("stripe utilities", () => {
       supabaseUserId: "user-1",
       email: "person@example.com",
       name: "Person",
-      company: "StorageHo",
+      company: "Stowlio",
     });
 
     expect(customerId).toBe("cus_existing");
@@ -79,7 +79,7 @@ describe("stripe utilities", () => {
       supabaseUserId: "user-2",
       email: "legacy@example.com",
       name: "Legacy",
-      company: "StorageHo",
+      company: "Stowlio",
     });
 
     expect(customerId).toBe("cus_legacy");

@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "StorageHo Inventory",
-    short_name: "StorageHo",
+    name: "Stowlio Inventory",
+    short_name: "Stowlio",
     description:
       "Shared home and storage inventory with boxes, nested containers, tags, QR labels, photos, and fast search.",
     start_url: "/en/dashboard",
@@ -25,4 +25,3 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
   };
 }
-

@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import type { Locale } from "@/i18n/config";
 import { requireSessionUser } from "@/lib/inventory/auth";
 import {
@@ -8,7 +10,7 @@ import {
 } from "@/lib/inventory/service";
 import { withRlsUserContext } from "@/server/db/tenant";
 
-export async function getInventoryContext(locale: Locale) {
+export const getInventoryContext = cache(async (locale: Locale) => {
   const user = await requireSessionUser(locale);
 
   const context = await withRlsUserContext(user.id, async () => {
@@ -26,5 +28,5 @@ export async function getInventoryContext(locale: Locale) {
     activeMembership: context.active,
     preferences: context.preferences,
   };
-}
+});
 

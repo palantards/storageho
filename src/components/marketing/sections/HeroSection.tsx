@@ -65,7 +65,7 @@ export function HeroSection({
             <div className="pointer-events-none absolute -bottom-8 -right-8 h-44 w-44 rounded-full bg-accent/35 blur-2xl" />
             <div className="relative overflow-hidden rounded-[var(--radius-lg)] border border-border/70 bg-card shadow-md ring-1 ring-foreground/5">
               <Image
-                src="/illustrations/storageho-workflow.svg"
+                src="/illustrations/stowlio-workflow.svg"
                 alt={t("landing.preview.imageAlt")}
                 width={1360}
                 height={900}
@@ -94,4 +94,3 @@ function TrustItem({
     </div>
   );
 }
-

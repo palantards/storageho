@@ -1,5 +1,3 @@
-import { revalidatePath } from "next/cache";
-
 import { EmptyState } from "@/components/inventory/EmptyState";
 import { ErrorState } from "@/components/inventory/ErrorState";
 import { PageFrame } from "@/components/inventory/PageFrame";
@@ -37,23 +35,32 @@ export default async function HouseholdSettingsPage({
   const context = await getInventoryContext(locale);
   const userId = context.user.id;
 
-  const household = await withRlsUserContext(userId, async () =>
-    getHouseholdById({
+  const pageData = await withRlsUserContext(userId, async () => {
+    const household = await getHouseholdById({
       userId,
       householdId,
-    }),
-  );
+    });
 
-  if (!household) {
+    if (!household) {
+      return null;
+    }
+
+    const [usage, members] = await Promise.all([
+      getUsageHints({ userId, householdId }),
+      listHouseholdMembers({ userId, householdId }),
+    ]);
+
+    return {
+      household,
+      usage,
+      members,
+    };
+  });
+
+  if (!pageData) {
     return <ErrorState title="Household not found." />;
   }
 
-  const [usage, members] = await withRlsUserContext(userId, async () =>
-    Promise.all([
-      getUsageHints({ userId, householdId }),
-      listHouseholdMembers({ userId, householdId }),
-    ]),
-  );
   const updateLanguageAction = updateHouseholdLanguageFormAction.bind(null, {
     locale,
     householdId,
@@ -71,20 +78,25 @@ export default async function HouseholdSettingsPage({
     <PageFrame className="space-y-6">
       <div>
         <div className="text-2xl font-semibold">Household settings</div>
-        <div className="text-sm text-muted-foreground">{household.name}</div>
+        <div className="text-sm text-muted-foreground">
+          {pageData.household.name}
+        </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Containers" value={usage.containers} />
-        <StatCard label="Items" value={usage.items} />
-        <StatCard label="Photos" value={usage.photos} />
-        <StatCard label="Members" value={members.length} />
+        <StatCard label="Containers" value={pageData.usage.containers} />
+        <StatCard label="Items" value={pageData.usage.items} />
+        <StatCard label="Photos" value={pageData.usage.photos} />
+        <StatCard label="Members" value={pageData.members.length} />
       </div>
 
       <div className="space-y-3">
         <SectionDivider title="Language" />
         <form action={updateLanguageAction} className="flex flex-wrap items-center gap-3">
-          <Select name="language" defaultValue={household.language || locale}>
+          <Select
+            name="language"
+            defaultValue={pageData.household.language || locale}
+          >
             <SelectTrigger className="w-48">
               <SelectValue placeholder="Language" />
             </SelectTrigger>
@@ -117,14 +129,14 @@ export default async function HouseholdSettingsPage({
 
       <div className="space-y-3">
         <SectionDivider title="Members" />
-        {members.length === 0 ? (
+        {pageData.members.length === 0 ? (
           <EmptyState
             title="No members"
             description="Invite teammates or partners to collaborate on this household."
           />
         ) : (
           <div className="space-y-2">
-            {members.map((row) => (
+            {pageData.members.map((row) => (
               <form
                 key={row.membership.id}
                 action={updateRoleAction}
