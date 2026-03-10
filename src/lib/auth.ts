@@ -1,13 +1,16 @@
 import "server-only";
 
 import { eq, sql } from "drizzle-orm";
+import { cookies } from "next/headers";
 import { cache } from "react";
 
-import { getOrCreateStripeCustomerId } from "@/lib/billing/customer";
+import { claimPendingInvitesForUser } from "@/lib/inventory/service";
 import { ensureUserRecord } from "@/lib/user-sync";
 import { dbAdmin as db, schema } from "@/server/db";
+import { withRlsUserContext } from "@/server/db/tenant";
 import {
   createSupabaseServerClient,
+  hasSupabaseSessionCookie,
   signInWithPassword,
   signUpWithSupabase,
   supabaseSignOut,
@@ -49,7 +52,14 @@ function deriveUserName({
 
 export const getSession = cache(async (): Promise<Session | null> => {
   try {
-    const supabase = await createSupabaseServerClient();
+    const cookieStore = await cookies();
+    if (!hasSupabaseSessionCookie(cookieStore)) {
+      return null;
+    }
+
+    const supabase = await createSupabaseServerClient({
+      cookieStore,
+    });
     const { data: claimsData, error } = await supabase.auth.getClaims();
     if (error || !claimsData?.claims?.sub) {
       console.error("Unable to fetch Supabase claims", error);
@@ -133,24 +143,6 @@ export const getSession = cache(async (): Promise<Session | null> => {
       return null; // no session returned
     }
 
-    if (process.env.STRIPE_SECRET_KEY && !dbUser.stripeCustomerId) {
-      try {
-        const newCustomerId = await getOrCreateStripeCustomerId({
-          supabaseUserId: userId,
-          email,
-          name: (metadata?.name as string | undefined) ?? undefined,
-          company: metadataCompany,
-        });
-        dbUser.stripeCustomerId = newCustomerId;
-      } catch (error) {
-        console.error(
-          "Failed to create Stripe customer for user",
-          userId,
-          error,
-        );
-      }
-    }
-
     let profileDisplayName: string | null = null;
 
     if (!dbUser.displayName && !dbUser.name) {
@@ -211,6 +203,19 @@ function mapSupabaseError(error: unknown): string {
   return "generic";
 }
 
+async function claimHouseholdInvitesForAuthUser(input: {
+  userId: string;
+  email: string;
+}) {
+  try {
+    await withRlsUserContext(input.userId, async () => {
+      await claimPendingInvitesForUser(input);
+    });
+  } catch (error) {
+    console.error("Failed to claim pending invites", error);
+  }
+}
+
 export async function loginWithSupabase({
   email,
   password,
@@ -221,7 +226,11 @@ export async function loginWithSupabase({
   rememberMe?: boolean;
 }): Promise<{ ok: boolean; errorKey?: string }> {
   try {
-    await signInWithPassword({ email, password, rememberMe });
+    const session = await signInWithPassword({ email, password, rememberMe });
+    await claimHouseholdInvitesForAuthUser({
+      userId: session.user.id,
+      email: session.user.email ?? email,
+    });
     return { ok: true };
   } catch (error) {
     console.error("Login failed", error);
@@ -245,6 +254,13 @@ export async function registerWithSupabase({
       data: { ...metadata, email_confirm: false },
       rememberMe: true,
     });
+
+    if (result.user?.id) {
+      await claimHouseholdInvitesForAuthUser({
+        userId: result.user.id,
+        email: result.user.email ?? email,
+      });
+    }
 
     return { user: result.user ?? null };
   } catch (error) {

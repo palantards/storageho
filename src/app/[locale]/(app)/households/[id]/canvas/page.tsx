@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import type { Locale } from "@/i18n/config";
 import { getMessages } from "@/i18n/getMessages";
 import { t as tt } from "@/i18n/translate";
-import { getInventoryContext } from "@/lib/inventory/page-context";
+import { getInventoryShellContext } from "@/lib/inventory/page-context";
 import {
   ensureHouseholdFloorsInitialized,
   getHouseholdById,
@@ -29,7 +29,7 @@ export default async function HouseholdCanvasPage({
     const value = tt(messages, key);
     return value === key ? fallback : value;
   };
-  const context = await getInventoryContext(locale);
+  const context = await getInventoryShellContext(locale);
   const userId = context.user.id;
 
   const pageData = await withRlsUserContext(userId, async () => {

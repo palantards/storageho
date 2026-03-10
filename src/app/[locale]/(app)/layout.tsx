@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import type { Locale } from "@/i18n/config";
 import { AppShell } from "@/components/shell/AppShell";
-import { getInventoryContext } from "@/lib/inventory/page-context";
+import { getInventoryShellContext } from "@/lib/inventory/page-context";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +15,7 @@ export default async function AppLayout({
 }) {
   const { locale: rawLocale } = await params;
   const locale = rawLocale === "sv" ? "sv" : ("en" as Locale);
-  const context = await getInventoryContext(locale);
+  const context = await getInventoryShellContext(locale);
   if (!context.user) redirect(`/${locale}/login`);
 
   return (

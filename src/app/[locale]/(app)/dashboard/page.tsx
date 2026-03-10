@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Locale } from "@/i18n/config";
 import { createHouseholdFormAction } from "@/lib/actions/dashboard";
-import { getInventoryContext } from "@/lib/inventory/page-context";
+import { getInventoryShellContext } from "@/lib/inventory/page-context";
 import { getDashboardOverview } from "@/lib/inventory/service";
 import { withRlsUserContext } from "@/server/db/tenant";
 
@@ -22,7 +22,7 @@ export default async function DashboardPage({
   params: Promise<{ locale: Locale }>;
 }) {
   const { locale } = await params;
-  const context = await getInventoryContext(locale);
+  const context = await getInventoryShellContext(locale);
   const userId = context.user.id;
   const active = context.activeMembership;
   const createHouseholdAction = createHouseholdFormAction.bind(null, {

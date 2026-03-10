@@ -1,12 +1,11 @@
-const CACHE_NAME = "stowlio-shell-v3";
+const CACHE_NAME = "stowlio-shell-v4";
 const SHELL_ASSETS = [
-  "/",
-  "/en",
-  "/en/dashboard",
   "/brand/icon.png",
   "/brand/logo.png",
 ];
 
+// Only cache truly static assets — never page HTML or RSC payloads
+// which are authenticated and user-specific.
 function isCacheableRequest(request) {
   if (request.method !== "GET") return false;
 
@@ -19,15 +18,12 @@ function isCacheableRequest(request) {
 
   if (!["http:", "https:"].includes(url.protocol)) return false;
   if (url.origin !== self.location.origin) return false;
-  if (url.pathname.startsWith("/api/")) return false;
-  if (url.pathname.startsWith("/_next/")) return false;
-  if (url.pathname.startsWith("/_next/webpack-hmr")) return false;
-  if (url.searchParams.has("__rsc")) return false;
 
-  const accept = request.headers.get("accept") || "";
-  if (accept.includes("text/x-component")) return false;
+  // Only cache versioned Next.js static chunks and known static brand assets
+  if (url.pathname.startsWith("/_next/static/")) return true;
+  if (/^\/brand\//.test(url.pathname) && /\.(png|jpg|svg|ico|webp)$/.test(url.pathname)) return true;
 
-  return true;
+  return false;
 }
 
 self.addEventListener("install", (event) => {
@@ -56,15 +52,9 @@ self.addEventListener("fetch", (event) => {
   if (!isCacheableRequest(request)) return;
 
   if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request)
-        .then((response) => response)
-        .catch(() =>
-          caches
-            .match(request)
-            .then((cached) => cached || caches.match("/en/dashboard")),
-        ),
-    );
+    // Always go to network for page navigations — never serve cached HTML
+    // for authenticated pages as it would expose one user's data to another.
+    event.respondWith(fetch(request));
     return;
   }
 

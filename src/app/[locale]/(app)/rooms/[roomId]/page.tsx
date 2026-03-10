@@ -23,7 +23,7 @@ import {
   deleteRoomFormAction,
   setRoomContainerArchivedFormAction,
 } from "@/lib/actions/roomDetails";
-import { getInventoryContext } from "@/lib/inventory/page-context";
+import { getInventoryShellContext } from "@/lib/inventory/page-context";
 import {
   getRoomById,
   listContainersForRoom,
@@ -42,7 +42,7 @@ export default async function RoomPage({
 }) {
   const { locale, roomId } = await params;
   const search = (await searchParams) || {};
-  const context = await getInventoryContext(locale);
+  const context = await getInventoryShellContext(locale);
   const userId = context.user.id;
   const householdId = context.activeMembership?.household.id;
 

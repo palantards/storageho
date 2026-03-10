@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { defaultLocale, locales } from "@/i18n/config";
-import { createSupabaseMiddlewareClient } from "@/lib/supabase";
+import {
+  createSupabaseMiddlewareClient,
+  hasSupabaseSessionCookie,
+} from "@/lib/supabase";
 
 const PUBLIC_FILE = /\.[^/]+$/;
 const CSRF_EXEMPT_API_PATHS = ["/api/stripe/webhook"];
@@ -10,9 +13,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isApi = pathname.startsWith("/api");
-  const hasSessionCookie = request.cookies
-    .getAll()
-    .some((cookie) => cookie.name.includes("-auth-token"));
+  const hasSessionCookie = hasSupabaseSessionCookie(request.cookies);
   const unsafeMethod = !["GET", "HEAD", "OPTIONS"].includes(request.method);
 
   // CSRF / same-origin protection for cookie-authenticated API mutations

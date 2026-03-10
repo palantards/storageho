@@ -1,5 +1,5 @@
 import type { Locale } from "@/i18n/config";
-import { getInventoryContext } from "@/lib/inventory/page-context";
+import { getInventoryShellContext } from "@/lib/inventory/page-context";
 import { ImportCsvPanel } from "@/components/inventory/ImportCsvPanel";
 import { PageFrame } from "@/components/inventory/PageFrame";
 import { PageHeader } from "@/components/inventory/PageHeader";
@@ -13,7 +13,7 @@ export default async function ImportPage({
   params: Promise<{ locale: Locale }>;
 }) {
   const { locale } = await params;
-  const context = await getInventoryContext(locale);
+  const context = await getInventoryShellContext(locale);
   const householdId = context.activeMembership?.household.id;
 
   return (

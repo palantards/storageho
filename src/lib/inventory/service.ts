@@ -326,29 +326,43 @@ export async function listMembershipsForUser(userId: string) {
     .orderBy(desc(schema.householdMembers.createdAt));
 }
 
-export async function getActiveMembershipContext(userId: string): Promise<{
+export async function getActiveMembershipContext(
+  userId: string,
+  options?: { includePreferences?: boolean },
+): Promise<{
   memberships: MembershipWithHousehold[];
   active: MembershipWithHousehold | null;
   preferences: UserPreferencesRecord | null;
 }> {
-  const [store, memberships, preferences] = await Promise.all([
-    cookies(),
+  const includePreferences = options?.includePreferences ?? false;
+  const store = await cookies();
+  const cookieId = store.get(ACTIVE_HOUSEHOLD_COOKIE)?.value;
+  const shouldLoadPreferences = includePreferences || !cookieId;
+
+  const [memberships, preferences] = await Promise.all([
     listMembershipsForUser(userId),
-    getUserPreferences(userId),
+    shouldLoadPreferences ? getUserPreferences(userId) : Promise.resolve(null),
   ]);
 
   if (memberships.length === 0) {
-    return { memberships, active: null, preferences: preferences ?? null };
+    return {
+      memberships,
+      active: null,
+      preferences: includePreferences ? (preferences ?? null) : null,
+    };
   }
 
-  const cookieId = store.get(ACTIVE_HOUSEHOLD_COOKIE)?.value;
   const preferredId = preferences?.activeHouseholdId || undefined;
   const active =
     memberships.find((m) => m.household.id === cookieId) ||
     memberships.find((m) => m.household.id === preferredId) ||
     memberships[0];
 
-  return { memberships, active, preferences: preferences ?? null };
+  return {
+    memberships,
+    active,
+    preferences: includePreferences ? (preferences ?? null) : null,
+  };
 }
 
 export async function setActiveHousehold(userId: string, householdId: string) {

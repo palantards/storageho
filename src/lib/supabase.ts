@@ -16,6 +16,7 @@ const LEGACY_AUTH_COOKIES = [
 ] as const;
 const REMEMBER_ME_COOKIE = "supabase_remember_me";
 const AUTH_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
+type CookieStore = Awaited<ReturnType<typeof cookies>>;
 
 function getSupabaseEnv() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
@@ -68,31 +69,48 @@ function readRememberMeValue(rawValue: string | undefined) {
   return rawValue !== "0";
 }
 
-async function setRememberMePreference(rememberMe: boolean) {
-  const store = await cookies();
-  store.set(
+async function setRememberMePreference(
+  rememberMe: boolean,
+  store?: CookieStore,
+) {
+  const cookieStore = store ?? (await cookies());
+  cookieStore.set(
     REMEMBER_ME_COOKIE,
     rememberMe ? "1" : "0",
     rememberMeToCookieOptions(rememberMe),
   );
 }
 
-export async function clearLegacySupabaseCookies() {
-  const store = await cookies();
+export function hasSupabaseSessionCookie(cookieStore: {
+  getAll(): Array<{ name: string }>;
+}) {
+  return cookieStore.getAll().some((cookie) => {
+    return (
+      cookie.name.includes("-auth-token") ||
+      LEGACY_AUTH_COOKIES.includes(
+        cookie.name as (typeof LEGACY_AUTH_COOKIES)[number],
+      )
+    );
+  });
+}
+
+export async function clearLegacySupabaseCookies(store?: CookieStore) {
+  const cookieStore = store ?? (await cookies());
   for (const cookieName of LEGACY_AUTH_COOKIES) {
-    store.delete(cookieName);
+    cookieStore.delete(cookieName);
   }
 }
 
-async function clearRememberMePreference() {
-  const store = await cookies();
-  store.delete(REMEMBER_ME_COOKIE);
+async function clearRememberMePreference(store?: CookieStore) {
+  const cookieStore = store ?? (await cookies());
+  cookieStore.delete(REMEMBER_ME_COOKIE);
 }
 
 export async function createSupabaseServerClient(options?: {
   rememberMe?: boolean;
+  cookieStore?: CookieStore;
 }) {
-  const store = await cookies();
+  const store = options?.cookieStore ?? (await cookies());
   const rememberMe =
     typeof options?.rememberMe === "boolean"
       ? options.rememberMe
@@ -162,7 +180,11 @@ export async function signUpWithSupabase({
   data?: Record<string, unknown>;
   rememberMe?: boolean;
 }): Promise<{ user?: SupabaseUser; session?: SupabaseSession | null }> {
-  const supabase = await createSupabaseServerClient({ rememberMe });
+  const cookieStore = await cookies();
+  const supabase = await createSupabaseServerClient({
+    rememberMe,
+    cookieStore,
+  });
   const { data: result, error } = await supabase.auth.signUp({
     email,
     password,
@@ -173,8 +195,8 @@ export async function signUpWithSupabase({
     throw error;
   }
 
-  await clearLegacySupabaseCookies();
-  await setRememberMePreference(rememberMe);
+  await clearLegacySupabaseCookies(cookieStore);
+  await setRememberMePreference(rememberMe, cookieStore);
 
   return { user: result.user ?? undefined, session: result.session };
 }
@@ -188,7 +210,11 @@ export async function signInWithPassword({
   password: string;
   rememberMe?: boolean;
 }): Promise<SupabaseSession> {
-  const supabase = await createSupabaseServerClient({ rememberMe });
+  const cookieStore = await cookies();
+  const supabase = await createSupabaseServerClient({
+    rememberMe,
+    cookieStore,
+  });
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -198,21 +224,26 @@ export async function signInWithPassword({
     throw error ?? new Error("Supabase sign-in returned no session");
   }
 
-  await clearLegacySupabaseCookies();
-  await setRememberMePreference(rememberMe);
+  await clearLegacySupabaseCookies(cookieStore);
+  await setRememberMePreference(rememberMe, cookieStore);
 
   return data.session;
 }
 
-export async function supabaseSignOut() {
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.signOut();
+export async function supabaseSignOut(options?: {
+  scope?: "global" | "local" | "others";
+}) {
+  const cookieStore = await cookies();
+  const supabase = await createSupabaseServerClient({ cookieStore });
+  const { error } = await supabase.auth.signOut({
+    scope: options?.scope ?? "global",
+  });
   if (error) {
     throw error;
   }
 
-  await clearLegacySupabaseCookies();
-  await clearRememberMePreference();
+  await clearLegacySupabaseCookies(cookieStore);
+  await clearRememberMePreference(cookieStore);
 }
 
 export async function sendSupabasePasswordReset({

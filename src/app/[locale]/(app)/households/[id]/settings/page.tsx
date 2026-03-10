@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Locale } from "@/i18n/config";
-import { getInventoryContext } from "@/lib/inventory/page-context";
+import { getInventoryShellContext } from "@/lib/inventory/page-context";
 import {
   inviteHouseholdMemberFormAction,
   updateHouseholdLanguageFormAction,
@@ -32,7 +32,7 @@ export default async function HouseholdSettingsPage({
   params: Promise<{ locale: Locale; id: string }>;
 }) {
   const { locale, id: householdId } = await params;
-  const context = await getInventoryContext(locale);
+  const context = await getInventoryShellContext(locale);
   const userId = context.user.id;
 
   const pageData = await withRlsUserContext(userId, async () => {

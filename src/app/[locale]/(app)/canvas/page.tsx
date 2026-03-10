@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import type { Locale } from "@/i18n/config";
-import { getInventoryContext } from "@/lib/inventory/page-context";
+import { getInventoryShellContext } from "@/lib/inventory/page-context";
 
 export default async function CanvasIndexPage({
   params,
@@ -9,7 +9,7 @@ export default async function CanvasIndexPage({
   params: Promise<{ locale: Locale }>;
 }) {
   const { locale } = await params;
-  const context = await getInventoryContext(locale);
+  const context = await getInventoryShellContext(locale);
   const householdId = context.activeMembership?.household.id;
 
   if (!householdId) {

@@ -23,7 +23,7 @@ import {
   bulkAddItemsFormAction,
   mergeItemsFormAction,
 } from "@/lib/actions/itemLibrary";
-import { getInventoryContext } from "@/lib/inventory/page-context";
+import { getInventoryShellContext } from "@/lib/inventory/page-context";
 import {
   listItemPlacements,
   listItems,
@@ -40,7 +40,7 @@ export default async function ItemsPage({
 }) {
   const { locale } = await params;
   const search = (await searchParams) || {};
-  const context = await getInventoryContext(locale);
+  const context = await getInventoryShellContext(locale);
   const userId = context.user.id;
   const householdId = context.activeMembership?.household.id;
 

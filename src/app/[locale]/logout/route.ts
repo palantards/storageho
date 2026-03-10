@@ -15,7 +15,7 @@ export async function POST(
   const { locale: rawLocale } = await params;
   const locale = rawLocale === "sv" ? "sv" : "en";
   try {
-    await supabaseSignOut();
+    await supabaseSignOut({ scope: "local" });
   } catch (err) {
     console.error("Failed to revoke Supabase session", err);
   }

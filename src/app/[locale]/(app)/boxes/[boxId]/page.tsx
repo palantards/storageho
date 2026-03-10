@@ -1,7 +1,5 @@
 import Link from "next/link";
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { Clock, Image, Package, Settings, Sparkles } from "lucide-react";
+import { Clock, Image as ImageIcon, Package, Settings, Sparkles } from "lucide-react";
 
 import type { Locale } from "@/i18n/config";
 import {
@@ -13,7 +11,7 @@ import {
   updateBoxItemQuantityFormAction,
   updateBoxTagsFormAction,
 } from "@/lib/actions/boxDetails";
-import { getInventoryContext } from "@/lib/inventory/page-context";
+import { getInventoryShellContext } from "@/lib/inventory/page-context";
 import {
   getContainerById,
   listActivity,
@@ -54,7 +52,7 @@ export default async function BoxPage({
   params: Promise<{ locale: Locale; boxId: string }>;
 }) {
   const { locale, boxId } = await params;
-  const context = await getInventoryContext(locale);
+  const context = await getInventoryShellContext(locale);
   const userId = context.user.id;
   const householdId = context.activeMembership?.household.id;
 
@@ -205,7 +203,7 @@ export default async function BoxPage({
             <span className="hidden sm:inline">Contents</span>
           </TabsTrigger>
           <TabsTrigger className="gap-1.5 py-2 text-xs sm:text-sm" value="photos">
-            <Image className="h-3.5 w-3.5 shrink-0" />
+            <ImageIcon className="h-3.5 w-3.5 shrink-0" />
             <span className="hidden sm:inline">Photos</span>
           </TabsTrigger>
           <TabsTrigger className="relative gap-1.5 py-2 text-xs sm:text-sm" value="suggestions">

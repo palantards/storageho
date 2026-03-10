@@ -1,5 +1,5 @@
 import type { Locale } from "@/i18n/config";
-import { getInventoryContext } from "@/lib/inventory/page-context";
+import { getInventoryShellContext } from "@/lib/inventory/page-context";
 import { listFloors } from "@/lib/inventory/service";
 import { withRlsUserContext } from "@/server/db/tenant";
 import { ErrorState } from "@/components/inventory/ErrorState";
@@ -22,7 +22,7 @@ export default async function ExportPage({
   params: Promise<{ locale: Locale }>;
 }) {
   const { locale } = await params;
-  const context = await getInventoryContext(locale);
+  const context = await getInventoryShellContext(locale);
   const userId = context.user.id;
   const householdId = context.activeMembership?.household.id;
 
