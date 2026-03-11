@@ -73,7 +73,9 @@ export function UserMenu({
             </DropdownMenuItem>
           ) : (
             <DropdownMenuItem key={idx} asChild>
-              <Link href={href}>{content}</Link>
+              <Link href={href} prefetch={false}>
+                {content}
+              </Link>
             </DropdownMenuItem>
           );
         })}

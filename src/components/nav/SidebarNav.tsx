@@ -68,6 +68,7 @@ export function SidebarNav({
                   <Link
                     key={item.href}
                     href={href}
+                    prefetch={false}
                     className={cn(
                       "flex items-center gap-2 rounded-[var(--radius-md)] px-3 py-2 text-sm transition-colors",
                       active

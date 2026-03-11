@@ -18,6 +18,7 @@ export function StatCard({ label, value, href }: Props) {
     return (
       <Link
         href={href}
+        prefetch={false}
         className="block rounded-xl border bg-gradient-to-br from-muted/40 to-muted p-4 transition hover:-translate-y-0.5 hover:shadow-sm hover:ring-1 hover:ring-primary/20"
       >
         {inner}

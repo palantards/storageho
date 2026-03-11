@@ -39,6 +39,7 @@ export default async function ProfileLayout({
             <Link
               key={tab.href}
               href={localizedHref(locale, tab.href)}
+              prefetch={false}
               className="rounded-[var(--radius-md)] px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               {tab.label}

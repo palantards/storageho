@@ -87,6 +87,7 @@ export function AppShell({
           <div className="flex items-center gap-2 px-3 py-3">
             <Link
               href={localizedHref(locale, "/dashboard")}
+              prefetch={false}
               className="flex items-center gap-3"
             >
               <Logo variant="icon" size={28} className="rounded-[var(--radius-md)]" />
@@ -196,7 +197,11 @@ export function AppShell({
                 <GlobalSearchBar householdId={activeHouseholdId} />
                 <ThemeToggle />
                 <Button asChild variant="outline" size="sm" className="md:hidden">
-                  <Link href={localizedHref(locale, "/scan")} className="inline-flex items-center gap-1">
+                  <Link
+                    href={localizedHref(locale, "/scan")}
+                    prefetch={false}
+                    className="inline-flex items-center gap-1"
+                  >
                     <ScanIcon className="h-4 w-4" />
                     Scan
                   </Link>

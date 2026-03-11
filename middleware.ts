@@ -13,14 +13,13 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isApi = pathname.startsWith("/api");
-  const hasSessionCookie = hasSupabaseSessionCookie(request.cookies);
   const unsafeMethod = !["GET", "HEAD", "OPTIONS"].includes(request.method);
 
   // CSRF / same-origin protection for cookie-authenticated API mutations
   if (
     isApi &&
     unsafeMethod &&
-    hasSessionCookie &&
+    hasSupabaseSessionCookie(request.cookies) &&
     !CSRF_EXEMPT_API_PATHS.some((p) => pathname.startsWith(p))
   ) {
     // Strong browser signal. If present and same-site/origin, allow.
@@ -96,6 +95,7 @@ export async function middleware(request: NextRequest) {
           })(),
         );
 
+  const hasSessionCookie = hasSupabaseSessionCookie(request.cookies);
   if (hasSessionCookie) {
     try {
       const supabase = createSupabaseMiddlewareClient(request, response);
@@ -109,5 +109,8 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next).*)"],
+  matcher: [
+    "/api/:path*",
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)",
+  ],
 };
